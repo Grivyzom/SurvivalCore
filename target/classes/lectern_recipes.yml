@@ -1,0 +1,29 @@
+levels:
+  1:
+    - input1: # ItemStack serializado
+        ==: org.bukkit.inventory.ItemStack
+        v: 3700
+        type: WHEAT
+      # ↑ puedes añadir meta (display-name, custom-model-data, etc.)
+      input2:
+        ==: org.bukkit.inventory.ItemStack
+        v: 3700
+        type: WHEAT
+      result:
+        ==: org.bukkit.inventory.ItemStack
+        v: 3700
+        type: BREAD
+  2:
+    - input1: { ==: org.bukkit.inventory.ItemStack, type: BLAZE_ROD }
+      input2: { ==: org.bukkit.inventory.ItemStack, type: GHAST_TEAR }
+      result: { ==: org.bukkit.inventory.ItemStack, type: END_CRYSTAL }
+  3:
+    - id: "EspadaTest"      # tu identificador interno
+      cost: 20
+      input1: { ==: org.bukkit.inventory.ItemStack, type: DIAMOND }
+      input2: { ==: org.bukkit.inventory.ItemStack, type: STICK }
+      result:
+        ==: org.bukkit.inventory.ItemStack
+        type: DIAMOND_SWORD
+        meta:
+          display-name: "&6Espada Test"   # ← aquí defines el nombre que verán los jugadores

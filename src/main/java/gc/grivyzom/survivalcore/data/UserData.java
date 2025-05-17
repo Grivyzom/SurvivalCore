@@ -1,0 +1,81 @@
+package gc.grivyzom.survivalcore.data;
+
+import java.util.HashMap;
+import java.util.Map;
+
+public class UserData {
+    private String uuid;
+    private String nombre;
+    private String cumpleaños;
+    private String genero;
+    private String pais;
+
+    private int farmingLevel;
+    private int farmingXP;
+    private int miningLevel;
+    private int miningXP;
+
+    private Map<String, Integer> abilities;
+    private Map<String, Integer> masteryLevels;
+    private long bankedXp;  // nueva propiedad
+
+    public UserData() {
+        this.abilities = new HashMap<>();
+        this.masteryLevels = new HashMap<>();
+        this.bankedXp = 0;
+    }
+
+    public UserData(String uuid, String nombre, String cumpleaños, String genero, String pais) {
+        this.uuid = uuid;
+        this.nombre = nombre;
+        this.cumpleaños = cumpleaños;
+        this.genero = genero;
+        this.pais = pais;
+        this.farmingLevel = 1;
+        this.farmingXP = 0;
+        this.miningLevel = 1;
+        this.miningXP = 0;
+        this.abilities = new HashMap<>();
+        this.masteryLevels = new HashMap<>();
+    }
+
+    // Getters y Setters
+    public String getUuid() { return uuid; }
+    public void setUuid(String uuid) { this.uuid = uuid; }
+    public String getNombre() { return nombre; }
+    public void setNombre(String nombre) { this.nombre = nombre; }
+    public String getCumpleaños() { return cumpleaños; }
+    public void setCumpleaños(String cumpleaños) { this.cumpleaños = cumpleaños; }
+    public String getGenero() { return genero; }
+    public void setGenero(String genero) { this.genero = genero; }
+    public String getPais() { return pais; }
+    public void setPais(String pais) { this.pais = pais; }
+    public int getFarmingLevel() { return farmingLevel; }
+    public void setFarmingLevel(int farmingLevel) { this.farmingLevel = farmingLevel; }
+    public int getFarmingXP() { return farmingXP; }
+    public void setFarmingXP(int farmingXP) { this.farmingXP = farmingXP; }
+    public int getMiningLevel() { return miningLevel; }
+    public void setMiningLevel(int miningLevel) { this.miningLevel = miningLevel; }
+    public int getMiningXP() { return miningXP; }
+    public void setMiningXP(int miningXP) { this.miningXP = miningXP; }
+
+    public Map<String, Integer> getAbilities() {
+        if (abilities == null) abilities = new HashMap<>();
+        return abilities;
+    }
+    public void setAbilities(Map<String, Integer> abilities) {
+        this.abilities = abilities;
+    }
+
+    public Map<String, Integer> getMasteryLevels() {
+        if (masteryLevels == null) masteryLevels = new HashMap<>();
+        return masteryLevels;
+    }
+    public void setMasteryLevels(Map<String, Integer> masteryLevels) {
+        this.masteryLevels = masteryLevels;
+    }
+
+    public long getBankedXp() { return bankedXp; }
+    public void setBankedXp(long xp) { this.bankedXp = xp; }
+}
+

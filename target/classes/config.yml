@@ -1,0 +1,96 @@
+# Configuración por defecto para SurvivalCore
+mensaje-bienvenida: "Bienvenido a SurvivalCore"
+some-config-key: valor
+
+database:
+  type: mysql
+  host: localhost
+  port: 3306
+  database: survivalcore
+  user: root
+  password: Jn7Kb6Y4IrPFkTucvbrj
+  ssl: false
+
+help:
+  commands:
+    - command: "version"
+      message: "&f/score version - Muestra la versión actual del plugin."
+      permission: ""
+    - command: "reload"
+      message: "&f/score reload - Recarga la configuración del plugin."
+      permission: "survivalcore.reload"
+    - command: "birthday"
+      message: "&f/score birthday - Consulta tu cumpleaños."
+      permission: ""
+    - command: "birthday others"
+      message: "&f/score birthday <jugador> - Consulta el cumpleaños de otro jugador."
+      permission: ""
+    - command: "birthday set"
+      message: "&f/score birthday set <MM/dd/yyyy> - Establece tu cumpleaños."
+      permission: ""
+    - command: "birthday set others"
+      message: "&f/score birthday set <MM/dd/yyyy> <jugador> - Establece el cumpleaños de otro jugador."
+      permission: "survivalcore.reload"
+    - command: "gender"
+      message: "&f/score gender - Consulta tu género."
+      permission: ""
+    - command: "gender others"
+      message: "&f/score gender <jugador> - Consulta el género de otro jugador."
+      permission: ""
+    - command: "gender set"
+      message: "&f/score gender set <Masculino|Femenino> - Establece tu género."
+      permission: ""
+    - command: "gender set others"
+      message: "&f/score gender set <Masculino|Femenino> <jugador> - Establece el género de otro jugador."
+      permission: "survivalcore.reload"
+    - command: "country"
+      message: "&f/score country - Detecta automáticamente y muestra tu país."
+      permission: ""
+    - command: "country others"
+      message: "&f/score country <jugador> - Consulta el país de otro jugador."
+      permission: ""
+    - command: "help"
+      message: "&f/score help [página] - Muestra este menú de ayuda."
+      permission: ""
+
+
+messages:
+  first-join:
+    default: "&a¡Bienvenido por primera vez, %player%!"
+    permission-messages:
+      op: "&e¡Operador %player%, bienvenido por primera vez!"
+      survivalcore.vip: "&6¡VIP %player% se une por primera vez!"
+    commands:
+      - "give %player% survivalcore:starter_kit"
+      - "say %player% ha recibido su kit de bienvenida"
+    silent-permissions:
+      - "survivalcore.staff.silentjoin"
+
+  join:
+    default: "&a¡Bienvenido al servidor, %player%!"
+    permission-messages:
+      op: "&e¡Operador %player%, bienvenido de nuevo!"
+      survivalcore.vip: "&6¡Bienvenido VIP %player%!"
+      survivalcore.mod: "&b¡Saludos Moderador %player%!"
+      survivalcore.helper: "&9¡%player%, gracias por ayudar!"
+    silent-permissions:
+      - "survivalcore.staff.silentjoin"
+
+  quit:
+    default: "&c%player% ha abandonado el servidor."
+    permission-messages:
+      op: "&eOperador %player% se va."
+      survivalcore.vip: "&6VIP %player% se va, ¡vuelve pronto!"
+      survivalcore.mod: "&bEl moderador %player% ha salido."
+      survivalcore.helper: "&9%player%, ¡gracias por tu ayuda hoy!"
+    silent-permissions:
+      - "survivalcore.staff.silentquit"
+
+time-greetings:
+  morning: "&e¡Buenos días!"
+  afternoon: "&e¡Buenas tardes!"
+  night: "&e¡Buenas noches!"
+
+lectern:
+  baseUpgradeCost: 100   # XP base multiplicado por el nivel actual
+  maxLevel: 10           # Nivel máximo permitido para el atril

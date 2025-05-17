@@ -1,0 +1,36 @@
+name: SurvivalCore
+main: gc.grivyzom.survivalcore.Main
+version: 1.0
+author: Brocolitx
+api-version: 1.13
+commands:
+  score:
+    description: Comando principal para SurvivalCore.
+    usage: /score <reload>
+  perfil:
+    description: Muestra tu perfil y te permite subir el nivel de Granjería.
+    usage: /perfil
+  skills:
+    description: "Abre el menú de habilidades"
+    usage: /skills
+  genero:
+    description: Selecciona tu género desde un menú gráfico.
+    usage: /genero
+  birthday:
+    description: "Configura o anuncia tu cumpleaños"
+    usage: /birthday
+    aliases: [cumpleaños, cumpleanos]
+  lectern:
+    description: Gestión de recetas de Atril
+    usage: /lectern <subcmd>
+    aliases: [atril]
+permissions:
+  survivalcore.reload:
+    description: Permite recargar la configuración del plugin.
+    default: op
+  survivalcore.xpbank.upgrade:
+    description: Permite mejorar el Banco de Experiencia
+    default: true
+  survivalcore.use.lectern:
+    description: Permite interactuar con Atriles Mágicos
+    default: false

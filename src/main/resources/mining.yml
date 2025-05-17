@@ -1,0 +1,121 @@
+mining:
+  # Minerales comunes
+  COAL_ORE:
+    experience: 2-4
+    xp-chance: 0.9
+    message: "&aHas obtenido &e%exp% &ade experiencia por minar carbón!"
+    sound: BLOCK_STONE_BREAK
+
+  IRON_ORE:
+    experience: 4-6
+    xp-chance: 0.85
+    message: "&aHas obtenido &e%exp% &ade experiencia por minar hierro!"
+    sound: BLOCK_METAL_BREAK
+
+  GOLD_ORE:
+    experience: 6-8
+    xp-chance: 0.8
+    message: "&aHas obtenido &e%exp% &ade experiencia por minar oro!"
+    sound: BLOCK_METAL_BREAK
+
+  DIAMOND_ORE:
+    experience: 10-12
+    xp-chance: 0.75
+    message: "&aHas obtenido &e%exp% &ade experiencia por minar diamantes!"
+    sound: BLOCK_STONE_BREAK
+
+  EMERALD_ORE:
+    experience: 12-15
+    xp-chance: 0.7
+    message: "&aHas obtenido &e%exp% &ade experiencia por minar esmeraldas!"
+    sound: BLOCK_STONE_BREAK
+
+  REDSTONE_ORE:
+    experience: 3-5
+    xp-chance: 0.8
+    message: "&aHas obtenido &e%exp% &ade experiencia por minar redstone!"
+    sound: BLOCK_STONE_BREAK
+
+  LAPIS_ORE:
+    experience: 3-5
+    xp-chance: 0.8
+    message: "&aHas obtenido &e%exp% &ade experiencia por minar lapislázuli!"
+    sound: BLOCK_STONE_BREAK
+
+  # Minerales del Nether
+  NETHER_QUARTZ_ORE:
+    experience: 3-5
+    xp-chance: 0.85
+    message: "&aHas obtenido &e%exp% &ade experiencia por minar cuarzo del Nether!"
+    sound: BLOCK_STONE_BREAK
+
+  NETHER_GOLD_ORE:
+    experience: 5-7
+    xp-chance: 0.8
+    message: "&aHas obtenido &e%exp% &ade experiencia por minar oro del Nether!"
+    sound: BLOCK_NETHER_GOLD_ORE_BREAK
+
+  ANCIENT_DEBRIS:
+    experience: 15-20
+    xp-chance: 0.6
+    message: "&aHas obtenido &e%exp% &ade experiencia por minar escombros antiguos!"
+    sound: BLOCK_NETHERITE_BLOCK_BREAK
+
+  # Minerales profundos (Deepslate)
+  DEEPSLATE_COAL_ORE:
+    experience: 3-5
+    xp-chance: 0.9
+    message: "&aHas obtenido &e%exp% &ade experiencia por minar carbón en pizarra profunda!"
+    sound: BLOCK_DEEPSLATE_BREAK
+
+  DEEPSLATE_IRON_ORE:
+    experience: 5-7
+    xp-chance: 0.85
+    message: "&aHas obtenido &e%exp% &ade experiencia por minar hierro en pizarra profunda!"
+    sound: BLOCK_DEEPSLATE_BREAK
+
+  DEEPSLATE_GOLD_ORE:
+    experience: 7-9
+    xp-chance: 0.8
+    message: "&aHas obtenido &e%exp% &ade experiencia por minar oro en pizarra profunda!"
+    sound: BLOCK_DEEPSLATE_BREAK
+
+  DEEPSLATE_DIAMOND_ORE:
+    experience: 11-13
+    xp-chance: 0.75
+    message: "&aHas obtenido &e%exp% &ade experiencia por minar diamantes en pizarra profunda!"
+    sound: BLOCK_DEEPSLATE_BREAK
+
+  DEEPSLATE_EMERALD_ORE:
+    experience: 13-16
+    xp-chance: 0.7
+    message: "&aHas obtenido &e%exp% &ade experiencia por minar esmeraldas en pizarra profunda!"
+    sound: BLOCK_DEEPSLATE_BREAK
+
+  DEEPSLATE_REDSTONE_ORE:
+    experience: 4-6
+    xp-chance: 0.8
+    message: "&aHas obtenido &e%exp% &ade experiencia por minar redstone en pizarra profunda!"
+    sound: BLOCK_DEEPSLATE_BREAK
+
+  DEEPSLATE_LAPIS_ORE:
+    experience: 4-6
+    xp-chance: 0.8
+    message: "&aHas obtenido &e%exp% &ade experiencia por minar lapislázuli en pizarra profunda!"
+    sound: BLOCK_DEEPSLATE_BREAK
+
+  # Minerales raros
+  COPPER_ORE:
+    experience: 2-3
+    xp-chance: 0.9
+    message: "&aHas obtenido &e%exp% &ade experiencia por minar cobre!"
+    sound: BLOCK_STONE_BREAK
+
+  DEEPSLATE_COPPER_ORE:
+    experience: 3-4
+    xp-chance: 0.9
+    message: "&aHas obtenido &e%exp% &ade experiencia por minar cobre en pizarra profunda!"
+    sound: BLOCK_DEEPSLATE_BREAK
+
+global-options:
+  default-message: "&aHas obtenido &e%exp% &ade experiencia de minería."

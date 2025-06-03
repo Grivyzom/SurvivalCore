@@ -54,6 +54,11 @@ public class Main extends JavaPlugin {
         registerListeners();
         hookPlaceholderAPI();
         scheduleBackups();
+        // Registrar el listener del Atril Mágico
+        getServer().getPluginManager().registerEvents(
+                new LecternRecipeUseListener(this),
+                this
+        );
 
         getLogger().info("SurvivalCore habilitado correctamente.");
     }

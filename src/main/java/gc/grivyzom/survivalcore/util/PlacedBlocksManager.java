@@ -1,39 +1,94 @@
 package gc.grivyzom.survivalcore.util;
 
-import org.bukkit.Location;
-import org.bukkit.event.Listener;
+import org.bukkit.*;
+import org.bukkit.block.Block;
+import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 
-/**
- * Manager para rastrear bloques colocados por jugadores.
- * Permite distinguir entre bloques naturales y bloques colocados,
- * evitando que el sistema de experiencia otorgue XP por minería de
- * bloques colocados.
- */
 public class PlacedBlocksManager implements Listener {
+    private final JavaPlugin plugin;
     private final Set<Location> placedBlocks = Collections.synchronizedSet(new HashSet<>());
+    private final Map<Location, ItemStack> magicLecterns = new HashMap<>();
+    private final NamespacedKey lecternKey;
 
-    /**
-     * Registra este listener en el servidor.
-     * @param plugin instancia de JavaPlugin donde se registra
-     */
     public PlacedBlocksManager(JavaPlugin plugin) {
+        this.plugin = plugin;
+        this.lecternKey = new NamespacedKey(plugin, "is_magic_lectern");
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
     }
 
-    /**
-     * Evento que se dispara cuando un jugador coloca un bloque.
-     * Añade la ubicación del bloque al conjunto.
-     */
     @EventHandler
     public void onBlockPlace(BlockPlaceEvent event) {
-        placedBlocks.add(event.getBlock().getLocation());
+        Location loc = event.getBlock().getLocation();
+        placedBlocks.add(loc);
+
+        if (isMagicLectern(event.getItemInHand())) {
+            magicLecterns.put(loc, event.getItemInHand().clone());
+        }
+    }
+
+    @EventHandler
+    public void onBlockBreak(BlockBreakEvent event) {
+        Location loc = event.getBlock().getLocation();
+        placedBlocks.remove(loc);
+
+        if (magicLecterns.containsKey(loc)) {
+            handleMagicLecternBreak(event, loc);
+        }
+    }
+
+    private void handleMagicLecternBreak(BlockBreakEvent event, Location loc) {
+        ItemStack lecternItem = magicLecterns.remove(loc);
+        Player player = event.getPlayer();
+
+        if (lecternItem == null) {
+            return;
+        }
+
+        event.setCancelled(true);
+        event.getBlock().setType(Material.AIR);
+
+        // Clonar el ítem para evitar modificar el original
+        ItemStack itemToGive = lecternItem.clone();
+
+        // Verificar si el ítem tiene metadatos y asegurarse de que se conserven
+        ItemMeta meta = itemToGive.getItemMeta();
+        if (meta != null) {
+            itemToGive.setItemMeta(meta);
+        }
+
+        // Dar el ítem al jugador
+        if (player.getInventory().addItem(itemToGive).isEmpty()) {
+            player.updateInventory();
+        } else {
+            player.getWorld().dropItemNaturally(loc, itemToGive);
+        }
+
+        // Efectos
+        player.getWorld().playSound(loc, Sound.BLOCK_WOOD_BREAK, 1.0f, 1.0f);
+        player.getWorld().spawnParticle(Particle.BLOCK_CRACK, loc, 10,
+                Material.LECTERN.createBlockData());
+    }
+
+    private boolean isMagicLectern(ItemStack item) {
+        if (item == null || item.getType() != Material.LECTERN) {
+            return false;
+        }
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) {
+            return false;
+        }
+        // Verifica si el ítem tiene la clave persistente "is_magic_lectern"
+        return meta.getPersistentDataContainer().has(lecternKey, PersistentDataType.BYTE);
     }
 
     /**

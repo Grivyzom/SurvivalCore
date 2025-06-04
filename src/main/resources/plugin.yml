@@ -36,6 +36,10 @@ commands:
     description: Muestra el historial de transferencias (solo staff)
     usage: /xptransferlog <jugador> [días]
     aliases: [xplog, transferlog]
+  repair:
+    description: Repara completamente el ítem en mano a cambio de experiencia
+    usage: /repair [cost|info|help]
+    aliases: [reparar, fix]
 permissions:
   survivalcore.reload:
     description: Permite recargar la configuración del plugin.

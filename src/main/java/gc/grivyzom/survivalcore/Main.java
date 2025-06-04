@@ -247,7 +247,6 @@ public class Main extends JavaPlugin {
             player.sendMessage(ChatColor.RED + "Depósito cancelado por otro plugin.");
         }
     }
-
     /**
      * Dispara evento cuando un jugador retira XP del banco
      */
@@ -349,5 +348,24 @@ public class Main extends JavaPlugin {
         Bukkit.getPluginManager().callEvent(event);
     }
 
+    /**
+     * Dispara evento cuando es el cumpleaños de un jugador
+     */
+    public void firePlayerBirthdayEvent(Player player, String birthday) {
+        PlayerBirthdayEvent event = new PlayerBirthdayEvent(player, birthday);
+        Bukkit.getPluginManager().callEvent(event);
+
+        // Aplicar configuraciones del evento
+        if (!event.isBroadcastEnabled()) {
+            // No hacer broadcast si está deshabilitado
+            return;
+        }
+
+        if (!event.isFireworksEnabled()) {
+            // No lanzar fuegos artificiales si está deshabilitado
+            return;
+        }
+
+    }
 
 }

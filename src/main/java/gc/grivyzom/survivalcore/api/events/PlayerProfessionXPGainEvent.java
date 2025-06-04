@@ -6,25 +6,28 @@ import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 
 /**
- * Evento disparado cuando un jugador deposita XP en su banco
+ * Evento disparado cuando un jugador gana XP en una profesión
  */
-public class PlayerBankDepositEvent extends Event implements Cancellable {
+public class PlayerProfessionXPGainEvent extends Event implements Cancellable {
     private static final HandlerList handlers = new HandlerList();
 
     private final Player player;
-    private final long amount;
-    private final long newBalance;
+    private final String profession;
+    private final long xpGained;
+    private final long totalXP;
     private boolean cancelled = false;
 
-    public PlayerBankDepositEvent(Player player, long amount, long newBalance) {
+    public PlayerProfessionXPGainEvent(Player player, String profession, long xpGained, long totalXP) {
         this.player = player;
-        this.amount = amount;
-        this.newBalance = newBalance;
+        this.profession = profession;
+        this.xpGained = xpGained;
+        this.totalXP = totalXP;
     }
 
     public Player getPlayer() { return player; }
-    public long getAmount() { return amount; }
-    public long getNewBalance() { return newBalance; }
+    public String getProfession() { return profession; }
+    public long getXPGained() { return xpGained; }
+    public long getTotalXP() { return totalXP; }
 
     @Override
     public boolean isCancelled() { return cancelled; }

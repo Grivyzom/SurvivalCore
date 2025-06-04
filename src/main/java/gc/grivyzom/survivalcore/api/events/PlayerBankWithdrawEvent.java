@@ -6,9 +6,9 @@ import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 
 /**
- * Evento disparado cuando un jugador deposita XP en su banco
+ * Evento disparado cuando un jugador retira XP de su banco
  */
-public class PlayerBankDepositEvent extends Event implements Cancellable {
+public class PlayerBankWithdrawEvent extends Event implements Cancellable {
     private static final HandlerList handlers = new HandlerList();
 
     private final Player player;
@@ -16,7 +16,7 @@ public class PlayerBankDepositEvent extends Event implements Cancellable {
     private final long newBalance;
     private boolean cancelled = false;
 
-    public PlayerBankDepositEvent(Player player, long amount, long newBalance) {
+    public PlayerBankWithdrawEvent(Player player, long amount, long newBalance) {
         this.player = player;
         this.amount = amount;
         this.newBalance = newBalance;

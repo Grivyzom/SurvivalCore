@@ -6,25 +6,28 @@ import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 
 /**
- * Evento disparado cuando un jugador deposita XP en su banco
+ * Evento disparado cuando un jugador activa una habilidad
  */
-public class PlayerBankDepositEvent extends Event implements Cancellable {
+public class PlayerSkillActivateEvent extends Event implements Cancellable {
     private static final HandlerList handlers = new HandlerList();
 
     private final Player player;
-    private final long amount;
-    private final long newBalance;
+    private final String skillName;
+    private final int skillLevel;
+    private final long duration;
     private boolean cancelled = false;
 
-    public PlayerBankDepositEvent(Player player, long amount, long newBalance) {
+    public PlayerSkillActivateEvent(Player player, String skillName, int skillLevel, long duration) {
         this.player = player;
-        this.amount = amount;
-        this.newBalance = newBalance;
+        this.skillName = skillName;
+        this.skillLevel = skillLevel;
+        this.duration = duration;
     }
 
     public Player getPlayer() { return player; }
-    public long getAmount() { return amount; }
-    public long getNewBalance() { return newBalance; }
+    public String getSkillName() { return skillName; }
+    public int getSkillLevel() { return skillLevel; }
+    public long getDuration() { return duration; }
 
     @Override
     public boolean isCancelled() { return cancelled; }

@@ -6,25 +6,32 @@ import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 
 /**
- * Evento disparado cuando un jugador deposita XP en su banco
+ * Evento disparado cuando un jugador transfiere experiencia a otro
  */
-public class PlayerBankDepositEvent extends Event implements Cancellable {
+public class PlayerXPTransferEvent extends Event implements Cancellable {
     private static final HandlerList handlers = new HandlerList();
 
-    private final Player player;
+    private final Player sender;
+    private final String receiverName;
     private final long amount;
-    private final long newBalance;
+    private final TransferType type;
     private boolean cancelled = false;
 
-    public PlayerBankDepositEvent(Player player, long amount, long newBalance) {
-        this.player = player;
-        this.amount = amount;
-        this.newBalance = newBalance;
+    public enum TransferType {
+        PLAYER_XP, BANK_XP
     }
 
-    public Player getPlayer() { return player; }
+    public PlayerXPTransferEvent(Player sender, String receiverName, long amount, TransferType type) {
+        this.sender = sender;
+        this.receiverName = receiverName;
+        this.amount = amount;
+        this.type = type;
+    }
+
+    public Player getSender() { return sender; }
+    public String getReceiverName() { return receiverName; }
     public long getAmount() { return amount; }
-    public long getNewBalance() { return newBalance; }
+    public TransferType getType() { return type; }
 
     @Override
     public boolean isCancelled() { return cancelled; }

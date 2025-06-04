@@ -40,6 +40,9 @@ public class Main extends JavaPlugin {
     private PlacedBlocksManager placedBlocksManager;
     private BirthdayCommand birthdayCommand;
     private LecternRecipeManager lecternRecipeManager;   // +getter
+    private XpTransferManager xpTransferManager;
+    private XpTransferCommand xpTransferCommand;
+
     /* =================== CICLO DE VIDA =================== */
     @Override
     public void onEnable() {
@@ -54,6 +57,7 @@ public class Main extends JavaPlugin {
         registerListeners();
         hookPlaceholderAPI();
         scheduleBackups();
+        xpTransferManager = new XpTransferManager(this);
         // Registrar el listener del Atril Mágico
         getServer().getPluginManager().registerEvents(
                 new LecternRecipeUseListener(this),
@@ -174,6 +178,9 @@ public class Main extends JavaPlugin {
     private void registerCommand(String name, org.bukkit.command.CommandExecutor exec) {
         var cmd = getCommand(name);
         if (cmd != null) cmd.setExecutor(exec);
+        registerCommand("xpgive", xpTransferCommand);
+        registerCommand("xptransfers", xpTransferCommand);
+        registerCommand("xptransferlog", xpTransferCommand);
     }
 
     /* =================== GETTERS PÚBLICOS =================== */
@@ -186,11 +193,18 @@ public class Main extends JavaPlugin {
     public PlacedBlocksManager getPlacedBlocksManager()         { return placedBlocksManager; }
     public MiningExperienceConfig getMiningConfig()             { return miningConfig; }
     public LecternRecipeManager getLecternRecipeManager() { return lecternRecipeManager; }
+    public XpTransferManager getXpTransferManager() { return xpTransferManager; }
+    public XpTransferCommand getXpTransferCommand() { return xpTransferCommand; }
     /**
      * Refresca valores que cambian al recargar configuración.
      */
+
+
     public void updateInternalConfig() {
         this.cropXpChance = getConfig().getDouble("plugin.cropXpChance", this.cropXpChance);
+        if (xpTransferManager != null) {
+            xpTransferManager.reloadConfig();
+        }
         getLogger().info("Configuración interna actualizada.");
     }
 }

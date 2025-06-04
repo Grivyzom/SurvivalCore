@@ -171,6 +171,13 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
             return upgradeXpBank(p);
         }
 
+        // /score xpbank transfer <jugador> <cantidad>
+        if (args.length >= 3 && args[1].equalsIgnoreCase("transfer")) {
+            String[] transferArgs = new String[args.length - 1];
+            System.arraycopy(args, 1, transferArgs, 0, args.length - 1);
+            return plugin.getXpTransferCommand().handleBankTransfer(sender, transferArgs);
+        }
+
         // /score xpbank give <jugador>
         if (args.length == 3 && args[1].equalsIgnoreCase("give")) {
             if (!sender.hasPermission("survivalcore.admin")) {
@@ -205,7 +212,7 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        p.sendMessage(ChatColor.RED + "Uso: /score xpbank <upgrade|give> …");
+        p.sendMessage(ChatColor.RED + "Uso: /score xpbank <upgrade|transfer|give> …");
         return true;
     }
 
@@ -471,6 +478,8 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
                 if (p.getName().toLowerCase().startsWith(args[2].toLowerCase())) completions.add(p.getName());
             }
         }
+
+
         else if (args.length == 3 && args[0].equalsIgnoreCase("admin")) {
             if (List.of("profession","abilities").contains(args[1].toLowerCase())) completions.add("reset");
         }
@@ -486,6 +495,19 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
         }
         else if (args.length == 2 && args[0].equalsIgnoreCase("lectern")) {
             if ("give".startsWith(args[1].toLowerCase())) completions.add("give");
+        }
+        else if (args.length == 2) {
+            String sub = args[0].toLowerCase();
+            if (sub.equals("xpbank")) {
+                for (String option : List.of("upgrade", "transfer", "give")) {
+                    if (option.startsWith(args[1].toLowerCase())) completions.add(option);
+                }
+            }
+        }
+        else if (args.length == 3 && args[0].equalsIgnoreCase("xpbank") && args[1].equalsIgnoreCase("transfer")) {
+            for (Player p : Bukkit.getOnlinePlayers()) {
+                if (p.getName().toLowerCase().startsWith(args[2].toLowerCase())) completions.add(p.getName());
+            }
         }
         else if (args.length == 3 &&
                 args[0].equalsIgnoreCase("lectern") &&

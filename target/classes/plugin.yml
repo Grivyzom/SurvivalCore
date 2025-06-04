@@ -24,6 +24,18 @@ commands:
     description: Gestión de recetas de Atril
     usage: /lectern <subcmd>
     aliases: [atril]
+  xpgive:
+    description: Transfiere experiencia de tu barra a otro jugador
+    usage: /xpgive <jugador> <cantidad>
+    aliases: [transferxp, darxp]
+  xptransfers:
+    description: Muestra información sobre tus transferencias diarias
+    usage: /xptransfers
+    aliases: [transferinfo, xlimits]
+  xptransferlog:
+    description: Muestra el historial de transferencias (solo staff)
+    usage: /xptransferlog <jugador> [días]
+    aliases: [xplog, transferlog]
 permissions:
   survivalcore.reload:
     description: Permite recargar la configuración del plugin.
@@ -34,3 +46,21 @@ permissions:
   survivalcore.use.lectern:
     description: Permite interactuar con Atriles Mágicos
     default: false
+  survivalcore.transfer.rank.default:
+    description: Límites de transferencia para jugadores default
+    default: true
+  survivalcore.transfer.rank.vip:
+    description: Límites de transferencia para VIPs
+    default: false
+  survivalcore.transfer.rank.elite:
+    description: Límites de transferencia para Elite
+    default: false
+  survivalcore.transfer.rank.mod:
+    description: Límites de transferencia para Moderadores
+    default: false
+  survivalcore.transfer.rank.admin:
+    description: Límites de transferencia para Administradores (ilimitado)
+    default: op
+  survivalcore.transferlog:
+    description: Permite ver historial de transferencias de otros jugadores
+    default: op

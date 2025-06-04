@@ -169,25 +169,28 @@ public class XpTransferManager {
     /**
      * Transfiere experiencia del banco de un jugador a otro (CORREGIDO)
      */
-    public void transferFromBank(Player sender, String targetName, long amount) {
-        // Validaciones básicas
-        if (!validateBasicTransfer(sender, targetName, (int)amount)) return;
 
-        // CAMBIO: No requerir que el jugador esté online
+    public void transferFromBank(Player sender, String targetName, int levels) {
+        // Validaciones básicas
+        if (!validateBasicTransfer(sender, targetName, levels)) return;
+
+        // Convertir niveles a XP (aproximadamente 68 XP por nivel)
+        long amount = levels * 68L;
+
         UUID targetUUID = Bukkit.getOfflinePlayer(targetName).getUniqueId();
         if (targetUUID == null) {
             sender.sendMessage(ChatColor.RED + "Jugador no encontrado: " + targetName);
             return;
         }
 
-        // Verificar si requiere confirmación
-        if (requiresConfirmation(TransferType.BANK_XP, amount)) {
-            confirmationManager.requestConfirmation(sender, targetName, amount,
+        // Verificar si requiere confirmación (usando niveles para el threshold)
+        if (requiresConfirmation(TransferType.BANK_XP, levels)) {
+            confirmationManager.requestConfirmation(sender, targetName, levels,
                     TransferConfirmationManager.TransferType.BANK_XP);
             return;
         }
 
-        // Verificar saldo y límite de forma asíncrona
+        // Resto del método permanece igual...
         CompletableFuture.supplyAsync(() -> {
             long bankBalance = plugin.getDatabaseManager().getBankedXp(sender.getUniqueId().toString());
             int dailyLimit = getDailyLimit(sender);
@@ -195,7 +198,7 @@ public class XpTransferManager {
 
             return new Object[]{
                     bankBalance >= amount,
-                    dailyLimit == -1 || (usedToday + amount) <= dailyLimit,
+                    dailyLimit == -1 || (usedToday + (int)(amount / 68L)) <= dailyLimit, // XP convertido a niveles
                     bankBalance,
                     dailyLimit,
                     usedToday
@@ -215,17 +218,18 @@ public class XpTransferManager {
                 }
 
                 if (!withinLimit) {
+                    int levelsToTransfer = (int)(amount / 68L); // Convertir XP a niveles para el límite
                     int remaining = dailyLimit == -1 ? Integer.MAX_VALUE : dailyLimit - usedToday;
 
                     sender.sendMessage(ChatColor.RED + "╔════════════════════════════════╗");
                     sender.sendMessage(ChatColor.RED + "║ " + ChatColor.YELLOW + "¡LÍMITE DIARIO EXCEDIDO!" + ChatColor.RED + "       ║");
                     sender.sendMessage(ChatColor.RED + "╠════════════════════════════════╣");
                     sender.sendMessage(ChatColor.RED + "║ " + ChatColor.YELLOW + "Límite diario: " +
-                            (dailyLimit == -1 ? "∞" : dailyLimit) + " XP" + ChatColor.RED + "       ║");
-                    sender.sendMessage(ChatColor.RED + "║ " + ChatColor.YELLOW + "Usado hoy: " + usedToday + " XP" + ChatColor.RED + "          ║");
-                    sender.sendMessage(ChatColor.RED + "║ " + ChatColor.YELLOW + "Intentas transferir: " + amount + " XP" + ChatColor.RED + "   ║");
+                            (dailyLimit == -1 ? "∞" : dailyLimit) + " niveles" + ChatColor.RED + "    ║");
+                    sender.sendMessage(ChatColor.RED + "║ " + ChatColor.YELLOW + "Usado hoy: " + usedToday + " niveles" + ChatColor.RED + "       ║");
+                    sender.sendMessage(ChatColor.RED + "║ " + ChatColor.YELLOW + "Intentas transferir: " + levelsToTransfer + " niveles" + ChatColor.RED + " ║");
                     sender.sendMessage(ChatColor.RED + "║ " + ChatColor.YELLOW + "Disponible: " +
-                            (remaining == Integer.MAX_VALUE ? "∞" : Math.max(0, remaining)) + " XP" + ChatColor.RED + "       ║");
+                            (remaining == Integer.MAX_VALUE ? "∞" : Math.max(0, remaining)) + " niveles" + ChatColor.RED + "    ║");
                     sender.sendMessage(ChatColor.RED + "║                                ║");
                     sender.sendMessage(ChatColor.RED + "║ " + ChatColor.GRAY + "El límite se reinicia a las 00:00" + ChatColor.RED + " ║");
                     sender.sendMessage(ChatColor.RED + "╚════════════════════════════════╝");
@@ -387,7 +391,10 @@ public class XpTransferManager {
                 plugin.getConfig().getString("database.user"),
                 plugin.getConfig().getString("database.password"));
              PreparedStatement ps = conn.prepareStatement(
-                     "SELECT COALESCE(SUM(amount), 0) FROM xp_transfers " +
+                     "SELECT COALESCE(SUM(CASE " +
+                             "WHEN transfer_type = 'PLAYER' THEN amount " +
+                             "WHEN transfer_type = 'BANK' THEN FLOOR(amount / 68) " +
+                             "END), 0) FROM xp_transfers " +
                              "WHERE sender_uuid = ? AND transfer_date = CURDATE()")) {
 
             ps.setString(1, uuid);

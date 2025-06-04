@@ -44,29 +44,31 @@ public class XpTransferCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        // Los argumentos vienen como: ["transfer", "nombreJugador", "cantidad"]
         if (args.length != 3) {
-            player.sendMessage(ChatColor.RED + "Uso: /score xpbank transfer <jugador> <cantidad>");
+            player.sendMessage(ChatColor.RED + "Uso: /score xpbank transfer <jugador> <niveles>");
             player.sendMessage(ChatColor.GRAY + "Transfiere experiencia de tu banco a otro jugador.");
-            player.sendMessage(ChatColor.YELLOW + "Ejemplo: /score xpbank transfer Steve 1000");
+            player.sendMessage(ChatColor.YELLOW + "Ejemplo: /score xpbank transfer Steve 10");
             return true;
         }
 
-        String targetName = args[1]; // Segundo argumento es el nombre del jugador
-        long amount;
+        String targetName = args[1];
+        int levels;
 
         try {
-            amount = Long.parseLong(args[2]); // Tercer argumento es la cantidad
+            levels = Integer.parseInt(args[2]);
         } catch (NumberFormatException e) {
-            player.sendMessage(ChatColor.RED + "La cantidad debe ser un número válido.");
-            player.sendMessage(ChatColor.GRAY + "Ejemplo: /score xpbank transfer " + targetName + " 1000");
+            player.sendMessage(ChatColor.RED + "La cantidad debe ser un número válido de niveles.");
+            player.sendMessage(ChatColor.GRAY + "Ejemplo: /score xpbank transfer " + targetName + " 10");
             return true;
         }
 
-        if (amount <= 0) {
+        if (levels <= 0) {
             player.sendMessage(ChatColor.RED + "La cantidad debe ser mayor a 0.");
             return true;
         }
+
+        // Convertir niveles a XP
+        long amount = levels * 68L;
 
         // Validar que el jugador objetivo existe
         if (Bukkit.getOfflinePlayer(targetName).getUniqueId() == null) {
@@ -75,9 +77,9 @@ public class XpTransferCommand implements CommandExecutor, TabCompleter {
         }
 
         // Mostrar confirmación para transferencias grandes
-        if (amount >= plugin.getConfig().getInt("transfer_settings.bank_confirmation_threshold", 1000)) {
-            player.sendMessage(ChatColor.YELLOW + "⚠ Vas a transferir " + ChatColor.GOLD + amount + " XP" +
-                    ChatColor.YELLOW + " desde tu banco a " + ChatColor.AQUA + targetName + ChatColor.YELLOW + ".");
+        if (levels >= plugin.getConfig().getInt("transfer_settings.bank_confirmation_threshold", 15)) {
+            player.sendMessage(ChatColor.YELLOW + "⚠ Vas a transferir " + ChatColor.GOLD + levels + " niveles" +
+                    ChatColor.YELLOW + " (" + amount + " XP) desde tu banco a " + ChatColor.AQUA + targetName + ChatColor.YELLOW + ".");
             player.sendMessage(ChatColor.GRAY + "Esta es una transferencia grande. El sistema te pedirá confirmación.");
         }
 
@@ -87,21 +89,21 @@ public class XpTransferCommand implements CommandExecutor, TabCompleter {
 
             Bukkit.getScheduler().runTask(plugin, () -> {
                 player.sendMessage(ChatColor.GOLD + "💰 Saldo actual del banco: " + ChatColor.WHITE +
-                        String.format("%,d XP", bankBalance));
+                        String.format("%,d XP (≈%,d niveles)", bankBalance, bankBalance / 68));
 
                 if (bankBalance < amount) {
                     player.sendMessage(ChatColor.RED + "❌ Saldo insuficiente para esta transferencia.");
+                    player.sendMessage(ChatColor.RED + "Necesitas al menos " + amount + " XP (" + levels + " niveles) en tu banco.");
                     return;
                 }
 
                 // Proceder con la transferencia
-                transferManager.transferFromBank(player, targetName, amount);
+                transferManager.transferFromBank(player, targetName, levels);
             });
         });
 
         return true;
     }
-
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         String cmdName = command.getName().toLowerCase();

@@ -138,8 +138,15 @@ public class TransferConfirmationManager implements Listener {
         XpTransferManager transferManager = plugin.getXpTransferManager();
 
         switch (pending.type) {
-            case PLAYER_XP -> transferManager.transferFromPlayer(player, pending.targetName, (int)pending.amount);
-            case BANK_XP -> transferManager.transferFromBank(player, pending.targetName, pending.amount);
+            case PLAYER_XP -> {
+                // Para transferencias de barra de XP, usamos los niveles directamente
+                transferManager.transferFromPlayer(player, pending.targetName, (int)pending.amount);
+            }
+            case BANK_XP -> {
+                // Para transferencias de banco, convertimos XP a niveles
+                int levels = (int)(pending.amount / 68L);
+                transferManager.transferFromBank(player, pending.targetName, levels);
+            }
         }
 
         player.sendMessage(ChatColor.GREEN + "Transferencia confirmada y ejecutada.");

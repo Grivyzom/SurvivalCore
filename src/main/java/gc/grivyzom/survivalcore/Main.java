@@ -53,11 +53,16 @@ public class Main extends JavaPlugin {
         if (!initDatabase()) return;     // detiene la carga si la BD falla
         initManagers();
         RecipeUnlockManager.load();         // <<< Añade aquí
+
+        // Inicializar managers de transferencia ANTES de registrar comandos
+        xpTransferManager = new XpTransferManager(this);
+        xpTransferCommand = new XpTransferCommand(this);
+
         registerCommands();
         registerListeners();
         hookPlaceholderAPI();
         scheduleBackups();
-        xpTransferManager = new XpTransferManager(this);
+
         // Registrar el listener del Atril Mágico
         getServer().getPluginManager().registerEvents(
                 new LecternRecipeUseListener(this),
@@ -122,6 +127,8 @@ public class Main extends JavaPlugin {
     /* =================== REGISTRO COMANDOS & LISTENERS =================== */
     private void registerCommands() {
         birthdayCommand = new BirthdayCommand(this);
+        xpTransferCommand = new XpTransferCommand(this); // Inicializar antes de registrar
+
         registerCommand("birthday", birthdayCommand);
         registerCommand("perfil",   new PerfilCommand(this));
         registerCommand("score",    new ScoreCommand(this));
@@ -129,6 +136,11 @@ public class Main extends JavaPlugin {
         registerCommand("mastery",  new MasteryCommand(this));
         registerCommand("genero",   new GeneroCommand(this));
         registerCommand("lectern", new LecternRecipeCreateCommand(this, lecternRecipeManager));
+
+        // Registrar comandos de transferencia de XP
+        registerCommand("xpgive", xpTransferCommand);
+        registerCommand("xptransfers", xpTransferCommand);
+        registerCommand("xptransferlog", xpTransferCommand);
     }
 
     private void registerListeners() {
@@ -177,10 +189,12 @@ public class Main extends JavaPlugin {
     /* =================== UTILIDADES =================== */
     private void registerCommand(String name, org.bukkit.command.CommandExecutor exec) {
         var cmd = getCommand(name);
-        if (cmd != null) cmd.setExecutor(exec);
-        registerCommand("xpgive", xpTransferCommand);
-        registerCommand("xptransfers", xpTransferCommand);
-        registerCommand("xptransferlog", xpTransferCommand);
+        if (cmd != null) {
+            cmd.setExecutor(exec);
+        } else {
+            getLogger().warning("No se pudo registrar el comando: " + name);
+        }
+        // REMOVIDO: Las llamadas recursivas que causaban el StackOverflow
     }
 
     /* =================== GETTERS PÚBLICOS =================== */

@@ -1,29 +1,54 @@
 levels:
   1:
-    - input1: # ItemStack serializado
+    - id: "Pan Básico"
+      cost: 5
+      input1:
         ==: org.bukkit.inventory.ItemStack
-        v: 3700
+        v: 3218  # Versión compatible con 1.20.1
         type: WHEAT
-      # ↑ puedes añadir meta (display-name, custom-model-data, etc.)
       input2:
         ==: org.bukkit.inventory.ItemStack
-        v: 3700
+        v: 3218
         type: WHEAT
       result:
         ==: org.bukkit.inventory.ItemStack
-        v: 3700
+        v: 3218
         type: BREAD
+        amount: 2
   2:
-    - input1: { ==: org.bukkit.inventory.ItemStack, type: BLAZE_ROD }
-      input2: { ==: org.bukkit.inventory.ItemStack, type: GHAST_TEAR }
-      result: { ==: org.bukkit.inventory.ItemStack, type: END_CRYSTAL }
-  3:
-    - id: "EspadaTest"      # tu identificador interno
-      cost: 20
-      input1: { ==: org.bukkit.inventory.ItemStack, type: DIAMOND }
-      input2: { ==: org.bukkit.inventory.ItemStack, type: STICK }
+    - id: "Cristal del End"
+      cost: 15
+      input1:
+        ==: org.bukkit.inventory.ItemStack
+        v: 3218
+        type: BLAZE_ROD
+      input2:
+        ==: org.bukkit.inventory.ItemStack
+        v: 3218
+        type: GHAST_TEAR
       result:
         ==: org.bukkit.inventory.ItemStack
+        v: 3218
+        type: END_CRYSTAL
+  3:
+    - id: "Espada de Diamante Mágica"
+      cost: 20
+      input1:
+        ==: org.bukkit.inventory.ItemStack
+        v: 3218
+        type: DIAMOND
+      input2:
+        ==: org.bukkit.inventory.ItemStack
+        v: 3218
+        type: STICK
+      result:
+        ==: org.bukkit.inventory.ItemStack
+        v: 3218
         type: DIAMOND_SWORD
         meta:
-          display-name: "&6Espada Test"   # ← aquí defines el nombre que verán los jugadores
+          ==: ItemMeta
+          meta-type: UNSPECIFIC
+          display-name: "§6Espada Mágica"
+          lore:
+            - "§7Forjada en el Atril Mágico"
+            - "§7Poder: §eSupremo"

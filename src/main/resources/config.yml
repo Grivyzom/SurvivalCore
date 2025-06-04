@@ -95,16 +95,41 @@ lectern:
   maxLevel: 10           # Nivel máximo permitido para el atril
 
 # Sistema de transferencia de experiencia
-transfer_limits:
-  default: 30      # Jugadores normales pueden transferir 30 niveles/día
-  vip: 100         # VIPs pueden transferir 100 niveles/día
-  elite: 200       # Elite pueden transferir 200 niveles/día
-  mod: 500         # Moderadores pueden transferir 500 niveles/día
-  admin: -1        # Administradores tienen transferencias ilimitadas
 
-# Configuración de transferencias
+# Agregar estas secciones a tu archivo config.yml existente
+
+# Límites de transferencia por rango
+transfer_limits:
+  default: 30        # Jugadores normales: 30 niveles/XP por día
+  vip: 100           # VIPs: 100 niveles/XP por día
+  elite: 200         # Elite: 200 niveles/XP por día
+  mod: 500           # Moderadores: 500 niveles/XP por día
+  admin: -1          # Admins: ilimitado (-1)
+
+# Configuración del sistema de transferencias
 transfer_settings:
-  confirmation_threshold: 50    # Pedir confirmación para transferencias >= 50 niveles
-  bank_confirmation_threshold: 1000  # Pedir confirmación para transferencias >= 1000 XP del banco
-  log_all_transfers: true       # Registrar todas las transferencias en la base de datos
-  enable_transfer_effects: true # Efectos visuales y sonoros en transferencias
+  # Umbral para solicitar confirmación en transferencias desde barra de XP (niveles)
+  confirmation_threshold: 50
+
+  # Umbral para solicitar confirmación en transferencias desde banco (XP)
+  bank_confirmation_threshold: 1000
+
+  # Tiempo de expiración para confirmaciones (segundos)
+  confirmation_timeout: 30
+
+# Configuración del banco de experiencia
+xp_bank:
+  # Capacidad inicial del banco (en puntos XP)
+  initial_capacity: 68000    # Equivale a ~1000 niveles
+
+  # Capacidad por nivel de banco
+  capacity_per_level: 170000  # Equivale a ~2500 niveles por upgrade
+
+  # Nivel máximo del banco
+  max_level: 20
+
+  # Coste base para upgrade (niveles)
+  base_upgrade_cost: 500
+
+  # Incremento del coste por nivel
+  upgrade_cost_increment: 250

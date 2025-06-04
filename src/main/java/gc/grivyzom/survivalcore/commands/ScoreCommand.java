@@ -173,8 +173,18 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
 
         // /score xpbank transfer <jugador> <cantidad>
         if (args.length >= 3 && args[1].equalsIgnoreCase("transfer")) {
-            String[] transferArgs = new String[args.length - 1];
-            System.arraycopy(args, 1, transferArgs, 0, args.length - 1);
+            // CORRECCIÓN: Pasar los argumentos correctamente
+            // args[0] = "xpbank", args[1] = "transfer", args[2] = jugador, args[3] = cantidad
+
+            if (args.length != 4) {
+                p.sendMessage(ChatColor.RED + "Uso: /score xpbank transfer <jugador> <cantidad>");
+                p.sendMessage(ChatColor.GRAY + "Transfiere experiencia de tu banco a otro jugador.");
+                p.sendMessage(ChatColor.YELLOW + "Ejemplo: /score xpbank transfer Steve 1000");
+                return true;
+            }
+
+            // Crear array con los argumentos en el formato esperado por handleBankTransfer
+            String[] transferArgs = {"transfer", args[2], args[3]};
             return plugin.getXpTransferCommand().handleBankTransfer(sender, transferArgs);
         }
 
@@ -212,11 +222,47 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        p.sendMessage(ChatColor.RED + "Uso: /score xpbank <upgrade|transfer|give> …");
+        // /score xpbank info - Mostrar información del banco
+        if (args.length == 2 && args[1].equalsIgnoreCase("info")) {
+            Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+                String uuid = p.getUniqueId().toString();
+                long bankedXp = plugin.getDatabaseManager().getBankedXp(uuid);
+                long capacity = plugin.getDatabaseManager().getBankCapacity(uuid);
+                long capacityLevels = capacity / 68L;
+                long bankedLevels = bankedXp / 68L;
+
+                Bukkit.getScheduler().runTask(plugin, () -> {
+                    p.sendMessage(ChatColor.GOLD + "╔══════════════════════════════════╗");
+                    p.sendMessage(ChatColor.GOLD + "║ " + ChatColor.YELLOW + "🏦 Banco de Experiencia" + ChatColor.GOLD + "        ║");
+                    p.sendMessage(ChatColor.GOLD + "╠══════════════════════════════════╣");
+                    p.sendMessage(ChatColor.GOLD + "║ " + ChatColor.WHITE + "XP Almacenada: " + ChatColor.YELLOW +
+                            String.format("%,d", bankedXp) + " XP" + ChatColor.GOLD + " ║");
+                    p.sendMessage(ChatColor.GOLD + "║ " + ChatColor.WHITE + "Equivalente: " + ChatColor.AQUA +
+                            String.format("%,d", bankedLevels) + " niveles" + ChatColor.GOLD + " ║");
+                    p.sendMessage(ChatColor.GOLD + "║ " + ChatColor.WHITE + "Capacidad: " + ChatColor.GREEN +
+                            String.format("%,d", capacity) + " XP" + ChatColor.GOLD + " ║");
+                    p.sendMessage(ChatColor.GOLD + "║ " + ChatColor.WHITE + "Espacio libre: " + ChatColor.LIGHT_PURPLE +
+                            String.format("%,d", capacity - bankedXp) + " XP" + ChatColor.GOLD + " ║");
+                    p.sendMessage(ChatColor.GOLD + "╚══════════════════════════════════╝");
+                    p.sendMessage(ChatColor.GRAY + "Usa " + ChatColor.WHITE + "/score xpbank transfer <jugador> <cantidad>" +
+                            ChatColor.GRAY + " para transferir");
+                    p.sendMessage(ChatColor.GRAY + "Usa " + ChatColor.WHITE + "/score xpbank upgrade" +
+                            ChatColor.GRAY + " para aumentar capacidad");
+                });
+            });
+            return true;
+        }
+
+        // Ayuda por defecto
+        p.sendMessage(ChatColor.RED + "Subcomandos de xpbank:");
+        p.sendMessage(ChatColor.YELLOW + "/score xpbank info" + ChatColor.GRAY + " - Ver información del banco");
+        p.sendMessage(ChatColor.YELLOW + "/score xpbank transfer <jugador> <cantidad>" + ChatColor.GRAY + " - Transferir XP");
+        p.sendMessage(ChatColor.YELLOW + "/score xpbank upgrade" + ChatColor.GRAY + " - Mejorar capacidad del banco");
+        if (sender.hasPermission("survivalcore.admin")) {
+            p.sendMessage(ChatColor.YELLOW + "/score xpbank give <jugador>" + ChatColor.GRAY + " - Dar ánfora (admin)");
+        }
         return true;
     }
-
-
     private boolean handleAdmin(CommandSender sender, String[] args) {
         if (!sender.hasPermission("survivalcore.admin")) {
             sender.sendMessage(ChatColor.RED + "No tienes permisos para usar este comando.");
@@ -451,14 +497,24 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         List<String> completions = new ArrayList<>();
+
         if (args.length == 1) {
-            for (String s : List.of("xpbank","lectern","version","reload",
-                    "birthday","gender","country","help","admin")) {
+            // Autocompletar para el primer argumento (/score <subcomando>)
+            for (String s : List.of("xpbank", "lectern", "version", "reload",
+                    "birthday", "gender", "country", "help", "admin")) {
                 if (s.startsWith(args[0].toLowerCase())) completions.add(s);
             }
         }
-        else if (args.length == 2) {
-            String sub = args[0].toLowerCase();
+        else if (args.length == 2 && args[0].equalsIgnoreCase("xpbank")) {
+            // Autocompletar para /score xpbank <subcomando>
+            List<String> xpbankSubcommands = Arrays.asList("give", "transfer", "upgrade");
+            for (String sub : xpbankSubcommands) {
+                if (sub.startsWith(args[1].toLowerCase())) {
+                    completions.add(sub);
+                }
+            }
+        }
+        else if (args.length == 2) {String sub = args[0].toLowerCase();
             if (sub.equals("xpbank")) {
                 if ("give".startsWith(args[1].toLowerCase())) completions.add("give");
             } else if (List.of("birthday","gender","country").contains(sub)) {
@@ -473,12 +529,22 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
                     if (o.startsWith(args[1].toLowerCase())) completions.add(o);
                 }
             }
-        } else if (args.length == 3 && args[0].equalsIgnoreCase("xpbank") && args[1].equalsIgnoreCase("give")) {
-            for (Player p : Bukkit.getOnlinePlayers()) {
-                if (p.getName().toLowerCase().startsWith(args[2].toLowerCase())) completions.add(p.getName());
+        }
+        else if (args.length == 3 && args[0].equalsIgnoreCase("xpbank")) {
+            // Autocompletar nombres de jugadores para los subcomandos que lo requieran
+            if (args[1].equalsIgnoreCase("give") || args[1].equalsIgnoreCase("transfer")) {
+                for (Player p : Bukkit.getOnlinePlayers()) {
+                    if (p.getName().toLowerCase().startsWith(args[2].toLowerCase())) {
+                        completions.add(p.getName());
+                    }
+                }
             }
         }
-
+        else if (args.length == 4 && args[0].equalsIgnoreCase("xpbank")
+                && args[1].equalsIgnoreCase("transfer")) {
+            // Autocompletar cantidad para transfer (opcional)
+            return Arrays.asList("100", "500", "1000");
+        }
 
         else if (args.length == 3 && args[0].equalsIgnoreCase("admin")) {
             if (List.of("profession","abilities").contains(args[1].toLowerCase())) completions.add("reset");
@@ -495,14 +561,6 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
         }
         else if (args.length == 2 && args[0].equalsIgnoreCase("lectern")) {
             if ("give".startsWith(args[1].toLowerCase())) completions.add("give");
-        }
-        else if (args.length == 2) {
-            String sub = args[0].toLowerCase();
-            if (sub.equals("xpbank")) {
-                for (String option : List.of("upgrade", "transfer", "give")) {
-                    if (option.startsWith(args[1].toLowerCase())) completions.add(option);
-                }
-            }
         }
         else if (args.length == 3 && args[0].equalsIgnoreCase("xpbank") && args[1].equalsIgnoreCase("transfer")) {
             for (Player p : Bukkit.getOnlinePlayers()) {

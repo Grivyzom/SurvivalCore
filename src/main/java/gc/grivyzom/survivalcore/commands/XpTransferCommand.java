@@ -34,25 +34,32 @@ public class XpTransferCommand implements CommandExecutor, TabCompleter {
     /**
      * Maneja transferencias desde el banco (para integrar con ScoreCommand)
      */
+    /**
+     * Maneja transferencias desde el banco (para integrar con ScoreCommand)
+     * CORREGIDO: Maneja correctamente los argumentos
+     */
     public boolean handleBankTransfer(CommandSender sender, String[] args) {
         if (!(sender instanceof Player player)) {
             sender.sendMessage(ChatColor.RED + "Solo los jugadores pueden usar este comando.");
             return true;
         }
 
+        // Los argumentos vienen como: ["transfer", "nombreJugador", "cantidad"]
         if (args.length != 3) {
             player.sendMessage(ChatColor.RED + "Uso: /score xpbank transfer <jugador> <cantidad>");
             player.sendMessage(ChatColor.GRAY + "Transfiere experiencia de tu banco a otro jugador.");
+            player.sendMessage(ChatColor.YELLOW + "Ejemplo: /score xpbank transfer Steve 1000");
             return true;
         }
 
-        String targetName = args[1];
+        String targetName = args[1]; // Segundo argumento es el nombre del jugador
         long amount;
 
         try {
-            amount = Long.parseLong(args[2]);
+            amount = Long.parseLong(args[2]); // Tercer argumento es la cantidad
         } catch (NumberFormatException e) {
             player.sendMessage(ChatColor.RED + "La cantidad debe ser un número válido.");
+            player.sendMessage(ChatColor.GRAY + "Ejemplo: /score xpbank transfer " + targetName + " 1000");
             return true;
         }
 
@@ -61,13 +68,37 @@ public class XpTransferCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        // Confirmación para transferencias grandes
-        if (amount >= 1000) {
-            player.sendMessage(ChatColor.YELLOW + "¿Estás seguro de transferir " + amount +
-                    " XP desde tu banco a " + targetName + "? Escribe el comando nuevamente para confirmar.");
+        // Validar que el jugador objetivo existe
+        if (Bukkit.getOfflinePlayer(targetName).getUniqueId() == null) {
+            player.sendMessage(ChatColor.RED + "El jugador '" + targetName + "' no existe.");
+            return true;
         }
 
-        transferManager.transferFromBank(player, targetName, amount);
+        // Mostrar confirmación para transferencias grandes
+        if (amount >= plugin.getConfig().getInt("transfer_settings.bank_confirmation_threshold", 1000)) {
+            player.sendMessage(ChatColor.YELLOW + "⚠ Vas a transferir " + ChatColor.GOLD + amount + " XP" +
+                    ChatColor.YELLOW + " desde tu banco a " + ChatColor.AQUA + targetName + ChatColor.YELLOW + ".");
+            player.sendMessage(ChatColor.GRAY + "Esta es una transferencia grande. El sistema te pedirá confirmación.");
+        }
+
+        // Mostrar información del banco antes de la transferencia
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+            long bankBalance = plugin.getDatabaseManager().getBankedXp(player.getUniqueId().toString());
+
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                player.sendMessage(ChatColor.GOLD + "💰 Saldo actual del banco: " + ChatColor.WHITE +
+                        String.format("%,d XP", bankBalance));
+
+                if (bankBalance < amount) {
+                    player.sendMessage(ChatColor.RED + "❌ Saldo insuficiente para esta transferencia.");
+                    return;
+                }
+
+                // Proceder con la transferencia
+                transferManager.transferFromBank(player, targetName, amount);
+            });
+        });
+
         return true;
     }
 

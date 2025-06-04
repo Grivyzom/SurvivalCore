@@ -143,9 +143,20 @@ public class XpTransferManager {
                 if (!canTransfer) {
                     int dailyLimit = getDailyLimit(sender);
                     int usedToday = getDailyTransferred(sender.getUniqueId().toString());
-                    sender.sendMessage(ChatColor.RED + "Límite diario excedido. " +
-                            "Límite: " + (dailyLimit == -1 ? "∞" : dailyLimit) +
-                            ", Usado: " + usedToday + ", Intentas: " + levels);
+                    int remaining = dailyLimit == -1 ? Integer.MAX_VALUE : dailyLimit - usedToday;
+
+                    sender.sendMessage(ChatColor.RED + "╔════════════════════════════════╗");
+                    sender.sendMessage(ChatColor.RED + "║ " + ChatColor.YELLOW + "¡LÍMITE DIARIO EXCEDIDO!" + ChatColor.RED + "       ║");
+                    sender.sendMessage(ChatColor.RED + "╠════════════════════════════════╣");
+                    sender.sendMessage(ChatColor.RED + "║ " + ChatColor.YELLOW + "Límite diario: " +
+                            (dailyLimit == -1 ? "∞" : dailyLimit) + " niveles" + ChatColor.RED + " ║");
+                    sender.sendMessage(ChatColor.RED + "║ " + ChatColor.YELLOW + "Usado hoy: " + usedToday + " niveles" + ChatColor.RED + "      ║");
+                    sender.sendMessage(ChatColor.RED + "║ " + ChatColor.YELLOW + "Intentas transferir: " + levels + " niveles" + ChatColor.RED + " ║");
+                    sender.sendMessage(ChatColor.RED + "║ " + ChatColor.YELLOW + "Disponible: " +
+                            (remaining == Integer.MAX_VALUE ? "∞" : Math.max(0, remaining)) + " niveles" + ChatColor.RED + " ║");
+                    sender.sendMessage(ChatColor.RED + "║                                ║");
+                    sender.sendMessage(ChatColor.RED + "║ " + ChatColor.GRAY + "El límite se reinicia a las 00:00" + ChatColor.RED + " ║");
+                    sender.sendMessage(ChatColor.RED + "╚════════════════════════════════╝");
                     return;
                 }
 
@@ -156,15 +167,16 @@ public class XpTransferManager {
     }
 
     /**
-     * Transfiere experiencia del banco de un jugador a otro
+     * Transfiere experiencia del banco de un jugador a otro (CORREGIDO)
      */
     public void transferFromBank(Player sender, String targetName, long amount) {
         // Validaciones básicas
         if (!validateBasicTransfer(sender, targetName, (int)amount)) return;
 
-        Player target = Bukkit.getPlayerExact(targetName);
-        if (target == null) {
-            sender.sendMessage(ChatColor.RED + "El jugador " + targetName + " no está online.");
+        // CAMBIO: No requerir que el jugador esté online
+        UUID targetUUID = Bukkit.getOfflinePlayer(targetName).getUniqueId();
+        if (targetUUID == null) {
+            sender.sendMessage(ChatColor.RED + "Jugador no encontrado: " + targetName);
             return;
         }
 
@@ -203,14 +215,25 @@ public class XpTransferManager {
                 }
 
                 if (!withinLimit) {
-                    sender.sendMessage(ChatColor.RED + "Límite diario excedido. " +
-                            "Límite: " + (dailyLimit == -1 ? "∞" : dailyLimit) +
-                            ", Usado: " + usedToday + ", Intentas: " + amount);
+                    int remaining = dailyLimit == -1 ? Integer.MAX_VALUE : dailyLimit - usedToday;
+
+                    sender.sendMessage(ChatColor.RED + "╔════════════════════════════════╗");
+                    sender.sendMessage(ChatColor.RED + "║ " + ChatColor.YELLOW + "¡LÍMITE DIARIO EXCEDIDO!" + ChatColor.RED + "       ║");
+                    sender.sendMessage(ChatColor.RED + "╠════════════════════════════════╣");
+                    sender.sendMessage(ChatColor.RED + "║ " + ChatColor.YELLOW + "Límite diario: " +
+                            (dailyLimit == -1 ? "∞" : dailyLimit) + " XP" + ChatColor.RED + "       ║");
+                    sender.sendMessage(ChatColor.RED + "║ " + ChatColor.YELLOW + "Usado hoy: " + usedToday + " XP" + ChatColor.RED + "          ║");
+                    sender.sendMessage(ChatColor.RED + "║ " + ChatColor.YELLOW + "Intentas transferir: " + amount + " XP" + ChatColor.RED + "   ║");
+                    sender.sendMessage(ChatColor.RED + "║ " + ChatColor.YELLOW + "Disponible: " +
+                            (remaining == Integer.MAX_VALUE ? "∞" : Math.max(0, remaining)) + " XP" + ChatColor.RED + "       ║");
+                    sender.sendMessage(ChatColor.RED + "║                                ║");
+                    sender.sendMessage(ChatColor.RED + "║ " + ChatColor.GRAY + "El límite se reinicia a las 00:00" + ChatColor.RED + " ║");
+                    sender.sendMessage(ChatColor.RED + "╚════════════════════════════════╝");
                     return;
                 }
 
-                // Realizar transferencia desde banco
-                executeBankTransfer(sender, target, amount);
+                // Realizar transferencia desde banco (CORREGIDO)
+                executeBankTransferFixed(sender, targetName, targetUUID, amount);
             });
         });
     }
@@ -244,42 +267,78 @@ public class XpTransferManager {
     }
 
     /**
-     * Ejecuta la transferencia desde el banco de experiencia
+     * Ejecuta la transferencia desde el banco de experiencia (NUEVA VERSIÓN CORREGIDA)
      */
-    private void executeBankTransfer(Player sender, Player target, long amount) {
-        // Restar del banco del remitente
-        boolean success = plugin.getDatabaseManager().withdrawBankedXp(
-                sender.getUniqueId().toString(), amount);
+    private void executeBankTransferFixed(Player sender, String targetName, UUID targetUUID, long amount) {
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+            try {
+                // 1. Restar del banco del remitente
+                boolean withdrawSuccess = plugin.getDatabaseManager().withdrawBankedXp(
+                        sender.getUniqueId().toString(), amount);
 
-        if (!success) {
-            sender.sendMessage(ChatColor.RED + "Error al retirar XP del banco. Intenta de nuevo.");
-            return;
-        }
+                if (!withdrawSuccess) {
+                    Bukkit.getScheduler().runTask(plugin, () ->
+                            sender.sendMessage(ChatColor.RED + "Error al retirar XP del banco. Intenta de nuevo."));
+                    return;
+                }
 
-        // Convertir XP a niveles para el destinatario
-        long levels = amount / 68L; // Aproximación: 68 XP = 1 nivel en promedio
-        int leftover = (int)(amount % 68L);
+                // 2. Añadir XP al destinatario
+                Player targetPlayer = Bukkit.getPlayer(targetUUID);
+                if (targetPlayer != null && targetPlayer.isOnline()) {
+                    // Jugador está online - dar XP directamente
+                    Bukkit.getScheduler().runTask(plugin, () -> {
+                        long levels = amount / 68L; // Aproximación: 68 XP = 1 nivel en promedio
+                        int leftover = (int)(amount % 68L);
 
-        if (levels > 0) target.giveExpLevels((int)levels);
-        if (leftover > 0) target.giveExp(leftover);
+                        if (levels > 0) targetPlayer.giveExpLevels((int)levels);
+                        if (leftover > 0) targetPlayer.giveExp(leftover);
 
-        // Registrar la transferencia
-        recordTransfer(sender, target, amount, "BANK");
+                        // Efectos para el destinatario online
+                        targetPlayer.playSound(targetPlayer.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1f, 1.2f);
+                        targetPlayer.sendMessage(ChatColor.GREEN + "Has recibido " + ChatColor.YELLOW + amount +
+                                " XP" + ChatColor.GREEN + " (" + levels + " niveles) del banco de " +
+                                ChatColor.AQUA + sender.getName() + ChatColor.GREEN + ".");
+                    });
+                } else {
+                    // Jugador está offline - añadir al banco del destinatario
+                    long addedAmount = plugin.getDatabaseManager().addXpCapped(targetUUID.toString(), amount);
 
-        // Mensajes y efectos
-        sender.sendMessage(ChatColor.GREEN + "Has transferido " + ChatColor.YELLOW + amount +
-                " XP" + ChatColor.GREEN + " (" + levels + " niveles) desde tu banco a " +
-                ChatColor.AQUA + target.getName() + ChatColor.GREEN + ".");
-        target.sendMessage(ChatColor.GREEN + "Has recibido " + ChatColor.YELLOW + amount +
-                " XP" + ChatColor.GREEN + " (" + levels + " niveles) del banco de " +
-                ChatColor.AQUA + sender.getName() + ChatColor.GREEN + ".");
+                    if (addedAmount < amount) {
+                        // El banco del destinatario se llenó, devolver la diferencia
+                        long difference = amount - addedAmount;
+                        plugin.getDatabaseManager().updateBankedXp(sender.getUniqueId().toString(), difference);
 
-        // Efectos
-        sender.playSound(sender.getLocation(), Sound.BLOCK_ENDER_CHEST_OPEN, 1f, 0.8f);
-        target.playSound(target.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1f, 1.2f);
+                        Bukkit.getScheduler().runTask(plugin, () ->
+                                sender.sendMessage(ChatColor.YELLOW + "El banco de " + targetName +
+                                        " está lleno. Solo se transfirieron " + addedAmount + " XP. " +
+                                        "Se devolvieron " + difference + " XP a tu banco."));
+                    }
+                }
 
-        plugin.getLogger().info(String.format("XP Transfer: %s -> %s (%d XP from bank)",
-                sender.getName(), target.getName(), amount));
+                // 3. Registrar la transferencia
+                recordTransferAsync(sender.getUniqueId(), targetUUID, amount, "BANK",
+                        sender.getName(), targetName);
+
+                // 4. Mensajes y efectos para el remitente
+                Bukkit.getScheduler().runTask(plugin, () -> {
+                    long levels = amount / 68L;
+                    sender.sendMessage(ChatColor.GREEN + "Has transferido " + ChatColor.YELLOW + amount +
+                            " XP" + ChatColor.GREEN + " (" + levels + " niveles) desde tu banco a " +
+                            ChatColor.AQUA + targetName + ChatColor.GREEN + ".");
+
+                    // Efectos para el remitente
+                    sender.playSound(sender.getLocation(), Sound.BLOCK_ENDER_CHEST_OPEN, 1f, 0.8f);
+                });
+
+                plugin.getLogger().info(String.format("XP Transfer: %s -> %s (%d XP from bank)",
+                        sender.getName(), targetName, amount));
+
+            } catch (Exception e) {
+                plugin.getLogger().log(Level.SEVERE, "Error en transferencia de banco", e);
+                Bukkit.getScheduler().runTask(plugin, () ->
+                        sender.sendMessage(ChatColor.RED + "Error durante la transferencia. Contacta a un administrador."));
+            }
+        });
     }
 
     /**
@@ -348,6 +407,15 @@ public class XpTransferManager {
      * Registra una transferencia en la base de datos
      */
     private void recordTransfer(Player sender, Player target, long amount, String type) {
+        recordTransferAsync(sender.getUniqueId(), target.getUniqueId(), amount, type,
+                sender.getName(), target.getName());
+    }
+
+    /**
+     * Registra una transferencia en la base de datos (versión asíncrona)
+     */
+    private void recordTransferAsync(UUID senderUUID, UUID receiverUUID, long amount, String type,
+                                     String senderName, String receiverName) {
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             try (Connection conn = DriverManager.getConnection(
                     getConnectionString(),
@@ -357,12 +425,12 @@ public class XpTransferManager {
                          "INSERT INTO xp_transfers (sender_uuid, receiver_uuid, amount, transfer_type, " +
                                  "transfer_date, sender_name, receiver_name) VALUES (?, ?, ?, ?, CURDATE(), ?, ?)")) {
 
-                ps.setString(1, sender.getUniqueId().toString());
-                ps.setString(2, target.getUniqueId().toString());
+                ps.setString(1, senderUUID.toString());
+                ps.setString(2, receiverUUID.toString());
                 ps.setLong(3, amount);
                 ps.setString(4, type);
-                ps.setString(5, sender.getName());
-                ps.setString(6, target.getName());
+                ps.setString(5, senderName);
+                ps.setString(6, receiverName);
 
                 ps.executeUpdate();
 
@@ -388,13 +456,18 @@ public class XpTransferManager {
                 int usedToday = (Integer) results[1];
                 int remaining = (Integer) results[2];
 
-                player.sendMessage(ChatColor.GOLD + "=== Información de Transferencias ===");
-                player.sendMessage(ChatColor.YELLOW + "Límite diario: " +
-                        ChatColor.WHITE + (dailyLimit == -1 ? "Ilimitado" : dailyLimit));
-                player.sendMessage(ChatColor.YELLOW + "Transferido hoy: " +
-                        ChatColor.WHITE + usedToday);
-                player.sendMessage(ChatColor.YELLOW + "Disponible: " +
-                        ChatColor.WHITE + (remaining == -1 ? "Ilimitado" : remaining));
+                player.sendMessage(ChatColor.GOLD + "╔════════════════════════════════╗");
+                player.sendMessage(ChatColor.GOLD + "║ " + ChatColor.YELLOW + "Información de Transferencias" + ChatColor.GOLD + " ║");
+                player.sendMessage(ChatColor.GOLD + "╠════════════════════════════════╣");
+                player.sendMessage(ChatColor.GOLD + "║ " + ChatColor.YELLOW + "Límite diario: " +
+                        ChatColor.WHITE + (dailyLimit == -1 ? "Ilimitado" : String.format("%,d", dailyLimit)) +
+                        ChatColor.GOLD + " ║");
+                player.sendMessage(ChatColor.GOLD + "║ " + ChatColor.YELLOW + "Transferido hoy: " +
+                        ChatColor.WHITE + String.format("%,d", usedToday) + ChatColor.GOLD + " ║");
+                player.sendMessage(ChatColor.GOLD + "║ " + ChatColor.YELLOW + "Disponible: " +
+                        ChatColor.WHITE + (remaining == -1 ? "Ilimitado" : String.format("%,d", remaining)) +
+                        ChatColor.GOLD + " ║");
+                player.sendMessage(ChatColor.GOLD + "╚════════════════════════════════╝");
             });
         });
     }

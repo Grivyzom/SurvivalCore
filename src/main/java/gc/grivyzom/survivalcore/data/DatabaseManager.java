@@ -35,11 +35,12 @@ public class DatabaseManager {
             "CREATE TABLE IF NOT EXISTS user_stats (" +
                     "uuid CHAR(36) NOT NULL PRIMARY KEY, " +
                     "farming_level INT UNSIGNED NOT NULL DEFAULT 1, " +
-                    "farming_xp BIGINT UNSIGNED NOT NULL DEFAULT 0, " +
+                    "farming_xp BIGINT UNSIGNED NOT NULL DEFAULT 0, " +    // Cambiado a BIGINT
                     "mining_level INT UNSIGNED NOT NULL DEFAULT 1, " +
-                    "mining_xp BIGINT UNSIGNED NOT NULL DEFAULT 0, " +
+                    "mining_xp BIGINT UNSIGNED NOT NULL DEFAULT 0, " +     // Cambiado a BIGINT
                     "FOREIGN KEY (uuid) REFERENCES users(uuid) ON DELETE CASCADE" +
                     ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
+
 
     private static final String SQL_CREATE_ABILITIES =
             "CREATE TABLE IF NOT EXISTS user_abilities (" +
@@ -140,9 +141,9 @@ public class DatabaseManager {
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     data.setFarmingLevel(rs.getInt("farming_level"));
-                    data.setFarmingXP(rs.getInt("farming_xp"));
+                    data.setFarmingXP(rs.getLong("farming_xp"));    // Cambiado a getLong
                     data.setMiningLevel(rs.getInt("mining_level"));
-                    data.setMiningXP(rs.getInt("mining_xp"));
+                    data.setMiningXP(rs.getLong("mining_xp"));      // Cambiado a getLong
                 }
             }
         }
@@ -208,9 +209,9 @@ public class DatabaseManager {
             try (PreparedStatement ps = conn.prepareStatement(upsertStats)) {
                 ps.setString(1, data.getUuid());
                 ps.setInt(2, data.getFarmingLevel());
-                ps.setLong(3, data.getFarmingXP());
+                ps.setLong(3, data.getFarmingXP());      // Cambiado a setLong
                 ps.setInt(4, data.getMiningLevel());
-                ps.setLong(5, data.getMiningXP());
+                ps.setLong(5, data.getMiningXP());       // Cambiado a setLong
                 ps.executeUpdate();
             }
             try (PreparedStatement pd = conn.prepareStatement(deleteAbilities)) {

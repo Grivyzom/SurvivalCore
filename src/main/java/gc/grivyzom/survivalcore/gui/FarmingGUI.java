@@ -42,8 +42,8 @@ public class FarmingGUI {
         }
 
         int level = data.getFarmingLevel();
-        int xp = data.getFarmingXP();
-        int cost = level * 100;
+        long xp = data.getFarmingXP();  // Cambiado a long
+        long cost = (long) level * 100;  // Cambiado a long y casting explícito
 
         // Cabeza del jugador
         ItemStack head = new ItemStack(Material.PLAYER_HEAD);

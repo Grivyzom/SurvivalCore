@@ -11,13 +11,13 @@ public class UserData {
     private String pais;
 
     private int farmingLevel;
-    private int farmingXP;
+    private long farmingXP;  // Cambiado de int a long
     private int miningLevel;
-    private int miningXP;
+    private long miningXP;   // Cambiado de int a long
 
     private Map<String, Integer> abilities;
     private Map<String, Integer> masteryLevels;
-    private long bankedXp;  // nueva propiedad
+    private long bankedXp;
 
     public UserData() {
         this.abilities = new HashMap<>();
@@ -32,9 +32,9 @@ public class UserData {
         this.genero = genero;
         this.pais = pais;
         this.farmingLevel = 1;
-        this.farmingXP = 0;
+        this.farmingXP = 0;      // Ahora es long
         this.miningLevel = 1;
-        this.miningXP = 0;
+        this.miningXP = 0;       // Ahora es long
         this.abilities = new HashMap<>();
         this.masteryLevels = new HashMap<>();
     }
@@ -50,14 +50,20 @@ public class UserData {
     public void setGenero(String genero) { this.genero = genero; }
     public String getPais() { return pais; }
     public void setPais(String pais) { this.pais = pais; }
+
     public int getFarmingLevel() { return farmingLevel; }
     public void setFarmingLevel(int farmingLevel) { this.farmingLevel = farmingLevel; }
-    public int getFarmingXP() { return farmingXP; }
-    public void setFarmingXP(int farmingXP) { this.farmingXP = farmingXP; }
+
+    // Cambiados a long
+    public long getFarmingXP() { return farmingXP; }
+    public void setFarmingXP(long farmingXP) { this.farmingXP = farmingXP; }
+
     public int getMiningLevel() { return miningLevel; }
     public void setMiningLevel(int miningLevel) { this.miningLevel = miningLevel; }
-    public int getMiningXP() { return miningXP; }
-    public void setMiningXP(int miningXP) { this.miningXP = miningXP; }
+
+    // Cambiados a long
+    public long getMiningXP() { return miningXP; }
+    public void setMiningXP(long miningXP) { this.miningXP = miningXP; }
 
     public Map<String, Integer> getAbilities() {
         if (abilities == null) abilities = new HashMap<>();
@@ -78,4 +84,3 @@ public class UserData {
     public long getBankedXp() { return bankedXp; }
     public void setBankedXp(long xp) { this.bankedXp = xp; }
 }
-

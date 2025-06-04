@@ -38,8 +38,9 @@ public class FarmingGUIListener implements Listener {
         if (event.getCurrentItem().getType() == Material.WHEAT) {
             UserData data = plugin.getDatabaseManager().getUserData(player.getUniqueId().toString());
             int lvl = data.getFarmingLevel();
-            int xp = data.getFarmingXP();
-            int cost = lvl * 100;
+            long xp = data.getFarmingXP();  // Cambiado a long
+            long cost = (long) lvl * 100;   // Cambiado a long y casting explícito
+
             if (xp >= cost) {
                 data.setFarmingXP(xp - cost);
                 data.setFarmingLevel(lvl + 1);

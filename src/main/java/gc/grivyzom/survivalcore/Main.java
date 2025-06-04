@@ -13,8 +13,13 @@ import gc.grivyzom.survivalcore.recipes.LecternRecipeManager;
 import gc.grivyzom.survivalcore.skills.*;
 import gc.grivyzom.survivalcore.util.*;
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
+import gc.grivyzom.survivalcore.api.SurvivalCoreAPI;
+import gc.grivyzom.survivalcore.api.events.*;
 
+import java.time.LocalDate;
 import java.util.logging.Level;
 
 /**
@@ -70,6 +75,8 @@ public class Main extends JavaPlugin {
         );
 
         getLogger().info("SurvivalCore habilitado correctamente.");
+        SurvivalCoreAPI.initialize(this);
+        getLogger().info("SurvivalCore API v2.0 inicializada y lista para otros plugins.");
     }
 
     @Override
@@ -221,4 +228,126 @@ public class Main extends JavaPlugin {
         }
         getLogger().info("Configuración interna actualizada.");
     }
+
+    /**
+     * Dispara evento cuando un jugador deposita XP en el banco
+     */
+  // NUEVOS MÉTODOS para disparar eventos personalizados:
+
+    /**
+     * Dispara evento cuando un jugador deposita XP en el banco
+     */
+    public void firePlayerBankDepositEvent(Player player, long amount, long newBalance) {
+        PlayerBankDepositEvent event = new PlayerBankDepositEvent(player, amount, newBalance);
+        Bukkit.getPluginManager().callEvent(event);
+
+        if (event.isCancelled()) {
+            // Revertir el depósito si fue cancelado
+            getDatabaseManager().withdrawBankedXp(player.getUniqueId().toString(), amount);
+            player.sendMessage(ChatColor.RED + "Depósito cancelado por otro plugin.");
+        }
+    }
+
+    /**
+     * Dispara evento cuando un jugador retira XP del banco
+     */
+    public void firePlayerBankWithdrawEvent(Player player, long amount, long newBalance) {
+        PlayerBankWithdrawEvent event = new PlayerBankWithdrawEvent(player, amount, newBalance);
+        Bukkit.getPluginManager().callEvent(event);
+    }
+
+    /**
+     * Dispara evento cuando un jugador mejora su banco
+     */
+    public void firePlayerBankUpgradeEvent(Player player, long oldCapacity, long newCapacity, int newLevel) {
+        PlayerBankUpgradeEvent event = new PlayerBankUpgradeEvent(player, oldCapacity, newCapacity, newLevel);
+        Bukkit.getPluginManager().callEvent(event);
+    }
+
+    /**
+     * Dispara evento cuando un jugador sube de nivel en una profesión
+     */
+    public void firePlayerProfessionLevelUpEvent(Player player, String profession, int oldLevel, int newLevel) {
+        PlayerProfessionLevelUpEvent event = new PlayerProfessionLevelUpEvent(player, profession, oldLevel, newLevel);
+        Bukkit.getPluginManager().callEvent(event);
+    }
+
+    /**
+     * Dispara evento cuando un jugador gana XP en una profesión
+     */
+    public void firePlayerProfessionXPGainEvent(Player player, String profession, long xpGained, long totalXP) {
+        PlayerProfessionXPGainEvent event = new PlayerProfessionXPGainEvent(player, profession, xpGained, totalXP);
+        Bukkit.getPluginManager().callEvent(event);
+
+        if (event.isCancelled()) {
+            // No aplicar la ganancia de XP
+            return;
+        }
+    }
+
+    /**
+     * Dispara evento cuando un jugador activa una habilidad
+     */
+    public void firePlayerSkillActivateEvent(Player player, String skillName, int skillLevel, long duration) {
+        PlayerSkillActivateEvent event = new PlayerSkillActivateEvent(player, skillName, skillLevel, duration);
+        Bukkit.getPluginManager().callEvent(event);
+    }
+
+    /**
+     * Dispara evento cuando una habilidad se desactiva
+     */
+    public void firePlayerSkillDeactivateEvent(Player player, String skillName, int skillLevel) {
+        PlayerSkillDeactivateEvent event = new PlayerSkillDeactivateEvent(player, skillName, skillLevel);
+        Bukkit.getPluginManager().callEvent(event);
+    }
+
+    /**
+     * Dispara evento cuando un jugador sube de nivel una habilidad
+     */
+    public void firePlayerSkillLevelUpEvent(Player player, String skillName, int oldLevel, int newLevel) {
+        PlayerSkillLevelUpEvent event = new PlayerSkillLevelUpEvent(player, skillName, oldLevel, newLevel);
+        Bukkit.getPluginManager().callEvent(event);
+    }
+
+    /**
+     * Dispara evento cuando un jugador mejora una maestría
+     */
+    public void firePlayerMasteryUpgradeEvent(Player player, String masteryId, int oldLevel, int newLevel, boolean isMaxLevel) {
+        PlayerMasteryUpgradeEvent event = new PlayerMasteryUpgradeEvent(player, masteryId, oldLevel, newLevel, isMaxLevel);
+        Bukkit.getPluginManager().callEvent(event);
+    }
+
+    /**
+     * Dispara evento cuando un jugador transfiere XP
+     */
+    public void firePlayerXPTransferEvent(Player sender, String receiverName, long amount, PlayerXPTransferEvent.TransferType type) {
+        PlayerXPTransferEvent event = new PlayerXPTransferEvent(sender, receiverName, amount, type);
+        Bukkit.getPluginManager().callEvent(event);
+    }
+
+    /**
+     * Dispara evento cuando un jugador cambia su género
+     */
+    public void firePlayerGenderChangeEvent(Player player, String oldGender, String newGender) {
+        PlayerGenderChangeEvent event = new PlayerGenderChangeEvent(player, oldGender, newGender);
+        Bukkit.getPluginManager().callEvent(event);
+    }
+
+    /**
+     * Dispara evento cuando un jugador establece su cumpleaños
+     */
+    public void firePlayerBirthdaySetEvent(Player player, String birthday) {
+        boolean isToday = false;
+        try {
+            LocalDate birthDate = LocalDate.parse(birthday);
+            LocalDate today = LocalDate.now();
+            isToday = birthDate.getMonth() == today.getMonth() &&
+                    birthDate.getDayOfMonth() == today.getDayOfMonth();
+        } catch (Exception ignored) {}
+
+        PlayerBirthdaySetEvent event = new PlayerBirthdaySetEvent(player, birthday, isToday);
+        Bukkit.getPluginManager().callEvent(event);
+    }
+
+
 }

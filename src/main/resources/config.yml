@@ -133,3 +133,85 @@ xp_bank:
 
   # Incremento del coste por nivel
   upgrade_cost_increment: 250
+
+# Agregar esta sección al archivo config.yml existente
+
+# Sistema de reparación mejorado
+repair:
+  # Multiplicador del costo base (porcentaje del daño)
+  base_cost_multiplier: 0.05  # 5% del daño como costo base
+
+  # Multiplicador adicional por cada encantamiento
+  enchantment_multiplier: 0.10  # +10% por cada encantamiento
+
+  # Multiplicador extra si el ítem tiene Mending
+  mending_extra_multiplier: 0.10  # +10% adicional
+
+  # Costo mínimo en niveles
+  min_cost: 1
+
+  # Costo máximo por ítem individual
+  max_cost_per_item: 30
+
+  # Cooldown entre reparaciones (milisegundos)
+  cooldown: 3000  # 3 segundos
+
+  # Multiplicadores por tipo de material
+  material_multipliers:
+    NETHERITE: 2.0      # Netherite es el más costoso
+    DIAMOND: 1.5        # Diamante es costoso
+    IRON: 1.0           # Hierro es estándar
+    GOLD: 0.8           # Oro es más barato pero delicado
+    STONE: 0.6          # Piedra es barata
+    WOOD: 0.6           # Madera es la más barata
+    LEATHER: 0.4        # Armadura de cuero es muy barata
+    CHAINMAIL: 0.9      # Cota de malla
+    TURTLE: 1.2         # Caparazón de tortuga
+
+  # Configuración de confirmación
+  confirmation:
+    # Número mínimo de ítems para requerir confirmación
+    min_items: 5
+
+    # Costo mínimo total para requerir confirmación
+    min_total_cost: 50
+
+    # Tiempo de expiración de la confirmación (segundos)
+    timeout: 30
+
+  # Mensajes personalizables
+  messages:
+    insufficient_xp: "&c╔══════════════════════════════════╗\n&c║ &eEXPERIENCIA INSUFICIENTE&c        ║\n&c╠══════════════════════════════════╣\n&c║ &fNecesitas: &e%required% niveles&c          ║\n&c║ &fTienes: &e%current% niveles&c             ║\n&c║ &fTe faltan: &6%missing% niveles&c          ║\n&c╚══════════════════════════════════╝"
+
+    repair_success_single: "&a✓ %item% ha sido reparado completamente.\n&7Costo: %cost% niveles de experiencia."
+
+    repair_success_multiple: "&a✓ Has reparado %count% ítems exitosamente.\n&7Costo total: %cost% niveles de experiencia."
+
+    cooldown_message: "&cDebes esperar %seconds% segundos antes de reparar nuevamente."
+
+    no_repairable_items: "&eNo tienes ítems dañados para reparar."
+
+    confirmation_required: "&e╔══════════════════════════════════╗\n&e║ &6CONFIRMACIÓN DE REPARACIÓN&e      ║\n&e╠══════════════════════════════════╣\n&e║ &fÍtems a reparar: &b%items%&e              ║\n&e║ &fCosto total: &a%cost% niveles&e         ║\n&e║                                  ║\n&e║ &fUsa &a/reparar confirm&f para&e     ║\n&e║ &fproceder con la reparación.&e      ║\n&e╚══════════════════════════════════╝"
+
+  # Efectos visuales y sonoros
+  effects:
+    # Sonidos para reparación individual
+    single_repair:
+      sounds:
+        - "BLOCK_ANVIL_USE:1.0:1.2"
+        - "ENTITY_EXPERIENCE_ORB_PICKUP:1.0:0.8"
+
+    # Sonidos para reparación múltiple
+    multiple_repair:
+      sounds:
+        - "BLOCK_ANVIL_USE:1.0:1.0"
+        - "ENTITY_PLAYER_LEVELUP:1.0:1.2"
+        - "BLOCK_ENCHANTMENT_TABLE_USE:0.8:1.5"
+
+    # Partículas
+    particles:
+      enabled: true
+      types:
+        - "ENCHANTMENT_TABLE"
+        - "VILLAGER_HAPPY"
+        - "CRIT_MAGIC"  # Solo para reparaciones múltiples

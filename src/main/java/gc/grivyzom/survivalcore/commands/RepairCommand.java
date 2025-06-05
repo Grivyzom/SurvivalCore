@@ -14,28 +14,78 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.Damageable;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.Particle;
+import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
- * Comando /repair que permite reparar completamente el ítem en mano
- * a cambio de experiencia, con costo escalado por encantamientos.
+ * Comando /reparar mejorado con opciones avanzadas y sistema de costos dinámico.
+ *
+ * @author Brocolitx
+ * @version 2.0
  */
 public class RepairCommand implements CommandExecutor, TabCompleter {
 
     private final Main plugin;
 
-    // Configuración de costos base
-    private static final int BASE_COST_LEVELS = 5;           // Costo base en niveles
-    private static final int ENCHANTMENT_MULTIPLIER = 2;     // Multiplicador por encantamiento
-    private static final int MAX_COST_LEVELS = 50;           // Costo máximo en niveles
+    // Configuración de costos
+    private static final double BASE_COST_MULTIPLIER = 0.05; // 5% del daño como costo base
+    private static final double ENCHANTMENT_MULTIPLIER = 0.10; // +10% por cada encantamiento
+    private static final double MENDING_EXTRA_MULTIPLIER = 0.10; // +10% adicional si tiene Mending
+    private static final int MIN_COST = 1; // Costo mínimo en niveles
+    private static final int MAX_COST_PER_ITEM = 30; // Costo máximo por ítem individual
 
-    // Cooldown para evitar spam (en milisegundos)
+    // Configuración dinámica
+    private double baseCostMultiplier;
+    private double enchantmentMultiplier;
+    private double mendingExtraMultiplier;
+    private int minCost;
+    private int maxCostPerItem;
+    private Map<String, Double> materialMultipliers;
+
+    // Cooldowns
     private static final long REPAIR_COOLDOWN = 3000; // 3 segundos
     private final Map<UUID, Long> cooldowns = new HashMap<>();
 
+    // Cache de ítems reparables por tipo
+    private final Map<UUID, RepairSession> repairSessions = new HashMap<>();
+
     public RepairCommand(Main plugin) {
         this.plugin = plugin;
+        loadConfig();
+    }
+
+    /**
+     * Carga la configuración desde config.yml
+     */
+    private void loadConfig() {
+        plugin.reloadConfig();
+
+        // Cargar valores de configuración con valores por defecto
+        baseCostMultiplier = plugin.getConfig().getDouble("repair.base_cost_multiplier", BASE_COST_MULTIPLIER);
+        enchantmentMultiplier = plugin.getConfig().getDouble("repair.enchantment_multiplier", ENCHANTMENT_MULTIPLIER);
+        mendingExtraMultiplier = plugin.getConfig().getDouble("repair.mending_extra_multiplier", MENDING_EXTRA_MULTIPLIER);
+        minCost = plugin.getConfig().getInt("repair.min_cost", MIN_COST);
+        maxCostPerItem = plugin.getConfig().getInt("repair.max_cost_per_item", MAX_COST_PER_ITEM);
+
+        // Cargar multiplicadores de material
+        materialMultipliers = new HashMap<>();
+        if (plugin.getConfig().contains("repair.material_multipliers")) {
+            for (String material : plugin.getConfig().getConfigurationSection("repair.material_multipliers").getKeys(false)) {
+                double multiplier = plugin.getConfig().getDouble("repair.material_multipliers." + material);
+                materialMultipliers.put(material.toUpperCase(), multiplier);
+            }
+        } else {
+            // Valores por defecto
+            materialMultipliers.put("NETHERITE", 2.0);
+            materialMultipliers.put("DIAMOND", 1.5);
+            materialMultipliers.put("IRON", 1.0);
+            materialMultipliers.put("GOLD", 0.8);
+            materialMultipliers.put("STONE", 0.6);
+            materialMultipliers.put("WOOD", 0.6);
+        }
     }
 
     @Override
@@ -45,104 +95,598 @@ public class RepairCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        // Verificar cooldown
-        if (isOnCooldown(player)) {
+        // Verificar cooldown (con bypass para permisos)
+        if (!player.hasPermission("survivalcore.repair.nocooldown") && isOnCooldown(player)) {
             long remaining = getRemainingCooldown(player);
-            player.sendMessage(ChatColor.RED + "Debes esperar " + (remaining / 1000) + " segundos antes de reparar otro ítem.");
+            player.sendMessage(ChatColor.RED + "Debes esperar " + (remaining / 1000) + " segundos antes de reparar nuevamente.");
             return true;
         }
 
-        // Verificar argumentos
-        if (args.length > 0) {
-            String subcommand = args[0].toLowerCase();
-            switch (subcommand) {
-                case "info" -> {
-                    showRepairInfo(player);
-                    return true;
-                }
-                case "cost" -> {
-                    showRepairCost(player);
-                    return true;
-                }
-                case "help" -> {
-                    showHelp(player);
-                    return true;
-                }
-                default -> {
-                    player.sendMessage(ChatColor.RED + "Subcomando desconocido. Usa /repair help para ver la ayuda.");
-                    return true;
-                }
-            }
+        // Sin argumentos - reparar ítem en mano
+        if (args.length == 0) {
+            return repairItemInHand(player);
         }
 
-        // Ejecutar reparación
-        executeRepair(player);
+        String subcommand = args[0].toLowerCase();
+
+        // Usar switch statement tradicional en lugar de switch expression
+        switch (subcommand) {
+            case "all":
+                return repairAll(player);
+            case "armor":
+                return repairArmor(player);
+            case "sword":
+                return repairWeapon(player, RepairableType.SWORD);
+            case "tool":
+                return repairTool(player);
+            case "cost":
+                return showRepairCost(player, args);
+            case "info":
+                return showRepairInfo(player);
+            case "help":
+                return showHelp(player);
+            case "confirm":
+                return confirmRepair(player);
+            default:
+                player.sendMessage(ChatColor.RED + "Subcomando desconocido. Usa /reparar help para ver la ayuda.");
+                return true;
+        }
+    }
+
+    /**
+     * Repara el ítem en la mano principal
+     */
+    private boolean repairItemInHand(Player player) {
+        ItemStack item = player.getInventory().getItemInMainHand();
+
+        RepairResult validation = validateItem(item);
+        if (!validation.success()) {
+            player.sendMessage(ChatColor.RED + validation.message());
+            return true;
+        }
+
+        RepairInfo info = calculateRepairInfo(item, player); // Pasar player como parámetro
+
+        if (player.getLevel() < info.cost()) {
+            showInsufficientXP(player, info.cost());
+            return true;
+        }
+
+        performRepair(player, Collections.singletonList(info));
         return true;
     }
 
     /**
-     * Ejecuta la reparación del ítem en mano
+     * Repara todos los ítems reparables del inventario
      */
-    private void executeRepair(Player player) {
-        ItemStack item = player.getInventory().getItemInMainHand();
+    private boolean repairAll(Player player) {
+        List<RepairInfo> repairableItems = new ArrayList<>();
 
-        // Validar que el ítem sea reparable
-        RepairResult validation = validateItem(item);
-        if (!validation.success) {
-            player.sendMessage(ChatColor.RED + validation.message);
-            return;
+        // Escanear inventario completo
+        for (ItemStack item : player.getInventory().getContents()) {
+            if (item == null || !isRepairable(item)) continue;
+
+            RepairInfo info = calculateRepairInfo(item, player); // Pasar player como parámetro
+            if (info.damage() > 0) {
+                repairableItems.add(info);
+            }
         }
 
-        // Calcular costo
-        int repairCost = calculateRepairCost(item);
-
-        // Verificar que el jugador tenga suficiente experiencia
-        if (player.getLevel() < repairCost) {
-            player.sendMessage(ChatColor.RED + "Necesitas " + repairCost + " niveles para reparar este ítem.");
-            player.sendMessage(ChatColor.GRAY + "Tienes " + player.getLevel() + " niveles disponibles.");
-            return;
+        if (repairableItems.isEmpty()) {
+            player.sendMessage(ChatColor.YELLOW + "No tienes ítems dañados para reparar.");
+            return true;
         }
 
-        // Confirmar reparación para ítems costosos
-        if (repairCost >= 25) {
-            player.sendMessage(ChatColor.YELLOW + "⚠ Esta reparación cuesta " + repairCost +
-                    " niveles. Usa el comando nuevamente para confirmar.");
-            setCooldown(player, 10000); // 10 segundos de cooldown para confirmación
-            return;
+        int totalCost = repairableItems.stream()
+                .mapToInt(RepairInfo::cost)
+                .sum();
+
+        if (player.getLevel() < totalCost) {
+            showInsufficientXP(player, totalCost);
+            showRepairPreview(player, repairableItems, totalCost);
+            return true;
         }
 
-        // Realizar reparación
-        performRepair(player, item, repairCost);
+        // Solicitar confirmación para reparaciones masivas
+        if (repairableItems.size() > 5 || totalCost > 50) {
+            createRepairSession(player, repairableItems);
+            showConfirmationMessage(player, repairableItems, totalCost);
+            return true;
+        }
+
+        performRepair(player, repairableItems);
+        return true;
     }
 
     /**
-     * Realiza la reparación del ítem
+     * Repara toda la armadura equipada
      */
-    private void performRepair(Player player, ItemStack item, int cost) {
-        // Descontar experiencia
-        player.setLevel(player.getLevel() - cost);
+    private boolean repairArmor(Player player) {
+        List<RepairInfo> armorPieces = new ArrayList<>();
 
-        // Reparar ítem completamente
+        ItemStack[] armor = player.getInventory().getArmorContents();
+        for (ItemStack piece : armor) {
+            if (piece == null || !isRepairable(piece)) continue;
+
+            RepairInfo info = calculateRepairInfo(piece, player); // Pasar player como parámetro
+            if (info.damage() > 0) {
+                armorPieces.add(info);
+            }
+        }
+
+        if (armorPieces.isEmpty()) {
+            player.sendMessage(ChatColor.YELLOW + "No tienes armadura dañada para reparar.");
+            return true;
+        }
+
+        int totalCost = armorPieces.stream()
+                .mapToInt(RepairInfo::cost)
+                .sum();
+
+        if (player.getLevel() < totalCost) {
+            showInsufficientXP(player, totalCost);
+            return true;
+        }
+
+        performRepair(player, armorPieces);
+        return true;
+    }
+
+    /**
+     * Repara armas (espadas, hachas, tridentes)
+     */
+    private boolean repairWeapon(Player player, RepairableType type) {
+        ItemStack item = player.getInventory().getItemInMainHand();
+
+        if (!isWeapon(item)) {
+            player.sendMessage(ChatColor.RED + "No tienes un arma en tu mano principal.");
+            return true;
+        }
+
+        RepairResult validation = validateItem(item);
+        if (!validation.success()) {
+            player.sendMessage(ChatColor.RED + validation.message());
+            return true;
+        }
+
+        RepairInfo info = calculateRepairInfo(item, player); // Pasar player como parámetro
+
+        if (player.getLevel() < info.cost()) {
+            showInsufficientXP(player, info.cost());
+            return true;
+        }
+
+        performRepair(player, Collections.singletonList(info));
+        return true;
+    }
+
+    /**
+     * Repara herramientas (picos, palas, hachas, azadas)
+     */
+    private boolean repairTool(Player player) {
+        ItemStack item = player.getInventory().getItemInMainHand();
+
+        if (!isTool(item)) {
+            player.sendMessage(ChatColor.RED + "No tienes una herramienta en tu mano principal.");
+            return true;
+        }
+
+        RepairResult validation = validateItem(item);
+        if (!validation.success()) {
+            player.sendMessage(ChatColor.RED + validation.message());
+            return true;
+        }
+
+        RepairInfo info = calculateRepairInfo(item, player); // Pasar player como parámetro
+
+        if (player.getLevel() < info.cost()) {
+            showInsufficientXP(player, info.cost());
+            return true;
+        }
+
+        performRepair(player, Collections.singletonList(info));
+        return true;
+    }
+
+    /**
+     * Muestra el costo de reparación
+     */
+    private boolean showRepairCost(Player player, String[] args) {
+        if (args.length > 1 && args[1].equalsIgnoreCase("all")) {
+            showAllRepairCosts(player);
+        } else {
+            showItemRepairCost(player);
+        }
+        return true;
+    }
+
+    /**
+     * Calcula la información de reparación para un ítem
+     * @param item El ítem a reparar
+     * @param player El jugador (para verificar permisos de descuento)
+     */
+    private RepairInfo calculateRepairInfo(ItemStack item, Player player) {
+        if (item == null || !item.hasItemMeta()) {
+            return new RepairInfo(item, 0, 0, 0);
+        }
+
         ItemMeta meta = item.getItemMeta();
-        if (meta instanceof Damageable damageable) {
-            damageable.setDamage(0);
-            item.setItemMeta(meta);
+        if (!(meta instanceof Damageable damageable)) {
+            return new RepairInfo(item, 0, 0, 0);
+        }
+
+        int damage = damageable.getDamage();
+        if (damage == 0) {
+            return new RepairInfo(item, 0, 0, 0);
+        }
+
+        // Cálculo del costo base
+        double baseCost = damage * baseCostMultiplier;
+
+        // Multiplicador por encantamientos
+        Map<Enchantment, Integer> enchants = item.getEnchantments();
+        double enchantmentMultiplierTotal = 1.0;
+
+        for (Map.Entry<Enchantment, Integer> entry : enchants.entrySet()) {
+            enchantmentMultiplierTotal += enchantmentMultiplier;
+
+            // Costo adicional por nivel de encantamiento
+            enchantmentMultiplierTotal += (entry.getValue() - 1) * 0.05;
+
+            // Costo extra si tiene Mending
+            if (entry.getKey().equals(Enchantment.MENDING)) {
+                enchantmentMultiplierTotal += mendingExtraMultiplier;
+            }
+        }
+
+        // Aplicar multiplicadores según el tipo de ítem
+        double typeMultiplier = getTypeMultiplier(item.getType());
+
+        int finalCost = (int) Math.ceil(baseCost * enchantmentMultiplierTotal * typeMultiplier);
+        finalCost = Math.max(minCost, Math.min(finalCost, maxCostPerItem));
+
+        // Aplicar descuentos por permisos
+        if (player.hasPermission("survivalcore.repair.free")) {
+            finalCost = 0;
+        } else if (player.hasPermission("survivalcore.repair.discount.vip")) {
+            finalCost = (int) Math.ceil(finalCost * 0.5); // 50% descuento
+        } else if (player.hasPermission("survivalcore.repair.discount")) {
+            finalCost = (int) Math.ceil(finalCost * 0.75); // 25% descuento
+        }
+
+        return new RepairInfo(item, damage, item.getType().getMaxDurability(), finalCost);
+    }
+
+    /**
+     * Obtiene el multiplicador según el tipo de ítem
+     */
+    private double getTypeMultiplier(Material material) {
+        String name = material.name();
+
+        // Buscar en la configuración
+        for (Map.Entry<String, Double> entry : materialMultipliers.entrySet()) {
+            if (name.contains(entry.getKey())) {
+                return entry.getValue();
+            }
+        }
+
+        // Valor por defecto
+        return 1.0;
+    }
+
+    /**
+     * Realiza la reparación de los ítems
+     */
+    private void performRepair(Player player, List<RepairInfo> items) {
+        int totalCost = items.stream().mapToInt(RepairInfo::cost).sum();
+
+        // Descontar experiencia
+        player.setLevel(player.getLevel() - totalCost);
+
+        // Reparar cada ítem
+        int repairedCount = 0;
+        for (RepairInfo info : items) {
+            ItemStack item = info.item();
+            ItemMeta meta = item.getItemMeta();
+            if (meta instanceof Damageable damageable) {
+                damageable.setDamage(0);
+                item.setItemMeta(meta);
+                repairedCount++;
+            }
         }
 
         // Establecer cooldown
         setCooldown(player, REPAIR_COOLDOWN);
 
         // Efectos visuales y sonoros
-        playRepairEffects(player);
+        playRepairEffects(player, repairedCount > 1);
 
         // Mensaje de éxito
-        String itemName = getItemDisplayName(item);
-        player.sendMessage(ChatColor.GREEN + "✓ " + itemName + " ha sido reparado completamente.");
-        player.sendMessage(ChatColor.GRAY + "Costo: " + cost + " niveles de experiencia.");
+        if (repairedCount == 1) {
+            RepairInfo info = items.get(0);
+            String itemName = getItemDisplayName(info.item());
+            player.sendMessage(ChatColor.GREEN + "✓ " + itemName + " ha sido reparado completamente.");
+            player.sendMessage(ChatColor.GRAY + "Costo: " + info.cost() + " niveles de experiencia.");
+        } else {
+            player.sendMessage(ChatColor.GREEN + "✓ Has reparado " + repairedCount + " ítems exitosamente.");
+            player.sendMessage(ChatColor.GRAY + "Costo total: " + totalCost + " niveles de experiencia.");
+        }
 
         // Log para administradores
-        plugin.getLogger().info(String.format("Repair: %s reparó %s por %d niveles",
-                player.getName(), item.getType(), cost));
+        plugin.getLogger().info(String.format("Repair: %s reparó %d ítems por %d niveles",
+                player.getName(), repairedCount, totalCost));
+
+        // Limpiar sesión si existe
+        repairSessions.remove(player.getUniqueId());
+    }
+
+    /**
+     * Crea una sesión de reparación para confirmación
+     */
+    private void createRepairSession(Player player, List<RepairInfo> items) {
+        RepairSession session = new RepairSession(items, System.currentTimeMillis());
+        repairSessions.put(player.getUniqueId(), session);
+
+        // Expirar la sesión después de 30 segundos
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                repairSessions.remove(player.getUniqueId());
+            }
+        }.runTaskLater(plugin, 600L); // 30 segundos
+    }
+
+    /**
+     * Confirma una reparación pendiente
+     */
+    private boolean confirmRepair(Player player) {
+        RepairSession session = repairSessions.get(player.getUniqueId());
+
+        if (session == null) {
+            player.sendMessage(ChatColor.RED + "No tienes reparaciones pendientes de confirmación.");
+            return true;
+        }
+
+        if (System.currentTimeMillis() - session.timestamp() > 30000) {
+            repairSessions.remove(player.getUniqueId());
+            player.sendMessage(ChatColor.RED + "La confirmación ha expirado. Ejecuta el comando nuevamente.");
+            return true;
+        }
+
+        int totalCost = session.items().stream()
+                .mapToInt(RepairInfo::cost)
+                .sum();
+
+        if (player.getLevel() < totalCost) {
+            showInsufficientXP(player, totalCost);
+            return true;
+        }
+
+        performRepair(player, session.items());
+        return true;
+    }
+
+    /**
+     * Muestra mensaje de confirmación
+     */
+    private void showConfirmationMessage(Player player, List<RepairInfo> items, int totalCost) {
+        player.sendMessage(ChatColor.YELLOW + "╔══════════════════════════════════╗");
+        player.sendMessage(ChatColor.YELLOW + "║ " + ChatColor.GOLD + "CONFIRMACIÓN DE REPARACIÓN" + ChatColor.YELLOW + "      ║");
+        player.sendMessage(ChatColor.YELLOW + "╠══════════════════════════════════╣");
+        player.sendMessage(ChatColor.YELLOW + "║ " + ChatColor.WHITE + "Ítems a reparar: " +
+                ChatColor.AQUA + items.size() + ChatColor.YELLOW + "              ║");
+        player.sendMessage(ChatColor.YELLOW + "║ " + ChatColor.WHITE + "Costo total: " +
+                ChatColor.GREEN + totalCost + " niveles" + ChatColor.YELLOW + "         ║");
+        player.sendMessage(ChatColor.YELLOW + "║                                  ║");
+        player.sendMessage(ChatColor.YELLOW + "║ " + ChatColor.WHITE + "Usa " + ChatColor.GREEN + "/reparar confirm" +
+                ChatColor.WHITE + " para" + ChatColor.YELLOW + "     ║");
+        player.sendMessage(ChatColor.YELLOW + "║ " + ChatColor.WHITE + "proceder con la reparación." + ChatColor.YELLOW + "      ║");
+        player.sendMessage(ChatColor.YELLOW + "╚══════════════════════════════════╝");
+    }
+
+    /**
+     * Muestra preview de reparación
+     */
+    private void showRepairPreview(Player player, List<RepairInfo> items, int totalCost) {
+        player.sendMessage(ChatColor.AQUA + "═══ Vista Previa de Reparación ═══");
+
+        // Agrupar por tipo
+        Map<Material, List<RepairInfo>> byType = items.stream()
+                .collect(Collectors.groupingBy(info -> info.item().getType()));
+
+        for (Map.Entry<Material, List<RepairInfo>> entry : byType.entrySet()) {
+            Material type = entry.getKey();
+            List<RepairInfo> typeItems = entry.getValue();
+            int typeCost = typeItems.stream().mapToInt(RepairInfo::cost).sum();
+
+            player.sendMessage(ChatColor.WHITE + "• " + formatMaterialName(type.toString()) +
+                    " x" + typeItems.size() + " - " + ChatColor.YELLOW + typeCost + " niveles");
+        }
+
+        player.sendMessage(ChatColor.WHITE + "Total: " + ChatColor.GOLD + totalCost + " niveles");
+    }
+
+    /**
+     * Muestra mensaje de XP insuficiente
+     */
+    private void showInsufficientXP(Player player, int required) {
+        int current = player.getLevel();
+        int missing = required - current;
+
+        player.sendMessage(ChatColor.RED + "╔══════════════════════════════════╗");
+        player.sendMessage(ChatColor.RED + "║ " + ChatColor.YELLOW + "EXPERIENCIA INSUFICIENTE" + ChatColor.RED + "        ║");
+        player.sendMessage(ChatColor.RED + "╠══════════════════════════════════╣");
+        player.sendMessage(ChatColor.RED + "║ " + ChatColor.WHITE + "Necesitas: " +
+                ChatColor.YELLOW + required + " niveles" + ChatColor.RED + "          ║");
+        player.sendMessage(ChatColor.RED + "║ " + ChatColor.WHITE + "Tienes: " +
+                ChatColor.YELLOW + current + " niveles" + ChatColor.RED + "             ║");
+        player.sendMessage(ChatColor.RED + "║ " + ChatColor.WHITE + "Te faltan: " +
+                ChatColor.GOLD + missing + " niveles" + ChatColor.RED + "          ║");
+        player.sendMessage(ChatColor.RED + "╚══════════════════════════════════╝");
+    }
+
+    /**
+     * Muestra costos de todos los ítems
+     */
+    private void showAllRepairCosts(Player player) {
+        List<RepairInfo> allItems = new ArrayList<>();
+
+        for (ItemStack item : player.getInventory().getContents()) {
+            if (item == null || !isRepairable(item)) continue;
+
+            RepairInfo info = calculateRepairInfo(item, player); // Pasar player como parámetro
+            if (info.damage() > 0) {
+                allItems.add(info);
+            }
+        }
+
+        if (allItems.isEmpty()) {
+            player.sendMessage(ChatColor.YELLOW + "No tienes ítems dañados en tu inventario.");
+            return;
+        }
+
+        player.sendMessage(ChatColor.AQUA + "═══ Costos de Reparación (Inventario) ═══");
+
+        int totalCost = 0;
+        for (RepairInfo info : allItems) {
+            String itemName = getItemDisplayName(info.item());
+            double percentage = (double)(info.maxDurability() - info.damage()) / info.maxDurability() * 100;
+
+            player.sendMessage(String.format("%s%s %s- %s%d%% %s(%d niveles)",
+                    ChatColor.WHITE, itemName,
+                    ChatColor.GRAY, ChatColor.YELLOW, (int)percentage,
+                    ChatColor.AQUA, info.cost()));
+
+            totalCost += info.cost();
+        }
+
+        player.sendMessage(ChatColor.GOLD + "Costo total: " + totalCost + " niveles");
+
+        if (totalCost <= player.getLevel()) {
+            player.sendMessage(ChatColor.GREEN + "Usa " + ChatColor.WHITE + "/reparar all" +
+                    ChatColor.GREEN + " para reparar todo.");
+        } else {
+            player.sendMessage(ChatColor.RED + "Te faltan " + (totalCost - player.getLevel()) + " niveles.");
+        }
+    }
+
+    /**
+     * Muestra el costo del ítem en mano
+     */
+    private void showItemRepairCost(Player player) {
+        ItemStack item = player.getInventory().getItemInMainHand();
+
+        RepairResult validation = validateItem(item);
+        if (!validation.success()) {
+            player.sendMessage(ChatColor.RED + validation.message());
+            return;
+        }
+
+        RepairInfo info = calculateRepairInfo(item, player); // Pasar player como parámetro
+        String itemName = getItemDisplayName(item);
+
+        // Calcular durabilidad
+        int currentDurability = info.maxDurability() - info.damage();
+        double percentage = (double) currentDurability / info.maxDurability() * 100;
+
+        player.sendMessage(ChatColor.AQUA + "═══ Información de Reparación ═══");
+        player.sendMessage(ChatColor.WHITE + "Ítem: " + itemName);
+        player.sendMessage(ChatColor.WHITE + "Durabilidad: " + ChatColor.YELLOW + currentDurability +
+                "/" + info.maxDurability() + ChatColor.GRAY + " (" + String.format("%.1f", percentage) + "%)");
+
+        // Mostrar encantamientos si los tiene
+        Map<Enchantment, Integer> enchantments = item.getEnchantments();
+        if (!enchantments.isEmpty()) {
+            player.sendMessage(ChatColor.WHITE + "Encantamientos: " + ChatColor.LIGHT_PURPLE + enchantments.size());
+            for (Map.Entry<Enchantment, Integer> entry : enchantments.entrySet()) {
+                String enchantName = getEnchantmentName(entry.getKey());
+                String special = entry.getKey().equals(Enchantment.MENDING) ?
+                        ChatColor.GOLD + " (+10% costo)" : "";
+                player.sendMessage(ChatColor.GRAY + "  • " + ChatColor.WHITE + enchantName +
+                        " " + entry.getValue() + special);
+            }
+        }
+
+        // Desglose del costo
+        player.sendMessage(ChatColor.WHITE + "═══ Desglose del Costo ═══");
+        player.sendMessage(ChatColor.GRAY + "  • Base (daño): " +
+                ChatColor.WHITE + String.format("%.1f", info.damage() * BASE_COST_MULTIPLIER));
+
+        if (!enchantments.isEmpty()) {
+            double enchantBonus = enchantments.size() * ENCHANTMENT_MULTIPLIER;
+            if (enchantments.containsKey(Enchantment.MENDING)) {
+                enchantBonus += MENDING_EXTRA_MULTIPLIER;
+            }
+            player.sendMessage(ChatColor.GRAY + "  • Encantamientos: +" +
+                    ChatColor.WHITE + String.format("%.0f%%", enchantBonus * 100));
+        }
+
+        double typeMultiplier = getTypeMultiplier(item.getType());
+        if (typeMultiplier != 1.0) {
+            player.sendMessage(ChatColor.GRAY + "  • Tipo de material: x" +
+                    ChatColor.WHITE + String.format("%.1f", typeMultiplier));
+        }
+
+        player.sendMessage(ChatColor.WHITE + "Costo de reparación: " +
+                (info.cost() <= player.getLevel() ? ChatColor.GREEN : ChatColor.RED) +
+                info.cost() + " niveles");
+
+        if (info.cost() <= player.getLevel()) {
+            player.sendMessage(ChatColor.GREEN + "Usa " + ChatColor.WHITE + "/reparar" +
+                    ChatColor.GREEN + " para reparar este ítem.");
+        } else {
+            player.sendMessage(ChatColor.RED + "Te faltan " + (info.cost() - player.getLevel()) + " niveles.");
+        }
+    }
+
+    /**
+     * Muestra información del sistema
+     */
+    private boolean showRepairInfo(Player player) {
+        player.sendMessage(ChatColor.GOLD + "╔══════════════════════════════════╗");
+        player.sendMessage(ChatColor.GOLD + "║ " + ChatColor.YELLOW + "Sistema de Reparación v2.0" + ChatColor.GOLD + "     ║");
+        player.sendMessage(ChatColor.GOLD + "╠══════════════════════════════════╣");
+        player.sendMessage(ChatColor.GOLD + "║ " + ChatColor.WHITE + "Costo base: " +
+                ChatColor.YELLOW + "5% del daño" + ChatColor.GOLD + "          ║");
+        player.sendMessage(ChatColor.GOLD + "║ " + ChatColor.WHITE + "Por encantamiento: " +
+                ChatColor.YELLOW + "+10%" + ChatColor.GOLD + "        ║");
+        player.sendMessage(ChatColor.GOLD + "║ " + ChatColor.WHITE + "Con Mending: " +
+                ChatColor.YELLOW + "+10% extra" + ChatColor.GOLD + "        ║");
+        player.sendMessage(ChatColor.GOLD + "║ " + ChatColor.WHITE + "Costo máximo/ítem: " +
+                ChatColor.YELLOW + MAX_COST_PER_ITEM + " niveles" + ChatColor.GOLD + "  ║");
+        player.sendMessage(ChatColor.GOLD + "║ " + ChatColor.WHITE + "Cooldown: " +
+                ChatColor.YELLOW + (REPAIR_COOLDOWN/1000) + " segundos" + ChatColor.GOLD + "         ║");
+        player.sendMessage(ChatColor.GOLD + "╚══════════════════════════════════╝");
+        player.sendMessage("");
+        player.sendMessage(ChatColor.YELLOW + "Multiplicadores por material:");
+        player.sendMessage(ChatColor.GRAY + "• Netherite: x2.0 | Diamante: x1.5");
+        player.sendMessage(ChatColor.GRAY + "• Hierro: x1.0 | Oro: x0.8");
+        player.sendMessage(ChatColor.GRAY + "• Piedra/Madera: x0.6");
+        return true; // Agregar return true
+    }
+
+    /**
+     * Muestra la ayuda del comando
+     */
+    private boolean showHelp(Player player) {
+        player.sendMessage(ChatColor.GOLD + "═══ Comando /reparar v2.0 ═══");
+        player.sendMessage(ChatColor.YELLOW + "/reparar" +
+                ChatColor.GRAY + " - Repara el ítem en tu mano");
+        player.sendMessage(ChatColor.YELLOW + "/reparar all" +
+                ChatColor.GRAY + " - Repara todos los ítems del inventario");
+        player.sendMessage(ChatColor.YELLOW + "/reparar armor" +
+                ChatColor.GRAY + " - Repara toda tu armadura");
+        player.sendMessage(ChatColor.YELLOW + "/reparar sword" +
+                ChatColor.GRAY + " - Repara el arma en tu mano");
+        player.sendMessage(ChatColor.YELLOW + "/reparar tool" +
+                ChatColor.GRAY + " - Repara la herramienta en tu mano");
+        player.sendMessage(ChatColor.YELLOW + "/reparar cost [all]" +
+                ChatColor.GRAY + " - Muestra el costo de reparación");
+        player.sendMessage(ChatColor.YELLOW + "/reparar info" +
+                ChatColor.GRAY + " - Información del sistema");
+        player.sendMessage(ChatColor.YELLOW + "/reparar help" +
+                ChatColor.GRAY + " - Muestra esta ayuda");
+        return true;
     }
 
     /**
@@ -153,17 +697,15 @@ public class RepairCommand implements CommandExecutor, TabCompleter {
             return new RepairResult(false, "Debes tener un ítem en tu mano principal.");
         }
 
-        // Verificar que el ítem tenga durabilidad
-        if (item.getType().getMaxDurability() == 0) {
-            return new RepairResult(false, "Este ítem no se puede reparar (no tiene durabilidad).");
+        if (!isRepairable(item)) {
+            return new RepairResult(false, "Este ítem no se puede reparar.");
         }
 
         ItemMeta meta = item.getItemMeta();
         if (!(meta instanceof Damageable damageable)) {
-            return new RepairResult(false, "Este ítem no se puede reparar.");
+            return new RepairResult(false, "Este ítem no tiene durabilidad.");
         }
 
-        // Verificar que el ítem esté dañado
         if (damageable.getDamage() == 0) {
             return new RepairResult(false, "Este ítem ya está en perfectas condiciones.");
         }
@@ -172,150 +714,66 @@ public class RepairCommand implements CommandExecutor, TabCompleter {
     }
 
     /**
-     * Calcula el costo de reparación basado en encantamientos
+     * Verifica si un ítem es reparable
      */
-    private int calculateRepairCost(ItemStack item) {
-        // Costo base
-        int cost = BASE_COST_LEVELS;
-
-        // Obtener encantamientos
-        Map<Enchantment, Integer> enchantments = item.getEnchantments();
-
-        if (!enchantments.isEmpty()) {
-            // Calcular costo adicional por encantamientos
-            int enchantmentBonus = 0;
-
-            for (Map.Entry<Enchantment, Integer> entry : enchantments.entrySet()) {
-                Enchantment enchant = entry.getKey();
-                int level = entry.getValue();
-
-                // Costo base por encantamiento + nivel del encantamiento
-                int enchantCost = ENCHANTMENT_MULTIPLIER + level;
-
-                // Encantamientos raros cuestan más
-                if (isRareEnchantment(enchant)) {
-                    enchantCost *= 2;
-                }
-
-                enchantmentBonus += enchantCost;
-            }
-
-            cost += enchantmentBonus;
-        }
-
-        // Aplicar límite máximo
-        return Math.min(cost, MAX_COST_LEVELS);
+    private boolean isRepairable(ItemStack item) {
+        if (item == null) return false;
+        Material type = item.getType();
+        return type.getMaxDurability() > 0;
     }
 
     /**
-     * Determina si un encantamiento es considerado raro/valioso
+     * Verifica si es un arma
      */
-    private boolean isRareEnchantment(Enchantment enchant) {
-        // Lista de encantamientos considerados raros
-        Set<Enchantment> rareEnchantments = Set.of(
-                Enchantment.MENDING,
-                Enchantment.SILK_TOUCH,
-                Enchantment.LUCK,
-                Enchantment.SWEEPING_EDGE,
-                Enchantment.PROTECTION_ENVIRONMENTAL,
-                Enchantment.DIG_SPEED,
-                Enchantment.DURABILITY
-        );
-
-        return rareEnchantments.contains(enchant);
+    private boolean isWeapon(ItemStack item) {
+        if (item == null) return false;
+        String name = item.getType().name();
+        return name.contains("SWORD") || name.contains("AXE") ||
+                name.equals("TRIDENT") || name.equals("BOW") ||
+                name.equals("CROSSBOW") || name.equals("SHIELD");
     }
 
     /**
-     * Muestra información sobre el sistema de reparación
+     * Verifica si es una herramienta
      */
-    private void showRepairInfo(Player player) {
-        player.sendMessage(ChatColor.GOLD + "╔══════════════════════════════════╗");
-        player.sendMessage(ChatColor.GOLD + "║ " + ChatColor.YELLOW + "Sistema de Reparación" + ChatColor.GOLD + "            ║");
-        player.sendMessage(ChatColor.GOLD + "╠══════════════════════════════════╣");
-        player.sendMessage(ChatColor.GOLD + "║ " + ChatColor.WHITE + "Costo base: " + ChatColor.YELLOW + BASE_COST_LEVELS + " niveles" + ChatColor.GOLD + "          ║");
-        player.sendMessage(ChatColor.GOLD + "║ " + ChatColor.WHITE + "Por encantamiento: +" + ChatColor.YELLOW + ENCHANTMENT_MULTIPLIER + " niveles" + ChatColor.GOLD + "     ║");
-        player.sendMessage(ChatColor.GOLD + "║ " + ChatColor.WHITE + "Encantamientos raros: " + ChatColor.YELLOW + "x2" + ChatColor.GOLD + "          ║");
-        player.sendMessage(ChatColor.GOLD + "║ " + ChatColor.WHITE + "Costo máximo: " + ChatColor.YELLOW + MAX_COST_LEVELS + " niveles" + ChatColor.GOLD + "        ║");
-        player.sendMessage(ChatColor.GOLD + "║ " + ChatColor.WHITE + "Cooldown: " + ChatColor.YELLOW + (REPAIR_COOLDOWN/1000) + " segundos" + ChatColor.GOLD + "           ║");
-        player.sendMessage(ChatColor.GOLD + "╚══════════════════════════════════╝");
-        player.sendMessage(ChatColor.GRAY + "Usa " + ChatColor.WHITE + "/repair cost" +
-                ChatColor.GRAY + " para ver el costo del ítem en tu mano.");
-    }
-
-    /**
-     * Muestra el costo de reparar el ítem actual
-     */
-    private void showRepairCost(Player player) {
-        ItemStack item = player.getInventory().getItemInMainHand();
-
-        RepairResult validation = validateItem(item);
-        if (!validation.success) {
-            player.sendMessage(ChatColor.RED + validation.message);
-            return;
-        }
-
-        int cost = calculateRepairCost(item);
-        String itemName = getItemDisplayName(item);
-
-        // Calcular durabilidad actual
-        ItemMeta meta = item.getItemMeta();
-        int currentDamage = ((Damageable) meta).getDamage();
-        int maxDurability = item.getType().getMaxDurability();
-        int currentDurability = maxDurability - currentDamage;
-        double percentage = (double) currentDurability / maxDurability * 100;
-
-        player.sendMessage(ChatColor.AQUA + "═══ Información de Reparación ═══");
-        player.sendMessage(ChatColor.WHITE + "Ítem: " + itemName);
-        player.sendMessage(ChatColor.WHITE + "Durabilidad: " + ChatColor.YELLOW + currentDurability +
-                "/" + maxDurability + ChatColor.GRAY + " (" + String.format("%.1f", percentage) + "%)");
-
-        // Mostrar encantamientos si los tiene
-        Map<Enchantment, Integer> enchantments = item.getEnchantments();
-        if (!enchantments.isEmpty()) {
-            player.sendMessage(ChatColor.WHITE + "Encantamientos: " + ChatColor.LIGHT_PURPLE + enchantments.size());
-            for (Map.Entry<Enchantment, Integer> entry : enchantments.entrySet()) {
-                String enchantName = getEnchantmentName(entry.getKey());
-                String rarity = isRareEnchantment(entry.getKey()) ? ChatColor.GOLD + " (Raro)" : "";
-                player.sendMessage(ChatColor.GRAY + "  • " + ChatColor.WHITE + enchantName +
-                        " " + entry.getValue() + rarity);
-            }
-        }
-
-        player.sendMessage(ChatColor.WHITE + "Costo de reparación: " +
-                (cost <= player.getLevel() ? ChatColor.GREEN : ChatColor.RED) + cost + " niveles");
-
-        if (cost <= player.getLevel()) {
-            player.sendMessage(ChatColor.GREEN + "Usa " + ChatColor.WHITE + "/repair" +
-                    ChatColor.GREEN + " para reparar este ítem.");
-        } else {
-            player.sendMessage(ChatColor.RED + "Te faltan " + (cost - player.getLevel()) + " niveles.");
-        }
-    }
-
-    /**
-     * Muestra la ayuda del comando
-     */
-    private void showHelp(Player player) {
-        player.sendMessage(ChatColor.GOLD + "═══ Comando /repair ═══");
-        player.sendMessage(ChatColor.YELLOW + "/repair" + ChatColor.GRAY + " - Repara el ítem en tu mano");
-        player.sendMessage(ChatColor.YELLOW + "/repair cost" + ChatColor.GRAY + " - Muestra el costo de reparación");
-        player.sendMessage(ChatColor.YELLOW + "/repair info" + ChatColor.GRAY + " - Información del sistema");
-        player.sendMessage(ChatColor.YELLOW + "/repair help" + ChatColor.GRAY + " - Muestra esta ayuda");
+    private boolean isTool(ItemStack item) {
+        if (item == null) return false;
+        String name = item.getType().name();
+        return name.contains("PICKAXE") || name.contains("SHOVEL") ||
+                name.contains("HOE") || name.contains("SHEARS") ||
+                name.equals("FISHING_ROD") || name.equals("FLINT_AND_STEEL");
     }
 
     /**
      * Reproduce efectos visuales y sonoros de reparación
      */
-    private void playRepairEffects(Player player) {
+    private void playRepairEffects(Player player, boolean isMultiple) {
         // Sonidos
-        player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_USE, 1.0f, 1.2f);
-        player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 0.8f);
+        if (isMultiple) {
+            // Efecto especial para reparaciones múltiples
+            player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_USE, 1.0f, 1.0f);
+            player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.2f);
+            player.playSound(player.getLocation(), Sound.BLOCK_ENCHANTMENT_TABLE_USE, 0.8f, 1.5f);
+        } else {
+            // Efecto estándar
+            player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_USE, 1.0f, 1.2f);
+            player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 0.8f);
+        }
 
         // Partículas
         player.getWorld().spawnParticle(Particle.ENCHANTMENT_TABLE,
-                player.getLocation().add(0, 1, 0), 30, 0.5, 0.5, 0.5, 0.1);
-        player.getWorld().spawnParticle(Particle.VILLAGER_HAPPY,
-                player.getLocation().add(0, 1, 0), 10, 0.3, 0.3, 0.3, 0.1);
+                player.getLocation().add(0, 1, 0), 50, 0.5, 0.5, 0.5, 0.1);
+
+        if (isMultiple) {
+            // Más partículas para reparaciones múltiples
+            player.getWorld().spawnParticle(Particle.VILLAGER_HAPPY,
+                    player.getLocation().add(0, 1, 0), 20, 0.5, 0.5, 0.5, 0.1);
+            player.getWorld().spawnParticle(Particle.CRIT_MAGIC,
+                    player.getLocation().add(0, 1.5, 0), 30, 0.3, 0.3, 0.3, 0.05);
+        } else {
+            player.getWorld().spawnParticle(Particle.VILLAGER_HAPPY,
+                    player.getLocation().add(0, 1, 0), 10, 0.3, 0.3, 0.3, 0.1);
+        }
     }
 
     /**
@@ -362,23 +820,25 @@ public class RepairCommand implements CommandExecutor, TabCompleter {
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
-            return Arrays.asList("cost", "info", "help").stream()
+            return Stream.of("all", "armor", "sword", "tool", "cost", "info", "help", "confirm")
                     .filter(sub -> sub.startsWith(args[0].toLowerCase()))
-                    .toList();
+                    .collect(Collectors.toList());
+        } else if (args.length == 2 && args[0].equalsIgnoreCase("cost")) {
+            return Collections.singletonList("all");
         }
         return Collections.emptyList();
     }
 
     /**
-     * Clase interna para resultados de validación
+     * Registros internos
      */
-    private static class RepairResult {
-        final boolean success;
-        final String message;
+    private record RepairResult(boolean success, String message) {}
 
-        RepairResult(boolean success, String message) {
-            this.success = success;
-            this.message = message;
-        }
+    private record RepairInfo(ItemStack item, int damage, int maxDurability, int cost) {}
+
+    private record RepairSession(List<RepairInfo> items, long timestamp) {}
+
+    private enum RepairableType {
+        SWORD, TOOL, ARMOR, ALL
     }
 }

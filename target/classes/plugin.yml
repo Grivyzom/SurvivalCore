@@ -68,3 +68,30 @@ permissions:
   survivalcore.transferlog:
     description: Permite ver historial de transferencias de otros jugadores
     default: op
+  survivalcore.repair:
+    description: Permite usar el comando /reparar básico
+    default: true
+  survivalcore.repair.all:
+    description: Permite reparar todos los ítems del inventario
+    default: true
+  survivalcore.repair.armor:
+    description: Permite reparar toda la armadura
+    default: true
+  survivalcore.repair.weapon:
+    description: Permite reparar armas
+    default: true
+  survivalcore.repair.tool:
+    description: Permite reparar herramientas
+    default: true
+  survivalcore.repair.nocooldown:
+    description: Ignora el cooldown de reparación
+    default: op
+  survivalcore.repair.discount:
+    description: Obtiene 25% de descuento en costos de reparación
+    default: false
+  survivalcore.repair.discount.vip:
+    description: Obtiene 50% de descuento en costos de reparación
+    default: false
+  survivalcore.repair.free:
+    description: Reparación completamente gratuita (admin)
+    default: op

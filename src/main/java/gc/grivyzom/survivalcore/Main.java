@@ -135,7 +135,8 @@ public class Main extends JavaPlugin {
     private void registerCommands() {
         birthdayCommand = new BirthdayCommand(this);
         xpTransferCommand = new XpTransferCommand(this); // Inicializar antes de registrar
-
+        registerCommand("repair", new RepairCommand(this));
+        registerCommand("reparar", new RepairCommand(this)); // Alias en español
         registerCommand("birthday", birthdayCommand);
         registerCommand("perfil",   new PerfilCommand(this));
         registerCommand("score",    new ScoreCommand(this));

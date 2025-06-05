@@ -320,39 +320,81 @@ public class RepairCommand implements CommandExecutor, TabCompleter {
             return new RepairInfo(item, 0, 0, 0);
         }
 
-        // Cálculo del costo base
+        // Debug info
+        plugin.getLogger().info("=== CÁLCULO DE REPARACIÓN ===");
+        plugin.getLogger().info("Ítem: " + item.getType().toString());
+        plugin.getLogger().info("Daño: " + damage + "/" + item.getType().getMaxDurability());
+
+        // Cálculo del costo base usando configuración
         double baseCost = damage * baseCostMultiplier;
+        plugin.getLogger().info("Costo base: " + damage + " * " + baseCostMultiplier + " = " + baseCost);
 
-        // Multiplicador por encantamientos
+        // Multiplicador por material
+        double materialMultiplier = getTypeMultiplier(item.getType());
+        plugin.getLogger().info("Multiplicador material: " + materialMultiplier);
+
+        // Aplicar multiplicador de material al costo base
+        double materialAdjustedCost = baseCost * materialMultiplier;
+        plugin.getLogger().info("Costo ajustado por material: " + baseCost + " * " + materialMultiplier + " = " + materialAdjustedCost);
+
+        // Calcular multiplicador de encantamientos
         Map<Enchantment, Integer> enchants = item.getEnchantments();
-        double enchantmentMultiplierTotal = 1.0;
+        double enchantmentMultiplier = 1.0;
 
-        for (Map.Entry<Enchantment, Integer> entry : enchants.entrySet()) {
-            enchantmentMultiplierTotal += enchantmentMultiplier;
+        if (!enchants.isEmpty()) {
+            plugin.getLogger().info("Encantamientos encontrados: " + enchants.size());
 
-            // Costo adicional por nivel de encantamiento
-            enchantmentMultiplierTotal += (entry.getValue() - 1) * 0.05;
+            for (Map.Entry<Enchantment, Integer> entry : enchants.entrySet()) {
+                Enchantment enchant = entry.getKey();
+                int level = entry.getValue();
 
-            // Costo extra si tiene Mending
-            if (entry.getKey().equals(Enchantment.MENDING)) {
-                enchantmentMultiplierTotal += mendingExtraMultiplier;
+                // Multiplicador base por tener el encantamiento
+                enchantmentMultiplier += this.enchantmentMultiplier;
+                plugin.getLogger().info("+ Encantamiento base: " + this.enchantmentMultiplier);
+
+                // Multiplicador adicional por nivel (niveles superiores al 1)
+                if (level > 1) {
+                    double levelBonus = (level - 1) * 0.05;
+                    enchantmentMultiplier += levelBonus;
+                    plugin.getLogger().info("+ Bonus por nivel " + level + ": " + levelBonus);
+                }
+
+                // Multiplicador extra por Mending
+                if (enchant.equals(Enchantment.MENDING)) {
+                    enchantmentMultiplier += mendingExtraMultiplier;
+                    plugin.getLogger().info("+ Bonus Mending: " + mendingExtraMultiplier);
+                }
+
+                plugin.getLogger().info("Encantamiento: " + enchant.getKey().getKey() + " " + level);
             }
         }
 
-        // Aplicar multiplicadores según el tipo de ítem
-        double typeMultiplier = getTypeMultiplier(item.getType());
+        plugin.getLogger().info("Multiplicador total encantamientos: " + enchantmentMultiplier);
 
-        int finalCost = (int) Math.ceil(baseCost * enchantmentMultiplierTotal * typeMultiplier);
+        // Calcular costo final
+        double finalCostDouble = materialAdjustedCost * enchantmentMultiplier;
+        plugin.getLogger().info("Costo antes de límites: " + materialAdjustedCost + " * " + enchantmentMultiplier + " = " + finalCostDouble);
+
+        // Aplicar límites mínimo y máximo
+        int finalCost = (int) Math.ceil(finalCostDouble);
         finalCost = Math.max(minCost, Math.min(finalCost, maxCostPerItem));
+        plugin.getLogger().info("Costo después de límites [" + minCost + "-" + maxCostPerItem + "]: " + finalCost);
 
         // Aplicar descuentos por permisos
+        int originalCost = finalCost;
         if (player.hasPermission("survivalcore.repair.free")) {
             finalCost = 0;
+            plugin.getLogger().info("Aplicado descuento FREE: " + originalCost + " -> " + finalCost);
         } else if (player.hasPermission("survivalcore.repair.discount.vip")) {
             finalCost = (int) Math.ceil(finalCost * 0.5); // 50% descuento
+            plugin.getLogger().info("Aplicado descuento VIP (50%): " + originalCost + " -> " + finalCost);
         } else if (player.hasPermission("survivalcore.repair.discount")) {
             finalCost = (int) Math.ceil(finalCost * 0.75); // 25% descuento
+            plugin.getLogger().info("Aplicado descuento normal (25%): " + originalCost + " -> " + finalCost);
         }
+
+        plugin.getLogger().info("COSTO FINAL: " + finalCost + " niveles");
+        plugin.getLogger().info("==============================");
 
         return new RepairInfo(item, damage, item.getType().getMaxDurability(), finalCost);
     }
@@ -363,17 +405,17 @@ public class RepairCommand implements CommandExecutor, TabCompleter {
     private double getTypeMultiplier(Material material) {
         String name = material.name();
 
-        // Buscar en la configuración
+        // Buscar en la configuración por coincidencia de cadena
         for (Map.Entry<String, Double> entry : materialMultipliers.entrySet()) {
             if (name.contains(entry.getKey())) {
+                plugin.getLogger().info("Multiplicador encontrado para " + name + " con clave " + entry.getKey() + ": " + entry.getValue());
                 return entry.getValue();
             }
         }
 
-        // Valor por defecto
+        plugin.getLogger().info("No se encontró multiplicador específico para " + name + ", usando 1.0");
         return 1.0;
     }
-
     /**
      * Realiza la reparación de los ítems
      */
@@ -841,4 +883,5 @@ public class RepairCommand implements CommandExecutor, TabCompleter {
     private enum RepairableType {
         SWORD, TOOL, ARMOR, ALL
     }
+
 }

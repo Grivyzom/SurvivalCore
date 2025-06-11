@@ -40,6 +40,10 @@ commands:
     description: Repara completamente el ítem en mano a cambio de experiencia
     usage: /repair [cost|info|help]
     aliases: [reparar, fix]
+  sellwand:
+    description: "Gestiona el sistema SellWand"
+    usage: /sellwand <give|reload|limits|prices|info|help> [argumentos]
+    aliases: [sw, varita, varitaventa]
 permissions:
   survivalcore.reload:
     description: Permite recargar la configuración del plugin.
@@ -94,4 +98,23 @@ permissions:
     default: false
   survivalcore.repair.free:
     description: Reparación completamente gratuita (admin)
+    default: op
+  survivalcore.sellwand.use:
+    description: "Permite usar SellWands"
+    default: true
+
+  survivalcore.sellwand.give:
+    description: "Permite dar SellWands a otros jugadores"
+    default: op
+
+  survivalcore.sellwand.reload:
+    description: "Permite recargar la configuración de SellWand"
+    default: op
+
+  survivalcore.sellwand.prices:
+    description: "Permite ver la lista de precios de SellWand"
+    default: true
+
+  survivalcore.sellwand.admin:
+    description: "Acceso completo al sistema SellWand"
     default: op

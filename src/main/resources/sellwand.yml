@@ -1,5 +1,5 @@
 # ===================================
-# SellWand Configuration
+# SellWand Configuration - Simplificado
 # ===================================
 
 sellwand:
@@ -15,7 +15,7 @@ sellwand:
     - "&7para vender todos los items"
     - "&7vendibles dentro de él."
     - ""
-    - "&e¡Convierte items en experiencia!"
+    - "&e¡Convierte items en experiencia vanilla!"
 
   # Si la SellWand debe brillar
   glow: true
@@ -26,26 +26,19 @@ sellwand:
   # Si las SellWands tienen usos infinitos por defecto
   infinite_uses_default: false
 
-  # Cooldown en milisegundos entre usos
+  # Cooldown en milisegundos entre usos (2 segundos por defecto)
   cooldown_ms: 2000
 
 # ===================================
-# Sistema de Experiencia
+# Sistema de Experiencia Simplificado
 # ===================================
 
-# Tasa de conversión de puntos a experiencia (0.1 = 10%)
+# Tasa de conversión de puntos a experiencia
+# Ejemplo: Si vendes por 100 puntos y la tasa es 0.15, ganarás 15 XP vanilla
 xp_conversion_rate: 0.15
 
 # Multiplicador de experiencia (1.0 = normal, 2.0 = doble XP)
 xp_multiplier: 1.0
-
-# Distribución de experiencia:
-# - "mixed": Distribuye entre farming, mining y vanilla
-# - "farming_only": Solo da XP de farming
-# - "mining_only": Solo da XP de mining
-# - "automatic": Detecta el tipo de items y da XP correspondiente
-# - "vanilla": Solo da XP vanilla de Minecraft
-xp_distribution: "automatic"
 
 # ===================================
 # Precios de Items
@@ -97,6 +90,16 @@ prices:
   redstone: 2.0
   quartz: 4.0
 
+  # Materiales del Nether
+  nether_quartz_ore: 3.5
+  nether_gold_ore: 6.5
+  ancient_debris: 50.0
+  netherite_scrap: 45.0
+  blaze_rod: 8.0
+  blaze_powder: 4.0
+  ghast_tear: 12.0
+  ender_pearl: 10.0
+
   # Materiales de construcción
   oak_log: 1.0
   birch_log: 1.0
@@ -118,11 +121,15 @@ prices:
   string: 1.0
   bone: 1.2
   gunpowder: 3.0
-  ender_pearl: 10.0
-  blaze_rod: 8.0
+
+  # Bloques procesados
+  iron_block: 45.0
+  gold_block: 72.0
+  diamond_block: 135.0
+  emerald_block: 180.0
 
 # ===================================
-# Límites de Venta
+# Límites de Venta (Opcional)
 # ===================================
 sell_limits:
   # Formato: material_name:
@@ -144,6 +151,14 @@ sell_limits:
   iron_ingot:
     max_amount: 256
     time_window_hours: 12
+
+  ancient_debris:
+    max_amount: 16
+    time_window_hours: 24
+
+  netherite_scrap:
+    max_amount: 16
+    time_window_hours: 24
 
 # ===================================
 # Efectos de Sonido

@@ -94,19 +94,19 @@ lectern:
   baseUpgradeCost: 100   # XP base multiplicado por el nivel actual
   maxLevel: 10           # Nivel máximo permitido para el atril
 
+# ===================================
+# SellWand Configuration (Simplificado)
+# ===================================
 sellwand:
-  # Tasa de conversión de dinero a experiencia
+  # Tasa de conversión de puntos a experiencia vanilla
   xp_conversion_rate: 0.15
 
-  # Multiplicador de experiencia
+  # Multiplicador de experiencia (1.0 = normal, 2.0 = doble)
   xp_multiplier: 1.0
 
-  # Tipo de distribución de experiencia
-  # Opciones: "mixed", "farming_only", "mining_only", "automatic", "vanilla"
-  xp_distribution: "automatic"
+# ===================================
 # Sistema de transferencia de experiencia
-
-# Agregar estas secciones a tu archivo config.yml existente
+# ===================================
 
 # Límites de transferencia por rango
 transfer_limits:
@@ -144,9 +144,9 @@ xp_bank:
   # Incremento del coste por nivel
   upgrade_cost_increment: 250
 
-# Agregar esta sección al archivo config.yml existente
-
+# ===================================
 # Sistema de reparación mejorado
+# ===================================
 repair:
   # Multiplicador del costo base (porcentaje del daño)
   base_cost_multiplier: 0.05  # 5% del daño como costo base

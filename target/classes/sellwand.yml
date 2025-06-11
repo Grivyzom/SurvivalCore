@@ -1,0 +1,144 @@
+# ╔══════════════════════════════════════════════════════════════╗
+# ║                        SELLWAND CONFIG                        ║
+# ║              Sistema de venta automática v2.0                ║
+# ╚══════════════════════════════════════════════════════════════╝
+
+# Configuración de la SellWand
+sellwand:
+  # Material de la SellWand
+  material: STICK
+
+  # Nombre de la SellWand (soporta códigos de color con &)
+  name: "&6&l✨ Sell Wand ✨"
+
+  # Descripción de la SellWand
+  lore:
+    - "&7Haz clic derecho en un contenedor"
+    - "&7para vender todos los items vendibles"
+    - "&7y recibir experiencia a cambio."
+    - ""
+    - "&e⚡ Rápido y eficiente"
+    - "&e💰 Conversión automática a XP"
+    - "&e🛡️ Sistema anti-abuso"
+
+  # Efecto de brillo en la SellWand
+  glow: true
+
+  # Usos por defecto de una nueva SellWand
+  default_uses: 100
+
+  # Si las SellWands tienen usos infinitos por defecto
+  infinite_uses_default: false
+
+  # Cooldown entre usos en milisegundos (1000ms = 1 segundo)
+  cooldown_ms: 2000
+
+  # Conversión de valor a experiencia (valor * rate = XP)
+  xp_conversion_rate: 0.15
+
+# Sistema de precios de items
+# Formato: MATERIAL: precio_en_puntos
+prices:
+  # ═══ MINERALES PRECIOSOS ═══
+  DIAMOND: 25.0
+  EMERALD: 30.0
+  NETHERITE_INGOT: 100.0
+  NETHERITE_SCRAP: 75.0
+  ANCIENT_DEBRIS: 80.0
+
+  # ═══ MINERALES COMUNES ═══
+  GOLD_INGOT: 8.0
+  IRON_INGOT: 4.0
+  COPPER_INGOT: 2.0
+  COAL: 1.0
+  REDSTONE: 2.5
+  LAPIS_LAZULI: 3.0
+  QUARTZ: 2.0
+
+  # ═══ MATERIALES DE CONSTRUCCIÓN ═══
+  STONE: 0.1
+  COBBLESTONE: 0.05
+  GRANITE: 0.1
+  DIORITE: 0.1
+  ANDESITE: 0.1
+  DEEPSLATE: 0.15
+  SANDSTONE: 0.2
+  SMOOTH_STONE: 0.15
+
+  # ═══ MADERAS ═══
+  OAK_LOG: 0.5
+  BIRCH_LOG: 0.5
+  SPRUCE_LOG: 0.5
+  JUNGLE_LOG: 0.6
+  ACACIA_LOG: 0.6
+  DARK_OAK_LOG: 0.7
+  CRIMSON_STEM: 1.0
+  WARPED_STEM: 1.0
+
+  # ═══ CULTIVOS Y COMIDA ═══
+  WHEAT: 1.0
+  CARROT: 1.2
+  POTATO: 1.2
+  BEETROOT: 1.5
+  PUMPKIN: 2.0
+  MELON: 1.5
+  SWEET_BERRIES: 3.0
+  APPLE: 2.0
+  BREAD: 3.0
+  COOKED_BEEF: 5.0
+  COOKED_PORK: 5.0
+  COOKED_CHICKEN: 4.0
+  COOKED_SALMON: 6.0
+  COOKED_COD: 4.0
+
+  # ═══ DROPS DE MOBS ═══
+  BONE: 2.0
+  STRING: 1.5
+  SPIDER_EYE: 3.0
+  GUNPOWDER: 4.0
+  ENDER_PEARL: 15.0
+  BLAZE_ROD: 20.0
+  GHAST_TEAR: 25.0
+  NETHER_STAR: 500.0
+  DRAGON_BREATH: 100.0
+  PHANTOM_MEMBRANE: 15.0
+
+  # ═══ ITEMS ESPECIALES ═══
+  ENCHANTED_BOOK: 50.0
+  EXPERIENCE_BOTTLE: 10.0
+  TOTEM_OF_UNDYING: 200.0
+  ELYTRA: 150.0
+  SHULKER_SHELL: 75.0
+  PRISMARINE_SHARD: 8.0
+  PRISMARINE_CRYSTALS: 12.0
+
+  # ═══ FLORES Y PLANTAS ═══
+  POPPY: 0.5
+  DANDELION: 0.5
+  BLUE_ORCHID: 1.0
+  ALLIUM: 1.0
+  AZURE_BLUET: 1.0
+  TULIP_RED: 1.0
+  TULIP_ORANGE: 1.0
+  TULIP_WHITE: 1.0
+  TULIP_PINK: 1.0
+  OXEYE_DAISY: 1.0
+  CORNFLOWER: 1.5
+  LILY_OF_THE_VALLEY: 2.0
+  SUNFLOWER: 2.0
+  LILAC: 2.0
+  ROSE_BUSH: 2.0
+  PEONY: 2.0
+
+  # ═══ LANAS Y TINTES ═══
+  WHITE_WOOL: 2.0
+  BLACK_WOOL: 2.0
+  RED_WOOL: 2.0
+  GREEN_WOOL: 2.0
+  BLUE_WOOL: 2.0
+  YELLOW_WOOL: 2.0
+  PURPLE_WOOL: 2.0
+  ORANGE_WOOL: 2.0
+  PINK_WOOL: 2.0
+  LIME_WOOL: 2.0
+  CYAN_WOOL: 2.0

@@ -10,6 +10,9 @@ import gc.grivyzom.survivalcore.listeners.*;
 import gc.grivyzom.survivalcore.masteries.*;
 import gc.grivyzom.survivalcore.placeholders.ScorePlaceholder;
 import gc.grivyzom.survivalcore.recipes.LecternRecipeManager;
+import gc.grivyzom.survivalcore.sellwand.SellWandCommand;
+import gc.grivyzom.survivalcore.sellwand.SellWandListener;
+import gc.grivyzom.survivalcore.sellwand.SellWandManager;
 import gc.grivyzom.survivalcore.skills.*;
 import gc.grivyzom.survivalcore.util.*;
 import org.bukkit.Bukkit;
@@ -47,7 +50,7 @@ public class Main extends JavaPlugin {
     private LecternRecipeManager lecternRecipeManager;   // +getter
     private XpTransferManager xpTransferManager;
     private XpTransferCommand xpTransferCommand;
-
+    private SellWandManager sellWandManager;
     /* =================== CICLO DE VIDA =================== */
     @Override
     public void onEnable() {
@@ -55,9 +58,12 @@ public class Main extends JavaPlugin {
         if (!getDataFolder().exists()) getDataFolder().mkdirs();
 
         loadSettings();
-        if (!initDatabase()) return;     // detiene la carga si la BD falla
+        if (!initDatabase()) return;
         initManagers();
-        RecipeUnlockManager.load();         // <<< Añade aquí
+        RecipeUnlockManager.load();
+
+        // *** NUEVA LÍNEA: Inicializar SellWand ***
+        initSellWand();
 
         // Inicializar managers de transferencia ANTES de registrar comandos
         xpTransferManager = new XpTransferManager(this);
@@ -67,6 +73,7 @@ public class Main extends JavaPlugin {
         registerListeners();
         hookPlaceholderAPI();
         scheduleBackups();
+
 
         // Registrar el listener del Atril Mágico
         getServer().getPluginManager().registerEvents(
@@ -131,36 +138,39 @@ public class Main extends JavaPlugin {
         masteryManager.registerMastery(new MasteryVisionNocturna(1));
     }
 
-    /* =================== REGISTRO COMANDOS & LISTENERS =================== */
+    // =================== MODIFICAR registerCommands() ===================
     private void registerCommands() {
         birthdayCommand = new BirthdayCommand(this);
-        xpTransferCommand = new XpTransferCommand(this); // Inicializar antes de registrar
+        xpTransferCommand = new XpTransferCommand(this);
+
         registerCommand("repair", new RepairCommand(this));
-        registerCommand("reparar", new RepairCommand(this)); // Alias en español
+        registerCommand("reparar", new RepairCommand(this));
         registerCommand("birthday", birthdayCommand);
-        registerCommand("perfil",   new PerfilCommand(this));
-        registerCommand("score",    new ScoreCommand(this));
-        registerCommand("skills",   new SkillsCommand(this));
-        registerCommand("mastery",  new MasteryCommand(this));
-        registerCommand("genero",   new GeneroCommand(this));
+        registerCommand("perfil", new PerfilCommand(this));
+        registerCommand("score", new ScoreCommand(this));
+        registerCommand("skills", new SkillsCommand(this));
+        registerCommand("mastery", new MasteryCommand(this));
+        registerCommand("genero", new GeneroCommand(this));
         registerCommand("lectern", new LecternRecipeCreateCommand(this, lecternRecipeManager));
 
-        // Registrar comandos de transferencia de XP
+        // Comandos de transferencia de XP
         registerCommand("xpgive", xpTransferCommand);
         registerCommand("xptransfers", xpTransferCommand);
         registerCommand("xptransferlog", xpTransferCommand);
+
+        // *** NUEVAS LÍNEAS: Comandos SellWand ***
+        registerCommand("sellwand", new SellWandCommand(this, sellWandManager));
+        registerCommand("sw", new SellWandCommand(this, sellWandManager)); // Alias
     }
 
     private void registerListeners() {
         var pm = getServer().getPluginManager();
 
-        // Cumpleaños y login/logout
+        // Listeners existentes...
         pm.registerEvents(new BirthdayChatListener(birthdayCommand), this);
         pm.registerEvents(new BirthdayListener(this), this);
         pm.registerEvents(new JoinQuitListener(this), this);
         pm.registerEvents(new GeneroGUIListener(this), this);
-
-        // GUI y menús
         pm.registerEvents(new ProfesionesMenuListener(this), this);
         pm.registerEvents(new SkillsMenuListener(this), this);
         pm.registerEvents(new ProfileGUIListener(this), this);
@@ -169,15 +179,26 @@ public class Main extends JavaPlugin {
         pm.registerEvents(new MasteryViewListener(this), this);
         pm.registerEvents(new FarmingGUIListener(this), this);
         pm.registerEvents(new MagicLecternListener(this), this);
-        pm.registerEvents(new MagicLecternMenu(), this);  // ← AÑADE ESTA LÍNEA
-        pm.registerEvents(new MagicLecternRecipesMenu(), this);  // <<< Nuevo menú de recetas
-
-        // Experiencia, minería y bloques colocados
+        pm.registerEvents(new MagicLecternMenu(), this);
+        pm.registerEvents(new MagicLecternRecipesMenu(), this);
         pm.registerEvents(new CropExperienceListener(this), this);
         pm.registerEvents(new ExperiencePotListener(this), this);
         pm.registerEvents(new ExperiencePotMenu(), this);
         pm.registerEvents(new MiningExperienceListener(this, miningConfig), this);
         pm.registerEvents(new MiningBlockPlaceListener(this, miningConfig), this);
+
+        // *** NUEVA LÍNEA: Listener SellWand ***
+        pm.registerEvents(new SellWandListener(this, sellWandManager), this);
+    }
+
+    private void initSellWand() {
+        try {
+            sellWandManager = new SellWandManager(this);
+            getLogger().info("SellWand system initialized successfully.");
+        } catch (Exception e) {
+            getLogger().severe("Failed to initialize SellWand system: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     /* =================== INTEGRACIONES EXTERNAS =================== */
@@ -270,6 +291,10 @@ public class Main extends JavaPlugin {
     public void firePlayerProfessionLevelUpEvent(Player player, String profession, int oldLevel, int newLevel) {
         PlayerProfessionLevelUpEvent event = new PlayerProfessionLevelUpEvent(player, profession, oldLevel, newLevel);
         Bukkit.getPluginManager().callEvent(event);
+    }
+
+    public SellWandManager getSellWandManager() {
+        return sellWandManager;
     }
 
     /**

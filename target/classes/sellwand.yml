@@ -1,144 +1,181 @@
-# ╔══════════════════════════════════════════════════════════════╗
-# ║                        SELLWAND CONFIG                        ║
-# ║              Sistema de venta automática v2.0                ║
-# ╚══════════════════════════════════════════════════════════════╝
+# ===================================
+# SellWand Configuration
+# ===================================
 
-# Configuración de la SellWand
 sellwand:
   # Material de la SellWand
-  material: STICK
+  material: "STICK"
 
   # Nombre de la SellWand (soporta códigos de color con &)
-  name: "&6&l✨ Sell Wand ✨"
+  name: "&6&l⚡ SellWand ⚡"
 
-  # Descripción de la SellWand
+  # Lore de la SellWand
   lore:
     - "&7Haz clic derecho en un contenedor"
-    - "&7para vender todos los items vendibles"
-    - "&7y recibir experiencia a cambio."
+    - "&7para vender todos los items"
+    - "&7vendibles dentro de él."
     - ""
-    - "&e⚡ Rápido y eficiente"
-    - "&e💰 Conversión automática a XP"
-    - "&e🛡️ Sistema anti-abuso"
+    - "&e¡Convierte items en experiencia!"
 
-  # Efecto de brillo en la SellWand
+  # Si la SellWand debe brillar
   glow: true
 
-  # Usos por defecto de una nueva SellWand
+  # Usos por defecto cuando se crea una SellWand
   default_uses: 100
 
   # Si las SellWands tienen usos infinitos por defecto
   infinite_uses_default: false
 
-  # Cooldown entre usos en milisegundos (1000ms = 1 segundo)
+  # Cooldown en milisegundos entre usos
   cooldown_ms: 2000
 
-  # Conversión de valor a experiencia (valor * rate = XP)
-  xp_conversion_rate: 0.15
+# ===================================
+# Sistema de Experiencia
+# ===================================
 
-# Sistema de precios de items
-# Formato: MATERIAL: precio_en_puntos
+# Tasa de conversión de puntos a experiencia (0.1 = 10%)
+xp_conversion_rate: 0.15
+
+# Multiplicador de experiencia (1.0 = normal, 2.0 = doble XP)
+xp_multiplier: 1.0
+
+# Distribución de experiencia:
+# - "mixed": Distribuye entre farming, mining y vanilla
+# - "farming_only": Solo da XP de farming
+# - "mining_only": Solo da XP de mining
+# - "automatic": Detecta el tipo de items y da XP correspondiente
+# - "vanilla": Solo da XP vanilla de Minecraft
+xp_distribution: "automatic"
+
+# ===================================
+# Precios de Items
+# ===================================
 prices:
-  # ═══ MINERALES PRECIOSOS ═══
-  DIAMOND: 25.0
-  EMERALD: 30.0
-  NETHERITE_INGOT: 100.0
-  NETHERITE_SCRAP: 75.0
-  ANCIENT_DEBRIS: 80.0
+  # Materiales de farming
+  wheat: 2.0
+  wheat_seeds: 0.5
+  carrot: 1.5
+  potato: 1.5
+  beetroot: 1.0
+  beetroot_seeds: 0.3
+  sugar_cane: 1.2
+  pumpkin: 3.0
+  melon: 2.5
+  melon_seeds: 0.4
+  pumpkin_seeds: 0.4
+  sweet_berries: 1.8
+  bamboo: 0.8
+  apple: 2.2
+  bread: 3.5
+  cookie: 1.0
+  cake: 8.0
 
-  # ═══ MINERALES COMUNES ═══
-  GOLD_INGOT: 8.0
-  IRON_INGOT: 4.0
-  COPPER_INGOT: 2.0
-  COAL: 1.0
-  REDSTONE: 2.5
-  LAPIS_LAZULI: 3.0
-  QUARTZ: 2.0
+  # Materiales de mining básicos
+  cobblestone: 0.1
+  stone: 0.2
+  granite: 0.15
+  diorite: 0.15
+  andesite: 0.15
+  deepslate: 0.25
+  coal: 1.5
+  iron_ingot: 5.0
+  iron_ore: 3.0
+  raw_iron: 3.5
+  copper_ingot: 2.5
+  copper_ore: 1.8
+  raw_copper: 2.0
 
-  # ═══ MATERIALES DE CONSTRUCCIÓN ═══
-  STONE: 0.1
-  COBBLESTONE: 0.05
-  GRANITE: 0.1
-  DIORITE: 0.1
-  ANDESITE: 0.1
-  DEEPSLATE: 0.15
-  SANDSTONE: 0.2
-  SMOOTH_STONE: 0.15
+  # Materiales preciosos
+  gold_ingot: 8.0
+  gold_ore: 6.0
+  raw_gold: 7.0
+  diamond: 15.0
+  diamond_ore: 12.0
+  emerald: 20.0
+  emerald_ore: 16.0
+  lapis_lazuli: 3.0
+  redstone: 2.0
+  quartz: 4.0
 
-  # ═══ MADERAS ═══
-  OAK_LOG: 0.5
-  BIRCH_LOG: 0.5
-  SPRUCE_LOG: 0.5
-  JUNGLE_LOG: 0.6
-  ACACIA_LOG: 0.6
-  DARK_OAK_LOG: 0.7
-  CRIMSON_STEM: 1.0
-  WARPED_STEM: 1.0
+  # Materiales de construcción
+  oak_log: 1.0
+  birch_log: 1.0
+  spruce_log: 1.0
+  jungle_log: 1.2
+  acacia_log: 1.0
+  dark_oak_log: 1.1
+  mangrove_log: 1.3
+  cherry_log: 1.5
+  sand: 0.3
+  gravel: 0.2
+  dirt: 0.1
+  clay_ball: 0.8
 
-  # ═══ CULTIVOS Y COMIDA ═══
-  WHEAT: 1.0
-  CARROT: 1.2
-  POTATO: 1.2
-  BEETROOT: 1.5
-  PUMPKIN: 2.0
-  MELON: 1.5
-  SWEET_BERRIES: 3.0
-  APPLE: 2.0
-  BREAD: 3.0
-  COOKED_BEEF: 5.0
-  COOKED_PORK: 5.0
-  COOKED_CHICKEN: 4.0
-  COOKED_SALMON: 6.0
-  COOKED_COD: 4.0
+  # Items procesados
+  iron_nugget: 0.5
+  gold_nugget: 0.8
+  leather: 2.5
+  string: 1.0
+  bone: 1.2
+  gunpowder: 3.0
+  ender_pearl: 10.0
+  blaze_rod: 8.0
 
-  # ═══ DROPS DE MOBS ═══
-  BONE: 2.0
-  STRING: 1.5
-  SPIDER_EYE: 3.0
-  GUNPOWDER: 4.0
-  ENDER_PEARL: 15.0
-  BLAZE_ROD: 20.0
-  GHAST_TEAR: 25.0
-  NETHER_STAR: 500.0
-  DRAGON_BREATH: 100.0
-  PHANTOM_MEMBRANE: 15.0
+# ===================================
+# Límites de Venta
+# ===================================
+sell_limits:
+  # Formato: material_name:
+  #   max_amount: cantidad máxima
+  #   time_window_hours: horas antes del reset
 
-  # ═══ ITEMS ESPECIALES ═══
-  ENCHANTED_BOOK: 50.0
-  EXPERIENCE_BOTTLE: 10.0
-  TOTEM_OF_UNDYING: 200.0
-  ELYTRA: 150.0
-  SHULKER_SHELL: 75.0
-  PRISMARINE_SHARD: 8.0
-  PRISMARINE_CRYSTALS: 12.0
+  diamond:
+    max_amount: 64
+    time_window_hours: 24
 
-  # ═══ FLORES Y PLANTAS ═══
-  POPPY: 0.5
-  DANDELION: 0.5
-  BLUE_ORCHID: 1.0
-  ALLIUM: 1.0
-  AZURE_BLUET: 1.0
-  TULIP_RED: 1.0
-  TULIP_ORANGE: 1.0
-  TULIP_WHITE: 1.0
-  TULIP_PINK: 1.0
-  OXEYE_DAISY: 1.0
-  CORNFLOWER: 1.5
-  LILY_OF_THE_VALLEY: 2.0
-  SUNFLOWER: 2.0
-  LILAC: 2.0
-  ROSE_BUSH: 2.0
-  PEONY: 2.0
+  emerald:
+    max_amount: 32
+    time_window_hours: 24
 
-  # ═══ LANAS Y TINTES ═══
-  WHITE_WOOL: 2.0
-  BLACK_WOOL: 2.0
-  RED_WOOL: 2.0
-  GREEN_WOOL: 2.0
-  BLUE_WOOL: 2.0
-  YELLOW_WOOL: 2.0
-  PURPLE_WOOL: 2.0
-  ORANGE_WOOL: 2.0
-  PINK_WOOL: 2.0
-  LIME_WOOL: 2.0
-  CYAN_WOOL: 2.0
+  gold_ingot:
+    max_amount: 128
+    time_window_hours: 12
+
+  iron_ingot:
+    max_amount: 256
+    time_window_hours: 12
+
+# ===================================
+# Efectos de Sonido
+# ===================================
+sounds:
+  enabled: true
+
+  effects:
+    low_value:
+      sound: "BLOCK_NOTE_BLOCK_CHIME"
+      volume: 0.8
+      pitch: 1.2
+      min_price: 0.0
+      max_price: 50.0
+
+    medium_value:
+      sound: "BLOCK_NOTE_BLOCK_BELL"
+      volume: 1.0
+      pitch: 1.0
+      min_price: 50.1
+      max_price: 200.0
+
+    high_value:
+      sound: "ENTITY_PLAYER_LEVELUP"
+      volume: 1.0
+      pitch: 1.5
+      min_price: 200.1
+      max_price: 1000.0
+
+    epic_value:
+      sound: "UI_TOAST_CHALLENGE_COMPLETE"
+      volume: 1.2
+      pitch: 1.0
+      min_price: 1000.1
+      max_price: 999999.0

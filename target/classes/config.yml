@@ -94,6 +94,16 @@ lectern:
   baseUpgradeCost: 100   # XP base multiplicado por el nivel actual
   maxLevel: 10           # Nivel máximo permitido para el atril
 
+sellwand:
+  # Tasa de conversión de dinero a experiencia
+  xp_conversion_rate: 0.15
+
+  # Multiplicador de experiencia
+  xp_multiplier: 1.0
+
+  # Tipo de distribución de experiencia
+  # Opciones: "mixed", "farming_only", "mining_only", "automatic", "vanilla"
+  xp_distribution: "automatic"
 # Sistema de transferencia de experiencia
 
 # Agregar estas secciones a tu archivo config.yml existente

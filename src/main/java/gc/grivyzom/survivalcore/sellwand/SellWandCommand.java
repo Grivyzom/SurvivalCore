@@ -343,8 +343,11 @@ public class SellWandCommand implements CommandExecutor, TabCompleter {
         List<String> completions = new ArrayList<>();
 
         if (args.length == 1) {
-            // Subcomandos principales
-            List<String> subCommands = Arrays.asList("info", "prices", "help");
+            // Subcomandos principales - CREAR LISTA MUTABLE
+            List<String> subCommands = new ArrayList<>();
+            subCommands.add("info");
+            subCommands.add("prices");
+            subCommands.add("help");
 
             if (sender instanceof Player) {
                 subCommands.add("limits");
@@ -358,16 +361,19 @@ public class SellWandCommand implements CommandExecutor, TabCompleter {
                 subCommands.add("reload");
             }
 
+            // Filtrar subcomandos que coincidan
+            String input = args[0].toLowerCase();
             for (String sub : subCommands) {
-                if (sub.toLowerCase().startsWith(args[0].toLowerCase())) {
+                if (sub.toLowerCase().startsWith(input)) {
                     completions.add(sub);
                 }
             }
         } else if (args.length == 2) {
             if (args[0].equalsIgnoreCase("give")) {
                 // Autocompletar jugadores online
+                String input = args[1].toLowerCase();
                 for (Player player : Bukkit.getOnlinePlayers()) {
-                    if (player.getName().toLowerCase().startsWith(args[1].toLowerCase())) {
+                    if (player.getName().toLowerCase().startsWith(input)) {
                         completions.add(player.getName());
                     }
                 }
@@ -376,8 +382,9 @@ public class SellWandCommand implements CommandExecutor, TabCompleter {
                 List<String> commonMaterials = Arrays.asList(
                         "DIAMOND", "EMERALD", "GOLD", "IRON", "COAL", "STONE", "WOOD", "WHEAT", "CARROT"
                 );
+                String input = args[1].toLowerCase();
                 for (String material : commonMaterials) {
-                    if (material.toLowerCase().startsWith(args[1].toLowerCase())) {
+                    if (material.toLowerCase().startsWith(input)) {
                         completions.add(material);
                     }
                 }
@@ -385,8 +392,9 @@ public class SellWandCommand implements CommandExecutor, TabCompleter {
         } else if (args.length == 3 && args[0].equalsIgnoreCase("give")) {
             // Autocompletar cantidad de usos
             List<String> useSuggestions = Arrays.asList("10", "50", "100", "250", "500", "1000");
+            String input = args[2];
             for (String use : useSuggestions) {
-                if (use.startsWith(args[2])) {
+                if (use.startsWith(input)) {
                     completions.add(use);
                 }
             }

@@ -1,6 +1,9 @@
 package gc.grivyzom.survivalcore.sellwand;
 
 import gc.grivyzom.survivalcore.Main;
+import gc.grivyzom.survivalcore.api.events.PlayerSellWandUseEvent;
+import gc.grivyzom.survivalcore.data.UserData;
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.Particle;
@@ -57,6 +60,12 @@ public class SellWandListener implements Listener {
 
         event.setCancelled(true);
 
+        // Verificar permisos básicos
+        if (!player.hasPermission("survivalcore.sellwand.use")) {
+            player.sendMessage(ChatColor.RED + "⚠ No tienes permisos para usar SellWands.");
+            return;
+        }
+
         // Verificar cooldown
         if (manager.isOnCooldown(player)) {
             long remainingMs = manager.getRemainingCooldown(player);
@@ -78,6 +87,30 @@ public class SellWandListener implements Listener {
 
         // Procesar venta
         processSale(player, inventory, item);
+    }
+
+    /**
+     * Restaura items al inventario (usado cuando se cancela el evento)
+     */
+    private void restoreItemsToInventory(Inventory inventory, Map<Material, Integer> itemsToRestore) {
+        for (Map.Entry<Material, Integer> entry : itemsToRestore.entrySet()) {
+            Material material = entry.getKey();
+            int amountToRestore = entry.getValue();
+
+            while (amountToRestore > 0) {
+                int stackSize = Math.min(amountToRestore, material.getMaxStackSize());
+                ItemStack itemStack = new ItemStack(material, stackSize);
+
+                // Intentar agregar al inventario
+                Map<Integer, ItemStack> leftover = inventory.addItem(itemStack);
+                if (!leftover.isEmpty()) {
+                    // Si no hay espacio, romper el bucle
+                    break;
+                }
+
+                amountToRestore -= stackSize;
+            }
+        }
     }
 
     /**
@@ -140,12 +173,21 @@ public class SellWandListener implements Listener {
         // Remover items del contenedor
         removeItemsFromInventory(inventory, itemsToSell);
 
-        // Convertir earnings a experiencia
-        long experienceGained = convertEarningsToExperience(totalEarnings);
+        // Procesar ganancias de experiencia
+        long experienceGained = processExperience(player, totalEarnings, itemsToSell);
 
-        // Dar experiencia al jugador
-        if (experienceGained > 0) {
-            player.giveExp((int) experienceGained);
+        // Disparar evento personalizado
+        String xpType = determineExperienceType(itemsToSell);
+        PlayerSellWandUseEvent sellEvent = new PlayerSellWandUseEvent(
+                player, itemsToSell, totalEarnings, experienceGained, xpType);
+        Bukkit.getPluginManager().callEvent(sellEvent);
+
+        // Verificar si el evento fue cancelado
+        if (sellEvent.isCancelled()) {
+            // Restaurar items al contenedor
+            restoreItemsToInventory(inventory, itemsToSell);
+            player.sendMessage(ChatColor.RED + "❌ La venta fue cancelada por otro plugin.");
+            return;
         }
 
         // Establecer cooldown
@@ -163,12 +205,221 @@ public class SellWandListener implements Listener {
     }
 
     /**
+     * Procesa la experiencia ganada y la distribuye según la configuración
+     */
+    private long processExperience(Player player, double totalEarnings, Map<Material, Integer> itemsSold) {
+        // Determinar el tipo de experiencia basado en los items vendidos
+        String xpType = determineExperienceType(itemsSold);
+
+        // Convertir ganancias a experiencia
+        long totalXpGained = convertEarningsToExperience(totalEarnings);
+
+        if (totalXpGained <= 0) {
+            return 0;
+        }
+
+        // Distribución de experiencia según configuración
+        String distribution = plugin.getConfig().getString("sellwand.xp_distribution", "mixed");
+
+        switch (distribution.toLowerCase()) {
+            case "farming_only":
+                // Solo dar XP de farming
+                addFarmingExperience(player, totalXpGained);
+                break;
+
+            case "mining_only":
+                // Solo dar XP de mining
+                addMiningExperience(player, totalXpGained);
+                break;
+
+            case "automatic":
+                // Dar XP según el tipo de items vendidos
+                if ("farming".equals(xpType)) {
+                    addFarmingExperience(player, totalXpGained);
+                } else if ("mining".equals(xpType)) {
+                    addMiningExperience(player, totalXpGained);
+                } else {
+                    // Items mixtos - distribuir proporcionalmente
+                    long farmingXp = totalXpGained / 2;
+                    long miningXp = totalXpGained - farmingXp;
+                    addFarmingExperience(player, farmingXp);
+                    addMiningExperience(player, miningXp);
+                }
+                break;
+
+            case "vanilla":
+                // Dar XP vanilla de Minecraft
+                player.giveExp((int) Math.min(totalXpGained, Integer.MAX_VALUE));
+                break;
+
+            default: // "mixed"
+                // Distribuir entre farming, mining y vanilla
+                long farmingXp = totalXpGained / 3;
+                long miningXp = totalXpGained / 3;
+                long vanillaXp = totalXpGained - farmingXp - miningXp;
+
+                addFarmingExperience(player, farmingXp);
+                addMiningExperience(player, miningXp);
+                if (vanillaXp > 0) {
+                    player.giveExp((int) Math.min(vanillaXp, Integer.MAX_VALUE));
+                }
+                break;
+        }
+
+        return totalXpGained;
+    }
+
+    /**
+     * Determina el tipo de experiencia según los items vendidos
+     */
+    private String determineExperienceType(Map<Material, Integer> itemsSold) {
+        int farmingItems = 0;
+        int miningItems = 0;
+
+        for (Material material : itemsSold.keySet()) {
+            if (isFarmingItem(material)) {
+                farmingItems++;
+            } else if (isMiningItem(material)) {
+                miningItems++;
+            }
+        }
+
+        if (farmingItems > miningItems) {
+            return "farming";
+        } else if (miningItems > farmingItems) {
+            return "mining";
+        } else {
+            return "mixed";
+        }
+    }
+
+    /**
+     * Verifica si un material es relacionado con farming
+     */
+    private boolean isFarmingItem(Material material) {
+        return material.name().contains("SEEDS") ||
+                material.name().contains("WHEAT") ||
+                material.name().contains("CARROT") ||
+                material.name().contains("POTATO") ||
+                material.name().contains("BEETROOT") ||
+                material.name().contains("PUMPKIN") ||
+                material.name().contains("MELON") ||
+                material.name().contains("SUGAR_CANE") ||
+                material.name().contains("BAMBOO") ||
+                material.name().contains("SWEET_BERRIES") ||
+                material.name().contains("APPLE") ||
+                material == Material.BREAD ||
+                material == Material.COOKIE ||
+                material == Material.CAKE;
+    }
+
+    /**
+     * Verifica si un material es relacionado con mining
+     */
+    private boolean isMiningItem(Material material) {
+        return material.name().contains("ORE") ||
+                material.name().contains("INGOT") ||
+                material.name().contains("GEM") ||
+                material.name().contains("STONE") ||
+                material.name().contains("COBBLESTONE") ||
+                material.name().contains("COAL") ||
+                material == Material.DIAMOND ||
+                material == Material.EMERALD ||
+                material == Material.QUARTZ ||
+                material == Material.REDSTONE ||
+                material == Material.LAPIS_LAZULI ||
+                material.name().contains("DEEPSLATE") ||
+                material.name().contains("GRANITE") ||
+                material.name().contains("DIORITE") ||
+                material.name().contains("ANDESITE");
+    }
+
+    /**
+     * Añade experiencia de farming al jugador
+     */
+    private void addFarmingExperience(Player player, long xpAmount) {
+        if (xpAmount <= 0) return;
+
+        try {
+            UserData userData = plugin.getDatabaseManager().getUserData(player.getUniqueId().toString());
+            long currentXp = userData.getFarmingXP();
+            int currentLevel = userData.getFarmingLevel();
+
+            userData.setFarmingXP(currentXp + xpAmount);
+
+            // Verificar si sube de nivel
+            int newLevel = calculateLevel(currentXp + xpAmount);
+            if (newLevel > currentLevel) {
+                userData.setFarmingLevel(newLevel);
+                player.sendMessage(ChatColor.GREEN + "🌾 ¡Has subido al nivel " + newLevel + " de Farming!");
+
+                // Disparar evento de level up
+                plugin.firePlayerProfessionLevelUpEvent(player, "farming", currentLevel, newLevel);
+            }
+
+            plugin.getDatabaseManager().saveUserData(userData);
+
+            // Disparar evento de ganancia de XP
+            plugin.firePlayerProfessionXPGainEvent(player, "farming", xpAmount, currentXp + xpAmount);
+
+        } catch (Exception e) {
+            plugin.getLogger().warning("Error al añadir experiencia de farming: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Añade experiencia de mining al jugador
+     */
+    private void addMiningExperience(Player player, long xpAmount) {
+        if (xpAmount <= 0) return;
+
+        try {
+            UserData userData = plugin.getDatabaseManager().getUserData(player.getUniqueId().toString());
+            long currentXp = userData.getMiningXP();
+            int currentLevel = userData.getMiningLevel();
+
+            userData.setMiningXP(currentXp + xpAmount);
+
+            // Verificar si sube de nivel
+            int newLevel = calculateLevel(currentXp + xpAmount);
+            if (newLevel > currentLevel) {
+                userData.setMiningLevel(newLevel);
+                player.sendMessage(ChatColor.GREEN + "⛏️ ¡Has subido al nivel " + newLevel + " de Mining!");
+
+                // Disparar evento de level up
+                plugin.firePlayerProfessionLevelUpEvent(player, "mining", currentLevel, newLevel);
+            }
+
+            plugin.getDatabaseManager().saveUserData(userData);
+
+            // Disparar evento de ganancia de XP
+            plugin.firePlayerProfessionXPGainEvent(player, "mining", xpAmount, currentXp + xpAmount);
+
+        } catch (Exception e) {
+            plugin.getLogger().warning("Error al añadir experiencia de mining: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Calcula el nivel basado en la experiencia total
+     */
+    private int calculateLevel(long totalXp) {
+        // Fórmula básica para calcular nivel: nivel = sqrt(xp/1000) + 1
+        // Puedes ajustar esta fórmula según tu sistema de niveles
+        return (int) Math.floor(Math.sqrt(totalXp / 1000.0)) + 1;
+    }
+
+    /**
      * Convierte ganancias monetarias a experiencia
      */
     private long convertEarningsToExperience(double earnings) {
         // Configuración de conversión de la config
         double conversionRate = plugin.getConfig().getDouble("sellwand.xp_conversion_rate", 0.1);
-        return Math.round(earnings * conversionRate);
+        long baseXp = Math.round(earnings * conversionRate);
+
+        // Aplicar multiplicador si está configurado
+        double multiplier = plugin.getConfig().getDouble("sellwand.xp_multiplier", 1.0);
+        return Math.round(baseXp * multiplier);
     }
 
     /**
@@ -234,6 +485,12 @@ public class SellWandListener implements Listener {
         player.sendMessage(ChatColor.WHITE + "💎 Valor total: " + ChatColor.GREEN + priceFormat.format(totalEarnings) + " puntos");
         player.sendMessage(ChatColor.WHITE + "⭐ Experiencia ganada: " + ChatColor.YELLOW + experienceGained + " XP");
 
+        // Mostrar distribución de XP si está configurado
+        String distribution = plugin.getConfig().getString("sellwand.xp_distribution", "mixed");
+        if (!distribution.equals("vanilla")) {
+            player.sendMessage(ChatColor.GRAY + "   Distribución: " + getDistributionDisplay(distribution));
+        }
+
         // Mostrar usos restantes de la SellWand
         int usesRemaining = manager.getUsesRemaining(player.getInventory().getItemInMainHand());
         if (usesRemaining > 0) {
@@ -244,6 +501,19 @@ public class SellWandListener implements Listener {
 
         player.sendMessage(ChatColor.GOLD + "════════════════════════════════");
         player.sendMessage("");
+    }
+
+    /**
+     * Obtiene el texto de visualización para el tipo de distribución
+     */
+    private String getDistributionDisplay(String distribution) {
+        switch (distribution.toLowerCase()) {
+            case "farming_only": return "Solo Farming";
+            case "mining_only": return "Solo Mining";
+            case "automatic": return "Automática según items";
+            case "vanilla": return "Experiencia vanilla";
+            default: return "Mixta (Farming + Mining + Vanilla)";
+        }
     }
 
     /**

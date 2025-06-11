@@ -99,6 +99,15 @@ permissions:
   survivalcore.repair.free:
     description: Reparación completamente gratuita (admin)
     default: op
+  survivalcore.sellwand.*:
+    description: "Acceso completo al sistema SellWand"
+    children:
+      survivalcore.sellwand.use: true
+      survivalcore.sellwand.give: true
+      survivalcore.sellwand.reload: true
+      survivalcore.sellwand.prices: true
+    default: op
+
   survivalcore.sellwand.use:
     description: "Permite usar SellWands"
     default: true
@@ -112,9 +121,5 @@ permissions:
     default: op
 
   survivalcore.sellwand.prices:
-    description: "Permite ver la lista de precios de SellWand"
+    description: "Permite ver los precios de items"
     default: true
-
-  survivalcore.sellwand.admin:
-    description: "Acceso completo al sistema SellWand"
-    default: op

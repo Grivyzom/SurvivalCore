@@ -21,10 +21,10 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
- * Comando /reparar mejorado con opciones avanzadas y sistema de costos dinámico.
+ * Comando /reparar mejorado con SISTEMA DE EXPERIENCIA CORREGIDO
  *
  * @author Brocolitx
- * @version 2.0
+ * @version 2.1 - EXPERIENCIA CORREGIDA
  */
 public class RepairCommand implements CommandExecutor, TabCompleter {
 
@@ -145,9 +145,9 @@ public class RepairCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        RepairInfo info = calculateRepairInfo(item, player); // Pasar player como parámetro
+        RepairInfo info = calculateRepairInfo(item, player);
 
-        if (player.getLevel() < info.cost()) {
+        if (!hasEnoughExperience(player, info.cost())) {
             showInsufficientXP(player, info.cost());
             return true;
         }
@@ -166,7 +166,7 @@ public class RepairCommand implements CommandExecutor, TabCompleter {
         for (ItemStack item : player.getInventory().getContents()) {
             if (item == null || !isRepairable(item)) continue;
 
-            RepairInfo info = calculateRepairInfo(item, player); // Pasar player como parámetro
+            RepairInfo info = calculateRepairInfo(item, player);
             if (info.damage() > 0) {
                 repairableItems.add(info);
             }
@@ -181,7 +181,7 @@ public class RepairCommand implements CommandExecutor, TabCompleter {
                 .mapToInt(RepairInfo::cost)
                 .sum();
 
-        if (player.getLevel() < totalCost) {
+        if (!hasEnoughExperience(player, totalCost)) {
             showInsufficientXP(player, totalCost);
             showRepairPreview(player, repairableItems, totalCost);
             return true;
@@ -208,7 +208,7 @@ public class RepairCommand implements CommandExecutor, TabCompleter {
         for (ItemStack piece : armor) {
             if (piece == null || !isRepairable(piece)) continue;
 
-            RepairInfo info = calculateRepairInfo(piece, player); // Pasar player como parámetro
+            RepairInfo info = calculateRepairInfo(piece, player);
             if (info.damage() > 0) {
                 armorPieces.add(info);
             }
@@ -223,7 +223,7 @@ public class RepairCommand implements CommandExecutor, TabCompleter {
                 .mapToInt(RepairInfo::cost)
                 .sum();
 
-        if (player.getLevel() < totalCost) {
+        if (!hasEnoughExperience(player, totalCost)) {
             showInsufficientXP(player, totalCost);
             return true;
         }
@@ -249,9 +249,9 @@ public class RepairCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        RepairInfo info = calculateRepairInfo(item, player); // Pasar player como parámetro
+        RepairInfo info = calculateRepairInfo(item, player);
 
-        if (player.getLevel() < info.cost()) {
+        if (!hasEnoughExperience(player, info.cost())) {
             showInsufficientXP(player, info.cost());
             return true;
         }
@@ -277,9 +277,9 @@ public class RepairCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        RepairInfo info = calculateRepairInfo(item, player); // Pasar player como parámetro
+        RepairInfo info = calculateRepairInfo(item, player);
 
-        if (player.getLevel() < info.cost()) {
+        if (!hasEnoughExperience(player, info.cost())) {
             showInsufficientXP(player, info.cost());
             return true;
         }
@@ -301,7 +301,7 @@ public class RepairCommand implements CommandExecutor, TabCompleter {
     }
 
     /**
-     * Calcula la información de reparación para un ítem
+     * MÉTODO CORREGIDO: Calcula la información de reparación para un ítem
      * @param item El ítem a reparar
      * @param player El jugador (para verificar permisos de descuento)
      */
@@ -416,14 +416,50 @@ public class RepairCommand implements CommandExecutor, TabCompleter {
         plugin.getLogger().info("No se encontró multiplicador específico para " + name + ", usando 1.0");
         return 1.0;
     }
+
     /**
-     * Realiza la reparación de los ítems
+     * MÉTODO CORREGIDO: Verifica si el jugador tiene suficiente experiencia
+     */
+    private boolean hasEnoughExperience(Player player, int requiredLevels) {
+        // Si tiene permisos de reparación gratuita, siempre puede reparar
+        if (player.hasPermission("survivalcore.repair.free")) {
+            return true;
+        }
+
+        // Verificar niveles directamente - sin conversiones complejas
+        return player.getLevel() >= requiredLevels;
+    }
+
+    /**
+     * MÉTODO CORREGIDO: Realiza la reparación de los ítems con manejo correcto de experiencia
      */
     private void performRepair(Player player, List<RepairInfo> items) {
         int totalCost = items.stream().mapToInt(RepairInfo::cost).sum();
 
-        // Descontar experiencia
-        player.setLevel(player.getLevel() - totalCost);
+        // CORRECCIÓN CRÍTICA: Verificación adicional antes de proceder
+        if (!hasEnoughExperience(player, totalCost)) {
+            player.sendMessage(ChatColor.RED + "Error: No tienes suficiente experiencia para completar la reparación.");
+            return;
+        }
+
+        // CORRECCIÓN CRÍTICA: Solo descontar experiencia si no es gratuito
+        if (!player.hasPermission("survivalcore.repair.free") && totalCost > 0) {
+            // Método SEGURO para descontar niveles
+            int currentLevel = player.getLevel();
+            int newLevel = Math.max(0, currentLevel - totalCost);
+
+            plugin.getLogger().info("REPARACIÓN: Nivel actual: " + currentLevel + ", Costo: " + totalCost + ", Nuevo nivel: " + newLevel);
+
+            // Usar setLevel directamente - es el método más seguro
+            player.setLevel(newLevel);
+
+            // Resetear la barra de experiencia fraccionaria para evitar bugs visuales
+            player.setExp(0.0f);
+
+            plugin.getLogger().info("REPARACIÓN: Experiencia descontada correctamente");
+        } else {
+            plugin.getLogger().info("REPARACIÓN: Reparación gratuita o costo cero - no se descuenta experiencia");
+        }
 
         // Reparar cada ítem
         int repairedCount = 0;
@@ -448,15 +484,24 @@ public class RepairCommand implements CommandExecutor, TabCompleter {
             RepairInfo info = items.get(0);
             String itemName = getItemDisplayName(info.item());
             player.sendMessage(ChatColor.GREEN + "✓ " + itemName + " ha sido reparado completamente.");
-            player.sendMessage(ChatColor.GRAY + "Costo: " + info.cost() + " niveles de experiencia.");
+            if (totalCost > 0) {
+                player.sendMessage(ChatColor.GRAY + "Costo: " + totalCost + " niveles de experiencia.");
+            } else {
+                player.sendMessage(ChatColor.GRAY + "Reparación gratuita.");
+            }
         } else {
             player.sendMessage(ChatColor.GREEN + "✓ Has reparado " + repairedCount + " ítems exitosamente.");
-            player.sendMessage(ChatColor.GRAY + "Costo total: " + totalCost + " niveles de experiencia.");
+            if (totalCost > 0) {
+                player.sendMessage(ChatColor.GRAY + "Costo total: " + totalCost + " niveles de experiencia.");
+            } else {
+                player.sendMessage(ChatColor.GRAY + "Reparación gratuita.");
+            }
         }
 
         // Log para administradores
-        plugin.getLogger().info(String.format("Repair: %s reparó %d ítems por %d niveles",
-                player.getName(), repairedCount, totalCost));
+        plugin.getLogger().info(String.format("Repair: %s reparó %d ítems por %d niveles (free: %s)",
+                player.getName(), repairedCount, totalCost,
+                player.hasPermission("survivalcore.repair.free") ? "sí" : "no"));
 
         // Limpiar sesión si existe
         repairSessions.remove(player.getUniqueId());
@@ -499,7 +544,7 @@ public class RepairCommand implements CommandExecutor, TabCompleter {
                 .mapToInt(RepairInfo::cost)
                 .sum();
 
-        if (player.getLevel() < totalCost) {
+        if (!hasEnoughExperience(player, totalCost)) {
             showInsufficientXP(player, totalCost);
             return true;
         }
@@ -576,7 +621,7 @@ public class RepairCommand implements CommandExecutor, TabCompleter {
         for (ItemStack item : player.getInventory().getContents()) {
             if (item == null || !isRepairable(item)) continue;
 
-            RepairInfo info = calculateRepairInfo(item, player); // Pasar player como parámetro
+            RepairInfo info = calculateRepairInfo(item, player);
             if (info.damage() > 0) {
                 allItems.add(info);
             }
@@ -604,7 +649,7 @@ public class RepairCommand implements CommandExecutor, TabCompleter {
 
         player.sendMessage(ChatColor.GOLD + "Costo total: " + totalCost + " niveles");
 
-        if (totalCost <= player.getLevel()) {
+        if (hasEnoughExperience(player, totalCost)) {
             player.sendMessage(ChatColor.GREEN + "Usa " + ChatColor.WHITE + "/reparar all" +
                     ChatColor.GREEN + " para reparar todo.");
         } else {
@@ -624,7 +669,7 @@ public class RepairCommand implements CommandExecutor, TabCompleter {
             return;
         }
 
-        RepairInfo info = calculateRepairInfo(item, player); // Pasar player como parámetro
+        RepairInfo info = calculateRepairInfo(item, player);
         String itemName = getItemDisplayName(item);
 
         // Calcular durabilidad
@@ -669,11 +714,20 @@ public class RepairCommand implements CommandExecutor, TabCompleter {
                     ChatColor.WHITE + String.format("%.1f", typeMultiplier));
         }
 
+        // Mostrar descuentos por permisos
+        if (player.hasPermission("survivalcore.repair.free")) {
+            player.sendMessage(ChatColor.GREEN + "  • Descuento: " + ChatColor.GOLD + "GRATUITO" + ChatColor.GREEN + " (permiso free)");
+        } else if (player.hasPermission("survivalcore.repair.discount.vip")) {
+            player.sendMessage(ChatColor.GREEN + "  • Descuento VIP: " + ChatColor.YELLOW + "50%");
+        } else if (player.hasPermission("survivalcore.repair.discount")) {
+            player.sendMessage(ChatColor.GREEN + "  • Descuento: " + ChatColor.YELLOW + "25%");
+        }
+
         player.sendMessage(ChatColor.WHITE + "Costo de reparación: " +
-                (info.cost() <= player.getLevel() ? ChatColor.GREEN : ChatColor.RED) +
+                (hasEnoughExperience(player, info.cost()) ? ChatColor.GREEN : ChatColor.RED) +
                 info.cost() + " niveles");
 
-        if (info.cost() <= player.getLevel()) {
+        if (hasEnoughExperience(player, info.cost())) {
             player.sendMessage(ChatColor.GREEN + "Usa " + ChatColor.WHITE + "/reparar" +
                     ChatColor.GREEN + " para reparar este ítem.");
         } else {
@@ -686,7 +740,7 @@ public class RepairCommand implements CommandExecutor, TabCompleter {
      */
     private boolean showRepairInfo(Player player) {
         player.sendMessage(ChatColor.GOLD + "╔══════════════════════════════════╗");
-        player.sendMessage(ChatColor.GOLD + "║ " + ChatColor.YELLOW + "Sistema de Reparación v2.0" + ChatColor.GOLD + "     ║");
+        player.sendMessage(ChatColor.GOLD + "║ " + ChatColor.YELLOW + "Sistema de Reparación v2.1" + ChatColor.GOLD + "     ║");
         player.sendMessage(ChatColor.GOLD + "╠══════════════════════════════════╣");
         player.sendMessage(ChatColor.GOLD + "║ " + ChatColor.WHITE + "Costo base: " +
                 ChatColor.YELLOW + "5% del daño" + ChatColor.GOLD + "          ║");
@@ -704,14 +758,32 @@ public class RepairCommand implements CommandExecutor, TabCompleter {
         player.sendMessage(ChatColor.GRAY + "• Netherite: x2.0 | Diamante: x1.5");
         player.sendMessage(ChatColor.GRAY + "• Hierro: x1.0 | Oro: x0.8");
         player.sendMessage(ChatColor.GRAY + "• Piedra/Madera: x0.6");
-        return true; // Agregar return true
+
+        // Mostrar permisos del jugador
+        player.sendMessage("");
+        player.sendMessage(ChatColor.YELLOW + "Tus permisos de reparación:");
+        if (player.hasPermission("survivalcore.repair.free")) {
+            player.sendMessage(ChatColor.GREEN + "• Reparación GRATUITA");
+        } else if (player.hasPermission("survivalcore.repair.discount.vip")) {
+            player.sendMessage(ChatColor.GREEN + "• Descuento VIP (50%)");
+        } else if (player.hasPermission("survivalcore.repair.discount")) {
+            player.sendMessage(ChatColor.GREEN + "• Descuento básico (25%)");
+        } else {
+            player.sendMessage(ChatColor.GRAY + "• Sin descuentos especiales");
+        }
+
+        if (player.hasPermission("survivalcore.repair.nocooldown")) {
+            player.sendMessage(ChatColor.GREEN + "• Sin cooldown entre reparaciones");
+        }
+
+        return true;
     }
 
     /**
      * Muestra la ayuda del comando
      */
     private boolean showHelp(Player player) {
-        player.sendMessage(ChatColor.GOLD + "═══ Comando /reparar v2.0 ═══");
+        player.sendMessage(ChatColor.GOLD + "═══ Comando /reparar v2.1 (CORREGIDO) ═══");
         player.sendMessage(ChatColor.YELLOW + "/reparar" +
                 ChatColor.GRAY + " - Repara el ítem en tu mano");
         player.sendMessage(ChatColor.YELLOW + "/reparar all" +

@@ -76,7 +76,7 @@ messages:
       - "survivalcore.staff.silentjoin"
 
   quit:
-    default: "&c%player% ha abandonado el servidor."
+    default: "&c%player% &fha abandonado el servidor."
     permission-messages:
       op: "&eOperador %player% se va."
       survivalcore.vip: "&6VIP %player% se va, ¡vuelve pronto!"
@@ -86,9 +86,12 @@ messages:
       - "survivalcore.staff.silentquit"
 
 time-greetings:
-  morning: "&e¡Buenos días!"
-  afternoon: "&e¡Buenas tardes!"
-  night: "&e¡Buenas noches!"
+  # Mensaje de Buenos días
+  morning: "&8[&6!&8]"
+  # Mensaje de buenas tardes
+  afternoon: "&8[&6!&8]"
+  # Mensaje de Buenas noches
+  night: "&8[&6!&8]"
 
 lectern:
   baseUpgradeCost: 100   # XP base multiplicado por el nivel actual
@@ -143,6 +146,74 @@ xp_bank:
 
   # Incremento del coste por nivel
   upgrade_cost_increment: 250
+
+# ===================================
+# Sistema de Cheques de Experiencia
+# ===================================
+cheque_system:
+  # Configuración del ítem cheque
+  item:
+    # Material del cheque (PAPER, BOOK, WRITTEN_BOOK, etc.)
+    material: "PAPER"
+
+    # Nombre del cheque (soporta códigos de color con &)
+    name: "&6&l💰 Cheque de Experiencia &6&l💰"
+
+    # Lore del cheque (%amount%, %creator%, %id% son variables)
+    lore:
+      - "&7━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      - "&f  Valor: &e%amount% &fniveles de experiencia"
+      - "&f  Creado por: &b%creator%"
+      - "&f  ID: &7#%id%"
+      - "&7━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      - ""
+      - "&a▶ Haz clic derecho para canjear"
+      - "&7▶ Los cheques son intransferibles"
+      - "&7▶ Una vez canjeado no se puede revertir"
+
+    # Si el cheque debe brillar (enchant glow)
+    glow: true
+
+  # Límites diarios por rango (niveles de experiencia que se pueden crear por día)
+  daily_limits:
+    default: 500      # Jugadores normales: 500 niveles/día
+    vip: 1000         # VIP: 1000 niveles/día
+    elite: 2000       # Elite: 2000 niveles/día
+    mod: 5000         # Moderadores: 5000 niveles/día
+    admin: -1         # Administradores: ilimitado
+
+  # Costo de creación por rango (porcentaje adicional del valor del cheque)
+  creation_costs:
+    default: 0.10     # 10% de comisión
+    vip: 0.05         # 5% de comisión
+    elite: 0.02       # 2% de comisión
+    mod: 0.01         # 1% de comisión
+    admin: 0.00       # Sin comisión
+
+  # Cantidad mínima y máxima por cheque
+  min_amount: 1
+  max_amount: 1000
+
+  # Configuración de seguridad
+  security:
+    # Cooldown entre canjes (milisegundos)
+    redeem_cooldown: 1000
+
+    # Prevenir duplicación en ciertos inventarios
+    prevent_duplication: true
+
+    # Logged todas las transacciones de cheques
+    log_transactions: true
+
+  # Mensajes del sistema
+  messages:
+    creation_success: "&a✓ Cheque creado exitosamente:"
+    redeem_success: "&a✓ Cheque canjeado exitosamente:"
+    insufficient_xp: "&c✗ No tienes suficiente experiencia para crear este cheque."
+    limit_exceeded: "&c✗ Has excedido tu límite diario de creación de cheques."
+    invalid_cheque: "&c✗ Este cheque es inválido o ya ha sido canjeado."
+    no_permission: "&c✗ No tienes permisos para realizar esta acción."
+    cooldown_active: "&c✗ Espera un momento antes de canjear otro cheque."
 
 # ===================================
 # Sistema de reparación mejorado

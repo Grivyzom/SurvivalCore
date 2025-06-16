@@ -21,6 +21,9 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 import gc.grivyzom.survivalcore.api.SurvivalCoreAPI;
 import gc.grivyzom.survivalcore.api.events.*;
+import gc.grivyzom.survivalcore.commands.XpChequeCommand;
+import gc.grivyzom.survivalcore.listeners.XpChequeListener;
+import gc.grivyzom.survivalcore.util.XpChequeManager;
 
 import java.time.LocalDate;
 import java.util.logging.Level;
@@ -51,6 +54,7 @@ public class Main extends JavaPlugin {
     private XpTransferManager xpTransferManager;
     private XpTransferCommand xpTransferCommand;
     private SellWandManager sellWandManager;
+    private XpChequeCommand xpChequeCommand;
     /* =================== CICLO DE VIDA =================== */
     @Override
     public void onEnable() {
@@ -158,15 +162,16 @@ public class Main extends JavaPlugin {
         registerCommand("xptransfers", xpTransferCommand);
         registerCommand("xptransferlog", xpTransferCommand);
 
-        // *** NUEVAS LÍNEAS: Comandos SellWand ***
         registerCommand("sellwand", new SellWandCommand(this, sellWandManager));
-        registerCommand("sw", new SellWandCommand(this, sellWandManager)); // Alias
+        registerCommand("sw", new SellWandCommand(this, sellWandManager));
+        // Comandos de Cheques de XP
+        xpChequeCommand = new XpChequeCommand(this);
+        registerCommand("cheque", xpChequeCommand);
     }
 
     private void registerListeners() {
         var pm = getServer().getPluginManager();
 
-        // Listeners existentes...
         pm.registerEvents(new BirthdayChatListener(birthdayCommand), this);
         pm.registerEvents(new BirthdayListener(this), this);
         pm.registerEvents(new JoinQuitListener(this), this);
@@ -186,6 +191,7 @@ public class Main extends JavaPlugin {
         pm.registerEvents(new ExperiencePotMenu(), this);
         pm.registerEvents(new MiningExperienceListener(this, miningConfig), this);
         pm.registerEvents(new MiningBlockPlaceListener(this, miningConfig), this);
+        pm.registerEvents(new XpChequeListener(this, xpChequeCommand.getChequeManager()), this);
 
         // *** NUEVA LÍNEA: Listener SellWand ***
         pm.registerEvents(new SellWandListener(this, sellWandManager), this);
@@ -284,6 +290,7 @@ public class Main extends JavaPlugin {
         PlayerBankUpgradeEvent event = new PlayerBankUpgradeEvent(player, oldCapacity, newCapacity, newLevel);
         Bukkit.getPluginManager().callEvent(event);
     }
+
 
     /**
      * Dispara evento cuando un jugador sube de nivel en una profesión
@@ -392,6 +399,10 @@ public class Main extends JavaPlugin {
             return;
         }
 
+    }
+
+    public XpChequeCommand getXpChequeCommand() {
+        return xpChequeCommand;
     }
 
 }

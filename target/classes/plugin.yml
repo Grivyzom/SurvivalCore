@@ -44,7 +44,71 @@ commands:
     description: "Gestiona el sistema SellWand"
     usage: /sellwand <give|reload|limits|prices|info|help> [argumentos]
     aliases: [sw, varita, varitaventa]
+  cheque:
+    description: Sistema de cheques de experiencia
+    usage: /cheque <crear|info|limites|help> [cantidad]
+    aliases: [check, xpcheck, experiencecheque]
 permissions:
+  # Permisos básicos del sistema de cheques
+  survivalcore.cheque.*:
+    description: Acceso completo al sistema de cheques
+    children:
+      survivalcore.cheque.create: true
+      survivalcore.cheque.redeem: true
+      survivalcore.cheque.info: true
+      survivalcore.cheque.give: true
+      survivalcore.cheque.stats: true
+      survivalcore.cheque.reload: true
+    default: op
+
+  survivalcore.cheque.create:
+    description: Permite crear cheques de experiencia
+    default: true
+
+  survivalcore.cheque.redeem:
+    description: Permite canjear cheques de experiencia
+    default: true
+
+  survivalcore.cheque.info:
+    description: Permite ver información personal de cheques
+    default: true
+
+  survivalcore.cheque.give:
+    description: Permite dar cheques a otros jugadores (admin)
+    default: op
+
+  survivalcore.cheque.stats:
+    description: Permite ver estadísticas de cheques
+    default: op
+
+  survivalcore.cheque.stats.others:
+    description: Permite ver estadísticas de otros jugadores
+    default: op
+
+  survivalcore.cheque.reload:
+    description: Permite recargar la configuración del sistema de cheques
+    default: op
+
+  # Permisos por rango para límites y costos
+  survivalcore.cheque.rank.default:
+    description: Límites y costos de rango default
+    default: true
+
+  survivalcore.cheque.rank.vip:
+    description: Límites y costos de rango VIP
+    default: false
+
+  survivalcore.cheque.rank.elite:
+    description: Límites y costos de rango Elite
+    default: false
+
+  survivalcore.cheque.rank.mod:
+    description: Límites y costos de rango Moderador
+    default: false
+
+  survivalcore.cheque.rank.admin:
+    description: Límites y costos de rango Administrador (sin límites)
+    default: op
   survivalcore.reload:
     description: Permite recargar la configuración del plugin.
     default: op

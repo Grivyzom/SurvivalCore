@@ -164,7 +164,6 @@ public class Main extends JavaPlugin {
         pm.registerEvents(new JoinQuitListener(this), this);
         pm.registerEvents(new GeneroGUIListener(this), this);
         pm.registerEvents(new ProfileGUIListener(this), this);
-        pm.registerEvents(new FarmingGUIListener(this), this);
         pm.registerEvents(new MagicLecternListener(this), this);
         pm.registerEvents(new MagicLecternMenu(), this);
         pm.registerEvents(new MagicLecternRecipesMenu(), this);

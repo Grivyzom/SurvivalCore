@@ -111,12 +111,13 @@ sellwand:
 # Sistema de transferencia de experiencia
 # ===================================
 
-# Límites de transferencia por rango
+# Límites de transferencia por rango (niveles por día)
 transfer_limits:
-  default: 30        # Jugadores normales: 30 niveles/XP por día
-  vip: 100           # VIPs: 100 niveles/XP por día
-  elite: 200         # Elite: 200 niveles/XP por día
-  mod: 500           # Moderadores: 500 niveles/XP por día
+  default: 30        # Usuarios normales: 30 niveles/día
+  vip: 100           # VIPs: 100 niveles/día
+  elite: 200         # Elite: 200 niveles/día
+  premium: 350       # Premium: 350 niveles/día
+  mod: 500           # Moderadores: 500 niveles/día
   admin: -1          # Admins: ilimitado (-1)
 
 # Configuración del sistema de transferencias
@@ -124,11 +125,43 @@ transfer_settings:
   # Umbral para solicitar confirmación en transferencias desde barra de XP (niveles)
   confirmation_threshold: 50
 
-  # Umbral para solicitar confirmación en transferencias desde banco (XP)
-  bank_confirmation_threshold: 1000
+  # Umbral para solicitar confirmación en transferencias desde banco (niveles)
+  bank_confirmation_threshold: 15
 
   # Tiempo de expiración para confirmaciones (segundos)
   confirmation_timeout: 30
+
+  # Habilitar transferencia automática limitada (recomendado: true)
+  auto_limit_transfers: true
+
+  # Mostrar tips en mensajes de información
+  show_tips: true
+
+# Mensajes personalizables del sistema
+transfer_messages:
+  # Cuando se ajusta automáticamente la cantidad
+  auto_adjusted: |
+    &e╔═══════════════════════════════════╗
+    &e║ &6⚠ CANTIDAD AJUSTADA &e             ║
+    &e╠═══════════════════════════════════╣
+    &e║ &fSolicitaste: &b%requested% niveles &e    ║
+    &e║ &fSe transferirán: &a%final% niveles &e   ║
+    &e║ &fMotivo: &6%reason% &e               ║
+    &e║ &f✓ Transfiriendo cantidad máxima... &e║
+    &e╚═══════════════════════════════════╝
+
+  # Cuando no se puede transferir nada
+  no_transfer_possible: |
+    &c╔════════════════════════════════════╗
+    &c║ &e❌ TRANSFERENCIA NO POSIBLE &c       ║
+    &c╠════════════════════════════════════╣
+    &c║ &f%reason_details% &c                 ║
+    &c║ &7El límite se renueva a las 00:00 &c ║
+    &c╚════════════════════════════════════╝
+
+  # Transferencia exitosa
+  transfer_success: "&a✅ Has transferido &e%amount% niveles &aa &b%target%&a."
+  transfer_received: "&a✅ Has recibido &e%amount% niveles &ade &b%sender%&a."
 
 # Configuración del banco de experiencia
 xp_bank:

@@ -244,16 +244,36 @@ public class Main extends JavaPlugin {
     public LecternRecipeManager getLecternRecipeManager() { return lecternRecipeManager; }
     public XpTransferManager getXpTransferManager() { return xpTransferManager; }
     public XpTransferCommand getXpTransferCommand() { return xpTransferCommand; }
+
+
     /**
      * Refresca valores que cambian al recargar configuración.
      */
 
-
     public void updateInternalConfig() {
+        // Recargar configuración básica
         this.cropXpChance = getConfig().getDouble("plugin.cropXpChance", this.cropXpChance);
+
+        // Recargar configuración de transferencias
         if (xpTransferManager != null) {
             xpTransferManager.reloadConfig();
         }
+
+        // Recargar configuración de cheques
+        if (xpChequeCommand != null && xpChequeCommand.getChequeManager() != null) {
+            xpChequeCommand.getChequeManager().reloadConfig();
+        }
+
+        // Recargar configuración de SellWand
+        if (sellWandManager != null) {
+            sellWandManager.reloadConfig();
+        }
+
+        // Recargar configuración de mining si existe
+        if (miningConfig != null) {
+            miningConfig.reload();
+        }
+
         getLogger().info("Configuración interna actualizada.");
     }
 

@@ -319,7 +319,7 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
             // 4. Recargar recetas del lectern de forma asíncrona
             plugin.getLecternRecipeManager().reloadAsync();
 
-            // 5. NUEVO: Recargar configuración de SellWand
+            // 5. Recargar configuración de SellWand
             if (plugin.getSellWandManager() != null) {
                 plugin.getSellWandManager().reloadConfig();
                 sender.sendMessage(ChatColor.GREEN + "✓ SellWand configuración recargada");
@@ -329,6 +329,12 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
             if (plugin.getXpTransferManager() != null) {
                 plugin.getXpTransferManager().reloadConfig();
                 sender.sendMessage(ChatColor.GREEN + "✓ Sistema de transferencias recargado");
+            }
+
+            // 7. NUEVO: Recargar sistema de cheques si existe
+            if (plugin.getXpChequeCommand() != null && plugin.getXpChequeCommand().getChequeManager() != null) {
+                plugin.getXpChequeCommand().getChequeManager().reloadConfig();
+                sender.sendMessage(ChatColor.GREEN + "✓ Sistema de cheques recargado");
             }
 
             sender.sendMessage(ChatColor.GREEN + "¡Recarga completa!");

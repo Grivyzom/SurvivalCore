@@ -496,7 +496,7 @@ public class XpTransferManager {
     }
 
     /**
-     * Determina si una transferencia requiere confirmación
+     * Determina si una transferencia requiere confirmación - CORREGIDO
      */
     private boolean requiresConfirmation(TransferType type, long amount) {
         String configKey = type == TransferType.PLAYER_XP ?
@@ -504,9 +504,14 @@ public class XpTransferManager {
                 "transfer_settings.bank_confirmation_threshold";
 
         int threshold = plugin.getConfig().getInt(configKey,
-                type == TransferType.PLAYER_XP ? 50 : 1000);
+                type == TransferType.PLAYER_XP ? 50 : 15);
 
-        return amount >= threshold;
+        // CORRECCIÓN: Para transferencias de banco, amount ya viene en niveles, no en XP
+        if (type == TransferType.BANK_XP) {
+            return amount >= threshold; // amount ya es en niveles
+        } else {
+            return amount >= threshold; // amount es en niveles
+        }
     }
 
     /**

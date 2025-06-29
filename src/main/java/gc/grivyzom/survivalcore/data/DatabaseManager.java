@@ -125,7 +125,6 @@ public class DatabaseManager {
                 );
                 loadStats(data);
                 loadAbilities(data);
-                loadMasteries(data);
                 cache.put(uuid, data);
             }
         } catch (SQLException e) {
@@ -162,19 +161,6 @@ public class DatabaseManager {
         }
     }
 
-    private void loadMasteries(UserData data) throws SQLException {
-        String sql = "SELECT mastery_name, level FROM user_masteries WHERE uuid = ?";
-        try (Connection conn = newConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, data.getUuid());
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    data.getMasteryLevels().put(rs.getString("mastery_name"), rs.getInt("level"));
-                }
-            }
-        }
-    }
-
     public UserData getUserData(String uuid) {
         if (cache.containsKey(uuid)) return cache.get(uuid);
         OfflinePlayer op = Bukkit.getOfflinePlayer(UUID.fromString(uuid));
@@ -193,9 +179,6 @@ public class DatabaseManager {
                         "ON DUPLICATE KEY UPDATE farming_level=VALUES(farming_level), farming_xp=VALUES(farming_xp), mining_level=VALUES(mining_level), mining_xp=VALUES(mining_xp)";
         String deleteAbilities = "DELETE FROM user_abilities WHERE uuid = ?";
         String insertAbility  = "INSERT INTO user_abilities (uuid,ability_name,level) VALUES (?,?,?)";
-        String deleteMasteries = "DELETE FROM user_masteries WHERE uuid = ?";
-        String insertMastery   = "INSERT INTO user_masteries (uuid,mastery_name,level) VALUES (?,?,?)";
-
         try (Connection conn = newConnection()) {
             conn.setAutoCommit(false);
             try (PreparedStatement pu = conn.prepareStatement(upsertUser)) {
@@ -225,18 +208,6 @@ public class DatabaseManager {
                     pa.addBatch();
                 }
                 pa.executeBatch();
-            }
-            try (PreparedStatement pd = conn.prepareStatement(deleteMasteries)) {
-                pd.setString(1, data.getUuid()); pd.executeUpdate();
-            }
-            try (PreparedStatement pm = conn.prepareStatement(insertMastery)) {
-                for (Map.Entry<String,Integer> e : data.getMasteryLevels().entrySet()) {
-                    pm.setString(1, data.getUuid());
-                    pm.setString(2, e.getKey());
-                    pm.setInt(3, e.getValue());
-                    pm.addBatch();
-                }
-                pm.executeBatch();
             }
             conn.commit();
         } catch (SQLException e) {

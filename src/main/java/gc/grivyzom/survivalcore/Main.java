@@ -7,13 +7,11 @@ import gc.grivyzom.survivalcore.config.MiningExperienceConfig;
 import gc.grivyzom.survivalcore.data.DatabaseManager;
 import gc.grivyzom.survivalcore.gui.*;
 import gc.grivyzom.survivalcore.listeners.*;
-import gc.grivyzom.survivalcore.masteries.*;
 import gc.grivyzom.survivalcore.placeholders.ScorePlaceholder;
 import gc.grivyzom.survivalcore.recipes.LecternRecipeManager;
 import gc.grivyzom.survivalcore.sellwand.SellWandCommand;
 import gc.grivyzom.survivalcore.sellwand.SellWandListener;
 import gc.grivyzom.survivalcore.sellwand.SellWandManager;
-import gc.grivyzom.survivalcore.skills.*;
 import gc.grivyzom.survivalcore.util.*;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -46,8 +44,6 @@ public class Main extends JavaPlugin {
     private CooldownManager cooldownManager;
     private CropExperienceConfig cropConfig;
     private MiningExperienceConfig miningConfig;
-    private SkillManager skillManager;
-    private MasteryManager masteryManager;
     private PlacedBlocksManager placedBlocksManager;
     private BirthdayCommand birthdayCommand;
     private LecternRecipeManager lecternRecipeManager;   // +getter
@@ -132,14 +128,7 @@ public class Main extends JavaPlugin {
         miningConfig        = new MiningExperienceConfig(this);
         placedBlocksManager = new PlacedBlocksManager(this);
 
-        skillManager = new SkillManager(this);
-        skillManager.registerSkill(new FrenesiGranjeroSkillFactory(this));
-        skillManager.registerSkill(new ManoDelAgricultorSkillFactory(this));
-        skillManager.registerSkill(new MiningAccelerationSkillFactory(this));
-        skillManager.registerSkill(new MiningOreDetectionSkillFactory(this));
         lecternRecipeManager = new LecternRecipeManager(this);
-        masteryManager = new MasteryManager(this);
-        masteryManager.registerMastery(new MasteryVisionNocturna(1));
     }
 
     // =================== MODIFICAR registerCommands() ===================
@@ -152,8 +141,6 @@ public class Main extends JavaPlugin {
         registerCommand("birthday", birthdayCommand);
         registerCommand("perfil", new PerfilCommand(this));
         registerCommand("score", new ScoreCommand(this));
-        registerCommand("skills", new SkillsCommand(this));
-        registerCommand("mastery", new MasteryCommand(this));
         registerCommand("genero", new GeneroCommand(this));
         registerCommand("lectern", new LecternRecipeCreateCommand(this, lecternRecipeManager));
 
@@ -176,12 +163,7 @@ public class Main extends JavaPlugin {
         pm.registerEvents(new BirthdayListener(this), this);
         pm.registerEvents(new JoinQuitListener(this), this);
         pm.registerEvents(new GeneroGUIListener(this), this);
-        pm.registerEvents(new ProfesionesMenuListener(this), this);
-        pm.registerEvents(new SkillsMenuListener(this), this);
         pm.registerEvents(new ProfileGUIListener(this), this);
-        pm.registerEvents(new VisionNocturnaListener(this, masteryManager), this);
-        pm.registerEvents(new MasteryProfessionsMenuListener(this), this);
-        pm.registerEvents(new MasteryViewListener(this), this);
         pm.registerEvents(new FarmingGUIListener(this), this);
         pm.registerEvents(new MagicLecternListener(this), this);
         pm.registerEvents(new MagicLecternMenu(), this);
@@ -237,8 +219,6 @@ public class Main extends JavaPlugin {
     public CooldownManager getCooldownManager()                 { return cooldownManager; }
     public CropExperienceConfig getCropExperienceConfig()       { return cropConfig; }
     public double getCropXpChance()                             { return cropXpChance; }
-    public SkillManager getSkillManager()                       { return skillManager; }
-    public MasteryManager getMasteryManager()                   { return masteryManager; }
     public PlacedBlocksManager getPlacedBlocksManager()         { return placedBlocksManager; }
     public MiningExperienceConfig getMiningConfig()             { return miningConfig; }
     public LecternRecipeManager getLecternRecipeManager() { return lecternRecipeManager; }

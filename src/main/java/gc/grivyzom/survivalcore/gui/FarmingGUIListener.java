@@ -32,7 +32,6 @@ public class FarmingGUIListener implements Listener {
             return;
         }
         if (name.contains("Regresar")) {
-            ProfesionesMenuGUI.open(player, plugin);
             return;
         }
         if (event.getCurrentItem().getType() == Material.WHEAT) {

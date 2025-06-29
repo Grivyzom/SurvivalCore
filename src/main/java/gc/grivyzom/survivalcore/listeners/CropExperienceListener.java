@@ -2,7 +2,6 @@ package gc.grivyzom.survivalcore.listeners;
 
 import gc.grivyzom.survivalcore.Main;
 import gc.grivyzom.survivalcore.config.CropExperienceConfig;
-import gc.grivyzom.survivalcore.skills.SkillManager;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -82,9 +81,8 @@ public class CropExperienceListener implements Listener {
             return;
         }
 
-        SkillManager sm = plugin.getSkillManager();
-        int lvl = sm.getSkillLevel(player, "Mano del Agricultor");
-        int xpAward = (int) Math.round(baseXP * (1 + (lvl - 1) * bonusPerLevel));
+        // Y usar directamente:
+        int xpAward = baseXP;
 
         // Acumular XP para batch
         xpBuffer.merge(uuid, xpAward, Integer::sum);
@@ -98,9 +96,6 @@ public class CropExperienceListener implements Listener {
                     int totalXp = xpBuffer.remove(u);
                     xpFlushTasks.remove(u);
                     Location loc = lastBreakLocation.remove(u);
-
-                    // Asignar XP de una vez
-                    sm.addSkillXP(player, "Mano del Agricultor", totalXp);
 
                     // Dar XP al jugador y efectos
                     if (plugin.getCropExperienceConfig().dropAsOrbs(key)) {

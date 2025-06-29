@@ -29,12 +29,10 @@ public class ProfileGUIListener implements Listener {
 
         if (type == Material.ENCHANTED_BOOK) {
             player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.7f, 1f);
-            ProfesionesMenuGUI.open(player, plugin);
             return;
         }
         if (type == Material.BOOK && ChatColor.stripColor(displayName).equalsIgnoreCase("MAESTRÍAS")) {
             player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.7f, 1f);
-            MasteryProfessionsMenuGUI.open(player, plugin);
             return;
         }
         if (type == Material.BARRIER) {

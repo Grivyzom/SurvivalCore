@@ -18,8 +18,6 @@ public class ProfileGUI {
     public static final String INVENTORY_TITLE = ChatColor.GREEN + "Perfil de Jugador";
     private static final int INVENTORY_SIZE = 54;
     private static final int SLOT_HEAD = 22;
-    private static final int SLOT_SKILLS = 29;
-    private static final int SLOT_MASTERY = 33;
     private static final int SLOT_CLOSE = 52;
 
     public static void open(Player player, Main plugin) {
@@ -49,18 +47,6 @@ public class ProfileGUI {
         ));
         head.setItemMeta(headMeta);
         inv.setItem(SLOT_HEAD, head);
-
-        // Botón HABILIDADES
-        ItemStack skillsItem = createGuiItem(Material.ENCHANTED_BOOK,
-                ChatColor.AQUA + "HABILIDADES",
-                ChatColor.WHITE + "Click para ver tus habilidades.");
-        inv.setItem(SLOT_SKILLS, skillsItem);
-
-        // Botón MAESTRÍAS
-        ItemStack masteryItem = createGuiItem(Material.BOOK,
-                ChatColor.LIGHT_PURPLE + "MAESTRÍAS",
-                ChatColor.WHITE + "Click para ver tus maestrías.");
-        inv.setItem(SLOT_MASTERY, masteryItem);
 
         // Botón CERRAR
         ItemStack close = createGuiItem(Material.BARRIER,

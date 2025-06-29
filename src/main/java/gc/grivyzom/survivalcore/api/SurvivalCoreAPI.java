@@ -3,8 +3,6 @@ package gc.grivyzom.survivalcore.api;
 import gc.grivyzom.survivalcore.Main;
 import gc.grivyzom.survivalcore.data.DatabaseManager;
 import gc.grivyzom.survivalcore.data.UserData;
-import gc.grivyzom.survivalcore.masteries.MasteryManager;
-import gc.grivyzom.survivalcore.skills.SkillManager;
 import gc.grivyzom.survivalcore.util.XpTransferManager;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
@@ -34,8 +32,6 @@ public class SurvivalCoreAPI {
     private final Main plugin;
     private final DatabaseManager database;
     private final XpTransferManager transferManager;
-    private final SkillManager skillManager;
-    private final MasteryManager masteryManager;
 
     /**
      * Constructor interno - no usar directamente
@@ -44,8 +40,6 @@ public class SurvivalCoreAPI {
         this.plugin = plugin;
         this.database = plugin.getDatabaseManager();
         this.transferManager = plugin.getXpTransferManager();
-        this.skillManager = plugin.getSkillManager();
-        this.masteryManager = plugin.getMasteryManager();
     }
 
     /**
@@ -384,84 +378,6 @@ public class SurvivalCoreAPI {
                 database.saveUserData(data);
             }
         });
-    }
-
-    // ================================
-    // HABILIDADES
-    // ================================
-
-    /**
-     * Obtiene el nivel de una habilidad específica
-     *
-     * @param player Jugador objetivo (debe estar online)
-     * @param skillName Nombre de la habilidad
-     * @return Nivel de la habilidad
-     */
-    public int getSkillLevel(Player player, String skillName) {
-        return skillManager.getSkillLevel(player, skillName);
-    }
-
-    /**
-     * Añade XP a una habilidad específica
-     *
-     * @param player Jugador objetivo (debe estar online)
-     * @param skillName Nombre de la habilidad
-     * @param xp Cantidad de XP a añadir
-     */
-    public void addSkillXP(Player player, String skillName, int xp) {
-        skillManager.addSkillXP(player, skillName, xp);
-    }
-
-    /**
-     * Verifica si el jugador tiene una habilidad activa
-     *
-     * @param player Jugador objetivo (debe estar online)
-     * @param skillName Nombre de la habilidad
-     * @return true si la habilidad está activa
-     */
-    public boolean hasActiveSkill(Player player, String skillName) {
-        return skillManager.hasActiveSkill(player, skillName);
-    }
-
-    // ================================
-    // MAESTRÍAS
-    // ================================
-
-    /**
-     * Obtiene el nivel de una maestría específica
-     *
-     * @param player Jugador objetivo
-     * @param masteryId ID de la maestría
-     * @return Nivel de la maestría
-     */
-    public int getMasteryLevel(OfflinePlayer player, String masteryId) {
-        UserData data = getUserData(player);
-        if (data != null) {
-            return data.getMasteryLevels().getOrDefault(masteryId, 0);
-        }
-        return 0;
-    }
-
-    /**
-     * Obtiene todas las maestrías del jugador
-     *
-     * @param player Jugador objetivo
-     * @return Mapa de maestrías y sus niveles
-     */
-    public Map<String, Integer> getAllMasteries(OfflinePlayer player) {
-        UserData data = getUserData(player);
-        return data != null ? data.getMasteryLevels() : Map.of();
-    }
-
-    /**
-     * Mejora una maestría del jugador (solo para jugadores online)
-     *
-     * @param player Jugador objetivo (debe estar online)
-     * @param masteryId ID de la maestría
-     * @return true si se pudo mejorar
-     */
-    public boolean upgradeMastery(Player player, String masteryId) {
-        return masteryManager.upgradeMastery(player, masteryId);
     }
 
     // ================================

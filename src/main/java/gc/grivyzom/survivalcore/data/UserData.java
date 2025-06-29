@@ -16,12 +16,10 @@ public class UserData {
     private long miningXP;   // Cambiado de int a long
 
     private Map<String, Integer> abilities;
-    private Map<String, Integer> masteryLevels;
     private long bankedXp;
 
     public UserData() {
         this.abilities = new HashMap<>();
-        this.masteryLevels = new HashMap<>();
         this.bankedXp = 0;
     }
 
@@ -36,7 +34,7 @@ public class UserData {
         this.miningLevel = 1;
         this.miningXP = 0;       // Ahora es long
         this.abilities = new HashMap<>();
-        this.masteryLevels = new HashMap<>();
+
     }
 
     // Getters y Setters
@@ -73,12 +71,8 @@ public class UserData {
         this.abilities = abilities;
     }
 
-    public Map<String, Integer> getMasteryLevels() {
-        if (masteryLevels == null) masteryLevels = new HashMap<>();
-        return masteryLevels;
-    }
     public void setMasteryLevels(Map<String, Integer> masteryLevels) {
-        this.masteryLevels = masteryLevels;
+
     }
 
     public long getBankedXp() { return bankedXp; }

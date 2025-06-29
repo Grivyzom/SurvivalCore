@@ -2,7 +2,6 @@ package gc.grivyzom.survivalcore.listeners;
 
 import gc.grivyzom.survivalcore.Main;
 import gc.grivyzom.survivalcore.config.MiningExperienceConfig;
-import gc.grivyzom.survivalcore.skills.SkillManager;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
@@ -64,9 +63,8 @@ public class MiningExperienceListener implements Listener {
         }
 
         Player player = event.getPlayer();
-        SkillManager skills = plugin.getSkillManager();
-        int lvl = skills.getSkillLevel(player, "Aceleración Minera");
-        int xpAward = (int) Math.round(baseXP * (1 + (lvl - 1) * bonusPerLevel));
+        // Y usar directamente:
+        int xpAward = baseXP;
 
         UUID uuid = player.getUniqueId();
         // Acumular XP para batch
@@ -82,8 +80,6 @@ public class MiningExperienceListener implements Listener {
                     xpFlushTasks.remove(u);
                     Location loc = lastBreakLocation.remove(u);
 
-                    // Asignar XP de una vez
-                    skills.addSkillXP(player, "Aceleración Minera", totalXp);
 
                     // Entregar XP y efectos
                     player.giveExp(totalXp);

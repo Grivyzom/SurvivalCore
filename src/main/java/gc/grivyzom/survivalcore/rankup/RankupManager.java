@@ -700,6 +700,9 @@ public class RankupManager {
     /**
      * Obtiene el rango actual del jugador
      */
+    /**
+     * Obtiene el rango actual del jugador - VERSIÓN CORREGIDA
+     */
     public String getCurrentRank(Player player) {
         if (luckPerms == null) return null;
 
@@ -707,21 +710,65 @@ public class RankupManager {
             User user = luckPerms.getPlayerAdapter(Player.class).getUser(player);
             String primaryGroup = user.getPrimaryGroup();
 
-            // Verificar si el grupo primario está en nuestros rankups
+            plugin.getLogger().info("Detectando rango para " + player.getName() + ": grupo primario = " + primaryGroup);
+
+            // 1. Verificar si el grupo primario está en nuestros rankups
             if (rankups.containsKey(primaryGroup)) {
+                plugin.getLogger().info("Rango encontrado directamente: " + primaryGroup);
                 return primaryGroup;
             }
 
-            // Si no, buscar en los grupos del usuario
-            return user.getInheritedGroups(user.getQueryOptions())
+            // 2. Si el grupo primario es "default", verificar si tenemos ese rango definido
+            if ("default".equals(primaryGroup) && rankups.containsKey("default")) {
+                plugin.getLogger().info("Usando rango default definido");
+                return "default";
+            }
+
+            // 3. Buscar en todos los grupos heredados
+            plugin.getLogger().info("Buscando en grupos heredados...");
+            String foundRank = user.getInheritedGroups(user.getQueryOptions())
                     .stream()
                     .map(group -> group.getName())
-                    .filter(rankups::containsKey)
+                    .filter(groupName -> {
+                        boolean contains = rankups.containsKey(groupName);
+                        plugin.getLogger().info("Verificando grupo: " + groupName + " -> " + contains);
+                        return contains;
+                    })
                     .findFirst()
                     .orElse(null);
 
+            if (foundRank != null) {
+                plugin.getLogger().info("Rango encontrado en grupos heredados: " + foundRank);
+                return foundRank;
+            }
+
+            // 4. FALLBACK: Si no se encuentra nada y tenemos un rango "default", usarlo
+            if (rankups.containsKey("default")) {
+                plugin.getLogger().info("Usando fallback al rango default");
+                return "default";
+            }
+
+            // 5. ÚLTIMO RECURSO: Buscar el rango con orden más bajo (primer rango)
+            String firstRank = rankups.values().stream()
+                    .min((r1, r2) -> Integer.compare(r1.getOrder(), r2.getOrder()))
+                    .map(RankupData::getRankId)
+                    .orElse(null);
+
+            if (firstRank != null) {
+                plugin.getLogger().info("Usando primer rango disponible como fallback: " + firstRank);
+                return firstRank;
+            }
+
+            plugin.getLogger().warning("No se pudo determinar rango para " + player.getName() + ". Grupos: " +
+                    user.getInheritedGroups(user.getQueryOptions()).stream()
+                            .map(group -> group.getName())
+                            .collect(java.util.stream.Collectors.joining(", ")));
+
+            return null;
+
         } catch (Exception e) {
-            plugin.getLogger().warning("Error obteniendo rango actual: " + e.getMessage());
+            plugin.getLogger().warning("Error obteniendo rango actual de " + player.getName() + ": " + e.getMessage());
+            e.printStackTrace();
             return null;
         }
     }

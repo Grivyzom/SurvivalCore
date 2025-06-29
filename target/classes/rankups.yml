@@ -25,32 +25,26 @@ settings:
 # =======================================================
 #                      RANGOS
 # =======================================================
-# Estructura de cada rango:
-# ranks:
-#   id_del_rango:
-#     display_name: "Nombre mostrado con colores"
-#     next_rank: "siguiente_rango" (null para rango máximo)
-#     order: número_de_orden
-#     permission_node: "group.nombre" (opcional)
-#     requirements: # Requisitos para rankup
-#       money: cantidad_dinero
-#       xp: experiencia_requerida
-#       level: nivel_requerido
-#       playtime: horas_jugadas
-#       farming_level: nivel_farming
-#       mining_level: nivel_mining
-#       kills: kills_requeridos
-#       blocks_broken: bloques_rotos
-#       permission: "permiso.requerido"
-#     rewards: # Recompensas al rankup
-#       commands:
-#         - "say %player% ha ascendido!"
-#         - "give %player% diamond 5"
-#       xp: experiencia_otorgada
-#       levels: niveles_otorgados
 
 ranks:
-  # Rango inicial
+  # ⭐ RANGO INICIAL - IMPORTANTE: Este es el rango por defecto
+  default:
+    display_name: "&7[&fPrincipiante&7]"
+    next_rank: "novato"
+    order: 0
+    permission_node: "group.default"
+    requirements:
+      money: 500
+      playtime: 0.5  # 30 minutos
+      level: 3
+    rewards:
+      commands:
+        - "broadcast &a%player% &fha ascendido a &7Novato&f!"
+        - "give %player% coal 16"
+      xp: 100
+      levels: 1
+
+  # Segundo rango
   novato:
     display_name: "&7[&fNovato&7]"
     next_rank: "aprendiz"
@@ -67,7 +61,7 @@ ranks:
       xp: 500
       levels: 2
 
-  # Segundo rango
+  # Tercer rango
   aprendiz:
     display_name: "&a[&2Aprendiz&a]"
     next_rank: "aventurero"
@@ -87,7 +81,7 @@ ranks:
       xp: 1000
       levels: 3
 
-  # Tercer rango
+  # Cuarto rango
   aventurero:
     display_name: "&6[&eAventurero&6]"
     next_rank: "experto"
@@ -110,7 +104,7 @@ ranks:
       xp: 2000
       levels: 5
 
-  # Cuarto rango
+  # Quinto rango
   experto:
     display_name: "&c[&4Experto&c]"
     next_rank: "maestro"
@@ -134,7 +128,7 @@ ranks:
       xp: 5000
       levels: 8
 
-  # Quinto rango
+  # Sexto rango
   maestro:
     display_name: "&5[&dMaestro&5]"
     next_rank: "leyenda"
@@ -171,8 +165,6 @@ ranks:
 # =======================================================
 #                     PRESTIGES
 # =======================================================
-# Configuración del sistema de prestige (opcional)
-# Permite reiniciar los rangos con beneficios adicionales
 
 prestiges:
   # Primer prestige
@@ -180,7 +172,6 @@ prestiges:
     display_name: "&b[&3Prestige I&b]"
     level: 1
     requirements:
-      # Debe estar en el rango máximo
       current_rank: "leyenda"
       money: 500000
       playtime: 200  # 200 horas
@@ -190,13 +181,9 @@ prestiges:
         - "give %player% diamond_block 10"
         - "give %player% emerald_block 5"
         - "give %player% netherite_block 2"
-      # Multiplica las recompensas de money por este factor
       money_multiplier: 1.5
-      # Multiplica la ganancia de XP por este factor
       xp_multiplier: 1.2
-    # Si resetear los rangos al hacer prestige
     reset_ranks: true
-    # Qué progreso mantener después del prestige
     keep_progress:
       - "farming_level"
       - "mining_level"
@@ -253,7 +240,7 @@ prestiges:
 #                    CONFIGURACIÓN AVANZADA
 # =======================================================
 
-# Mensajes personalizados (opcional)
+# Mensajes personalizados
 messages:
   rankup_success: "&a¡Felicidades! Has ascendido a %new_rank%!"
   rankup_failed: "&cNo cumples los requisitos para rankup."
@@ -288,15 +275,10 @@ effects:
 
 # Integración con otros plugins
 integrations:
-  # Configuración para PlaceholderAPI
   placeholders:
     enabled: true
-
-  # Configuración para Vault Economy
   vault:
     enabled: true
-
-  # Configuración para Discord (si tienes DiscordSRV)
   discord:
     enabled: false
     webhook_url: ""

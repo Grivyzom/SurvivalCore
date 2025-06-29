@@ -22,6 +22,8 @@ import gc.grivyzom.survivalcore.api.events.*;
 import gc.grivyzom.survivalcore.commands.XpChequeCommand;
 import gc.grivyzom.survivalcore.listeners.XpChequeListener;
 import gc.grivyzom.survivalcore.util.XpChequeManager;
+import gc.grivyzom.survivalcore.rankup.*;
+import gc.grivyzom.survivalcore.listeners.RankupMenuListener;
 
 import java.time.LocalDate;
 import java.util.logging.Level;

@@ -10,9 +10,6 @@ commands:
   perfil:
     description: Muestra tu perfil y te permite subir el nivel de Granjería.
     usage: /perfil
-  skills:
-    description: "Abre el menú de habilidades"
-    usage: /skills
   genero:
     description: Selecciona tu género desde un menú gráfico.
     usage: /genero

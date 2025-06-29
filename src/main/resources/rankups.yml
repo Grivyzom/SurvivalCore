@@ -1,0 +1,426 @@
+# ===================================
+# SurvivalCore - Sistema de Rankup
+# ===================================
+# Configuración completa del sistema de rangos y prestiges
+# Desarrollado por Brocolitx para máxima flexibilidad y escalabilidad
+
+# ===================================
+# CONFIGURACIÓN GENERAL
+# ===================================
+settings:
+  # Tiempo de espera entre intentos de rankup (en segundos)
+  cooldown_seconds: 5
+
+  # Habilitar sistema de prestige
+  enable_prestige: true
+
+  # Habilitar efectos visuales y sonoros
+  enable_effects: true
+
+  # Anunciar rankups al servidor
+  enable_broadcast: true
+
+  # Máximo de entradas en el historial (0 = ilimitado)
+  max_history_entries: 100
+
+  # Integración con otros plugins
+  integrations:
+    vault_economy: true
+    placeholderapi: true
+    worldguard: false
+
+# ===================================
+# SISTEMA DE RANGOS
+# ===================================
+# Cada rango debe tener:
+# - display_name: Nombre mostrado al jugador (soporta códigos de color &)
+# - next_rank: ID del siguiente rango (null si es el máximo)
+# - order: Orden jerárquico (menor = más bajo)
+# - permission_node: Nodo de permiso en LuckPerms
+# - requirements: Requisitos necesarios para el rankup
+# - rewards: Recompensas al conseguir el rankup
+
+ranks:
+  # ================== RANGO INICIAL ==================
+  newbie:
+    display_name: "&7[&fNovato&7]"
+    next_rank: "member"
+    order: 1
+    permission_node: "group.newbie"
+    requirements:
+      playtime: 1        # 1 hora jugada
+      level: 5           # Nivel 5 de experiencia
+      blocks_broken: 100 # 100 bloques rotos
+    rewards:
+      money: 500.0
+      xp: 200
+      commands:
+        - "give %player% minecraft:iron_sword 1"
+        - "give %player% minecraft:bread 5"
+
+  # ================== MIEMBRO ==================
+  member:
+    display_name: "&a[&2Miembro&a]"
+    next_rank: "active"
+    order: 2
+    permission_node: "group.member"
+    requirements:
+      playtime: 5        # 5 horas jugadas
+      level: 15          # Nivel 15
+      farming_level: 3   # Nivel 3 de granjería
+      money: 2000.0      # $2,000
+      blocks_broken: 500
+    rewards:
+      money: 1500.0
+      xp: 500
+      levels: 3
+      commands:
+        - "give %player% minecraft:diamond_pickaxe 1"
+        - "lp user %player% permission set member.perks true"
+
+  # ================== ACTIVO ==================
+  active:
+    display_name: "&e[&6Activo&e]"
+    next_rank: "veteran"
+    order: 3
+    permission_node: "group.active"
+    requirements:
+      playtime: 15       # 15 horas jugadas
+      level: 25
+      farming_level: 5
+      mining_level: 4
+      money: 5000.0
+      kills: 50          # 50 mobs eliminados
+      blocks_broken: 1500
+    rewards:
+      money: 3000.0
+      xp: 1000
+      levels: 5
+      commands:
+        - "give %player% minecraft:diamond_armor 1"
+        - "lp user %player% permission set active.kit true"
+
+  # ================== VETERANO ==================
+  veteran:
+    display_name: "&b[&3Veterano&b]"
+    next_rank: "expert"
+    order: 4
+    permission_node: "group.veteran"
+    requirements:
+      playtime: 30       # 30 horas jugadas
+      level: 40
+      farming_level: 8
+      mining_level: 7
+      money: 15000.0
+      kills: 150
+      blocks_broken: 5000
+    rewards:
+      money: 7500.0
+      xp: 2000
+      levels: 8
+      commands:
+        - "give %player% minecraft:elytra 1"
+        - "lp user %player% permission set veteran.fly true"
+
+  # ================== EXPERTO ==================
+  expert:
+    display_name: "&d[&5Experto&d]"
+    next_rank: "master"
+    order: 5
+    permission_node: "group.expert"
+    requirements:
+      playtime: 60       # 60 horas jugadas
+      level: 60
+      farming_level: 12
+      mining_level: 10
+      money: 35000.0
+      kills: 300
+      blocks_broken: 15000
+    rewards:
+      money: 15000.0
+      xp: 4000
+      levels: 12
+      commands:
+        - "give %player% minecraft:netherite_sword{Enchantments:[{id:sharpness,lvl:5}]} 1"
+        - "lp user %player% permission set expert.homes true"
+
+  # ================== MAESTRO ==================
+  master:
+    display_name: "&c[&4Maestro&c]"
+    next_rank: "legend"
+    order: 6
+    permission_node: "group.master"
+    requirements:
+      playtime: 100      # 100 horas jugadas
+      level: 80
+      farming_level: 18
+      mining_level: 15
+      money: 75000.0
+      kills: 500
+      blocks_broken: 35000
+      custom: "special_achievement" # Requisito personalizado
+    rewards:
+      money: 25000.0
+      xp: 8000
+      levels: 20
+      commands:
+        - "give %player% minecraft:beacon 1"
+        - "lp user %player% permission set master.creative true"
+
+  # ================== LEYENDA ==================
+  legend:
+    display_name: "&6[&e&lLEYENDA&6]"
+    next_rank: null  # Rango máximo antes del prestige
+    order: 7
+    permission_node: "group.legend"
+    requirements:
+      playtime: 200      # 200 horas jugadas
+      level: 100
+      farming_level: 25
+      mining_level: 20
+      money: 150000.0
+      kills: 1000
+      blocks_broken: 75000
+    rewards:
+      money: 50000.0
+      xp: 15000
+      levels: 30
+      commands:
+        - "give %player% minecraft:dragon_egg 1"
+        - "lp user %player% permission set legend.all true"
+        - "broadcast &6¡%player% ha alcanzado el rango LEYENDA!"
+
+# ===================================
+# SISTEMA DE PRESTIGE
+# ===================================
+# Los prestiges permiten reiniciar el progreso manteniendo beneficios especiales
+# Cada prestige debe tener:
+# - display_name: Nombre mostrado (soporta códigos de color)
+# - level: Nivel de prestige (1, 2, 3, etc.)
+# - requirements: Requisitos para hacer prestige
+# - rewards: Recompensas permanentes del prestige
+# - reset_ranks: Si resetear rangos al hacer prestige
+# - keep_progress: Qué progreso mantener después del prestige
+
+prestiges:
+  # ================== PRESTIGE I ==================
+  prestige_1:
+    display_name: "&f⭐ &b[&3Prestige &bI&3] &f⭐"
+    level: 1
+    requirements:
+      # Debe estar en el rango máximo
+      current_rank: "legend"
+      playtime: 250
+      money: 500000.0
+      farming_level: 30
+      mining_level: 25
+    rewards:
+      # Multiplicadores permanentes
+      money_multiplier: 1.25    # +25% dinero
+      xp_multiplier: 1.20       # +20% experiencia
+      # Permisos especiales
+      commands:
+        - "lp user %player% permission set prestige.1 true"
+        - "lp user %player% permission set prestige.fly true"
+        - "give %player% minecraft:nether_star{display:{Name:'{\"text\":\"Estrella de Prestige I\",\"color\":\"aqua\"}'}} 1"
+    reset_ranks: true
+    keep_progress:
+      - "money"          # Mantener dinero
+      - "achievements"   # Mantener logros
+      - "prestige_perks" # Mantener beneficios de prestige
+
+  # ================== PRESTIGE II ==================
+  prestige_2:
+    display_name: "&f⭐⭐ &d[&5Prestige &dII&5] &f⭐⭐"
+    level: 2
+    requirements:
+      current_rank: "legend"
+      current_prestige: "prestige_1"
+      playtime: 400
+      money: 1000000.0
+      farming_level: 40
+      mining_level: 35
+    rewards:
+      money_multiplier: 1.50    # +50% dinero total
+      xp_multiplier: 1.40       # +40% experiencia total
+      commands:
+        - "lp user %player% permission set prestige.2 true"
+        - "lp user %player% permission set prestige.gamemode true"
+        - "give %player% minecraft:end_crystal{display:{Name:'{\"text\":\"Cristal de Prestige II\",\"color\":\"light_purple\"}'}} 1"
+    reset_ranks: true
+    keep_progress:
+      - "money"
+      - "achievements"
+      - "prestige_perks"
+      - "special_items"
+
+  # ================== PRESTIGE III ==================
+  prestige_3:
+    display_name: "&f⭐⭐⭐ &c[&4&lPrestige &c&lIII&4] &f⭐⭐⭐"
+    level: 3
+    requirements:
+      current_rank: "legend"
+      current_prestige: "prestige_2"
+      playtime: 600
+      money: 2500000.0
+      farming_level: 50
+      mining_level: 50
+    rewards:
+      money_multiplier: 2.00    # +100% dinero total
+      xp_multiplier: 1.75       # +75% experiencia total
+      commands:
+        - "lp user %player% permission set prestige.3 true"
+        - "lp user %player% permission set prestige.god true"
+        - "lp user %player% permission set prestige.all true"
+        - "give %player% minecraft:totem_of_undying{display:{Name:'{\"text\":\"Tótem de Prestige III\",\"color\":\"gold\"}'}} 3"
+        - "broadcast &c&l¡%player% ha alcanzado PRESTIGE III! ¡Una verdadera leyenda!"
+    reset_ranks: true
+    keep_progress:
+      - "money"
+      - "achievements"
+      - "prestige_perks"
+      - "special_items"
+      - "god_mode"
+
+# ===================================
+# CONFIGURACIÓN DE REQUISITOS
+# ===================================
+# Personaliza cómo se calculan y muestran los requisitos
+
+requirement_settings:
+  # Mensajes personalizados para requisitos no cumplidos
+  messages:
+    money: "&cNecesitas $%amount% de dinero"
+    xp: "&cNecesitas %amount% puntos de experiencia"
+    level: "&cNecesitas ser nivel %amount%"
+    playtime: "&cNecesitas %amount% horas jugadas"
+    farming_level: "&cNecesitas nivel %amount% de granjería"
+    mining_level: "&cNecesitas nivel %amount% de minería"
+    kills: "&cNecesitas %amount% kills"
+    blocks_broken: "&cNecesitas haber roto %amount% bloques"
+    permission: "&cNecesitas el permiso: %permission%"
+    custom: "&cRequisito especial no cumplido"
+
+  # Configuración de integración con estadísticas
+  statistics:
+    use_custom_playtime: false  # Usar sistema de tiempo personalizado
+    include_afk_time: false     # Incluir tiempo AFK en playtime
+    reset_stats_on_prestige: false  # Resetear estadísticas al hacer prestige
+
+# ===================================
+# CONFIGURACIÓN DE RECOMPENSAS
+# ===================================
+reward_settings:
+  # Configuración de comandos
+  commands:
+    run_as_console: true        # Ejecutar comandos desde consola
+    delay_between_commands: 100 # Delay en ms entre comandos
+
+  # Configuración de dinero (requiere Vault)
+  economy:
+    enabled: true
+    currency_symbol: "$"
+    thousand_separator: ","
+
+  # Configuración de experiencia
+  experience:
+    give_as_levels: true        # Dar XP como niveles completos
+    use_vanilla_xp: true        # Usar sistema de XP vanilla
+    bank_overflow: true         # Guardar XP extra en el banco
+
+# ===================================
+# CONFIGURACIÓN DE EFECTOS
+# ===================================
+effects:
+  # Efectos de rankup
+  rankup:
+    sounds:
+      - "UI_TOAST_CHALLENGE_COMPLETE:1.0:1.0"
+      - "ENTITY_PLAYER_LEVELUP:1.0:1.2"
+    particles:
+      - type: "FIREWORKS_SPARK"
+        count: 50
+        offset: [0.5, 0.5, 0.5]
+        extra: 0.1
+    title:
+      enabled: true
+      title: "&a&l¡RANKUP!"
+      subtitle: "&e¡Has ascendido a %next_rank%!"
+      fade_in: 10
+      stay: 60
+      fade_out: 10
+
+  # Efectos de prestige
+  prestige:
+    sounds:
+      - "UI_TOAST_CHALLENGE_COMPLETE:1.0:1.5"
+      - "ENTITY_ENDER_DRAGON_DEATH:0.8:1.0"
+    particles:
+      - type: "END_ROD"
+        count: 100
+        offset: [1.0, 1.0, 1.0]
+        extra: 0.2
+    title:
+      enabled: true
+      title: "&5&l⭐ PRESTIGE ⭐"
+      subtitle: "&d¡Has alcanzado %prestige_name%!"
+      fade_in: 15
+      stay: 80
+      fade_out: 15
+
+# ===================================
+# CONFIGURACIÓN DE MENSAJES
+# ===================================
+messages:
+  # Mensajes generales
+  general:
+    no_permission: "&cNo tienes permisos para usar este comando."
+    player_only: "&cSolo los jugadores pueden usar este comando."
+    invalid_player: "&cJugador no encontrado."
+    cooldown: "&cDebes esperar %seconds% segundos antes de intentar rankup."
+
+  # Mensajes de rankup
+  rankup:
+    success: "&a¡Felicidades! Has ascendido al rango %next_rank%!"
+    failed: "&cNo cumples los requisitos para rankup."
+    max_rank: "&eHas alcanzado el rango máximo. ¡Considera hacer prestige!"
+    no_next_rank: "&cNo hay un siguiente rango configurado."
+
+  # Mensajes de prestige
+  prestige:
+    success: "&5⭐ ¡Has hecho prestige a %prestige_name%! ⭐"
+    failed: "&cNo cumples los requisitos para prestige."
+    not_enabled: "&cEl sistema de prestige está deshabilitado."
+
+  # Mensajes de broadcast
+  broadcast:
+    rankup: "&6★ &e%player% &aha ascendido al rango %next_rank%! &6★"
+    prestige: "&5⭐ &d%player% &aha alcanzado %prestige_name%! &5⭐"
+
+# ===================================
+# CONFIGURACIÓN DE LA INTERFAZ
+# ===================================
+gui:
+  # Títulos de menús
+  titles:
+    main: "&5Sistema de Rangos"
+    progress: "&9Mi Progreso"
+    ranks_list: "&aLista de Rangos"
+    prestige: "&dSistema Prestige"
+
+  # Materiales para items de GUI
+  materials:
+    rankup_button: "DIAMOND"
+    progress_button: "BOOK"
+    ranks_list_button: "ENCHANTED_BOOK"
+    prestige_button: "NETHER_STAR"
+    back_button: "ARROW"
+    border: "BLACK_STAINED_GLASS_PANE"
+
+  # Sonidos de interfaz
+  sounds:
+    open_menu: "BLOCK_ENDER_CHEST_OPEN:0.8:1.0"
+    close_menu: "BLOCK_CHEST_CLOSE:0.5:1.0"
+    button_click: "UI_BUTTON_CLICK:0.8:1.0"
+    success: "BLOCK_NOTE_BLOCK_CHIME:0.8:1.2"
+    error: "BLOCK_NOTE_BLOCK_BASS:1.0:0.5"

@@ -45,6 +45,20 @@ commands:
     description: Sistema de cheques de experiencia
     usage: /cheque <crear|info|limites|help> [cantidad]
     aliases: [check, xpcheck, experiencecheque]
+  rankup:
+    description: "Sistema principal de rankup"
+    usage: /rankup [info|progress|help|list|reload]
+    aliases: [ru, rank, subir]
+
+  prestige:
+    description: "Sistema de prestige para jugadores de alto nivel"
+    usage: /prestige [info|help|list]
+    aliases: [pr, prestigio]
+
+  ranks:
+    description: "Interfaz gráfica del sistema de rangos"
+    usage: /ranks [gui|list|top|history]
+    aliases: [rangos, ranking]
 permissions:
   # Permisos básicos del sistema de cheques
   survivalcore.cheque.*:
@@ -184,3 +198,51 @@ permissions:
   survivalcore.sellwand.prices:
     description: "Permite ver los precios de items"
     default: true
+
+  survivalcore.rankup.*:
+    description: "Acceso completo al sistema de rankup"
+    children:
+      survivalcore.rankup.use: true
+      survivalcore.rankup.progress: true
+      survivalcore.rankup.list: true
+      survivalcore.rankup.gui: true
+      survivalcore.rankup.history: true
+      survivalcore.rankup.admin: true
+    default: op
+
+  survivalcore.rankup.use:
+    description: "Permite usar el comando /rankup"
+    default: true
+
+  survivalcore.rankup.progress:
+    description: "Permite ver el progreso de rankup"
+    default: true
+
+  survivalcore.rankup.list:
+    description: "Permite ver la lista de rangos"
+    default: true
+
+  survivalcore.rankup.gui:
+    description: "Permite usar la interfaz gráfica"
+    default: true
+
+  survivalcore.rankup.history:
+    description: "Permite ver el historial de rankups"
+    default: true
+
+  survivalcore.rankup.admin:
+    description: "Permisos de administración para rankup"
+    default: op
+
+# Dependencias requeridas
+depend:
+  - LuckPerms
+
+# Dependencias opcionales (soft)
+softdepend:
+  - Vault
+  - PlaceholderAPI
+  - WorldGuard
+
+# Descripción actualizada
+description: "Sistema completo de supervivencia con rankups, transferencias de XP, cheques y más."

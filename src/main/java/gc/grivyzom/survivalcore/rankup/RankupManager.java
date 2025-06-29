@@ -54,14 +54,26 @@ public class RankupManager {
         this.plugin = plugin;
         this.configFile = new File(plugin.getDataFolder(), "rankups.yml");
 
-        // Inicializar LuckPerms
-        initLuckPerms();
+        // Inicializar LuckPerms con mejor manejo de errores
+        if (!initLuckPerms()) {
+            throw new RuntimeException("No se pudo inicializar LuckPerms - Sistema de Rankup no disponible");
+        }
 
         // Cargar configuración
-        loadConfig();
+        try {
+            loadConfig();
+        } catch (Exception e) {
+            plugin.getLogger().severe("Error cargando configuración de rankups: " + e.getMessage());
+            throw new RuntimeException("Error en configuración de rankups", e);
+        }
 
         // Crear tabla de historial
-        createHistoryTable();
+        try {
+            createHistoryTable();
+        } catch (Exception e) {
+            plugin.getLogger().warning("Error creando tabla de historial: " + e.getMessage());
+            // No es crítico, el sistema puede funcionar sin historial
+        }
 
         plugin.getLogger().info("Sistema de Rankup inicializado correctamente.");
     }
@@ -69,13 +81,42 @@ public class RankupManager {
     /**
      * Inicializa la integración con LuckPerms
      */
-    private void initLuckPerms() {
+    private boolean initLuckPerms() {
         try {
+            // Verificar que LuckPerms esté disponible
+            if (plugin.getServer().getPluginManager().getPlugin("LuckPerms") == null) {
+                plugin.getLogger().severe("LuckPerms no está instalado!");
+                plugin.getLogger().severe("El sistema de Rankup requiere LuckPerms para funcionar.");
+                plugin.getLogger().severe("Descarga LuckPerms desde: https://luckperms.net/download");
+                return false;
+            }
+
+            // Verificar que LuckPerms esté habilitado
+            if (!plugin.getServer().getPluginManager().isPluginEnabled("LuckPerms")) {
+                plugin.getLogger().severe("LuckPerms está instalado pero no habilitado!");
+                return false;
+            }
+
+            // Intentar obtener la API de LuckPerms
             this.luckPerms = LuckPermsProvider.get();
+
+            if (this.luckPerms == null) {
+                plugin.getLogger().severe("No se pudo obtener la API de LuckPerms!");
+                return false;
+            }
+
             plugin.getLogger().info("Integración con LuckPerms establecida correctamente.");
+            plugin.getLogger().info("Versión de LuckPerms: " + luckPerms.getPluginMetadata().getVersion());
+            return true;
+
+        } catch (IllegalStateException e) {
+            plugin.getLogger().severe("LuckPerms no está disponible: " + e.getMessage());
+            plugin.getLogger().severe("Asegúrate de que LuckPerms esté instalado y cargado antes que SurvivalCore.");
+            return false;
         } catch (Exception e) {
-            plugin.getLogger().severe("Error al conectar con LuckPerms: " + e.getMessage());
-            plugin.getLogger().severe("El sistema de Rankup no funcionará sin LuckPerms.");
+            plugin.getLogger().severe("Error inesperado al conectar con LuckPerms: " + e.getMessage());
+            e.printStackTrace();
+            return false;
         }
     }
 
@@ -83,49 +124,69 @@ public class RankupManager {
      * Carga la configuración desde rankups.yml
      */
     public void loadConfig() {
-        if (!configFile.exists()) {
-            plugin.saveResource("rankups.yml", false);
+        try {
+            // Crear archivo de configuración si no existe
+            if (!configFile.exists()) {
+                plugin.getLogger().info("Creando archivo de configuración rankups.yml...");
+                plugin.saveResource("rankups.yml", false);
+            }
+
+            config = YamlConfiguration.loadConfiguration(configFile);
+
+            // Limpiar datos anteriores
+            rankups.clear();
+            prestiges.clear();
+
+            // Cargar configuración general con valores por defecto
+            cooldownTime = config.getLong("settings.cooldown_seconds", 5) * 1000L;
+            enablePrestige = config.getBoolean("settings.enable_prestige", true);
+            enableEffects = config.getBoolean("settings.enable_effects", true);
+            enableBroadcast = config.getBoolean("settings.enable_broadcast", true);
+            maxRankupHistory = config.getInt("settings.max_history_entries", 100);
+
+            // Cargar rankups
+            int ranksLoaded = loadRankups();
+            plugin.getLogger().info("Cargados " + ranksLoaded + " rangos desde la configuración.");
+
+            // Cargar prestiges si están habilitados
+            int prestigesLoaded = 0;
+            if (enablePrestige) {
+                prestigesLoaded = loadPrestiges();
+                plugin.getLogger().info("Cargados " + prestigesLoaded + " prestiges desde la configuración.");
+            }
+
+            plugin.getLogger().info(String.format("Configuración de Rankup cargada: %d rangos, %d prestiges",
+                    ranksLoaded, prestigesLoaded));
+
+        } catch (Exception e) {
+            plugin.getLogger().severe("Error crítico cargando configuración de rankups:");
+            plugin.getLogger().severe("Archivo: " + configFile.getAbsolutePath());
+            plugin.getLogger().severe("Error: " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("Error en configuración de rankups", e);
         }
-
-        config = YamlConfiguration.loadConfiguration(configFile);
-
-        // Limpiar datos anteriores
-        rankups.clear();
-        prestiges.clear();
-
-        // Cargar configuración general
-        cooldownTime = config.getLong("settings.cooldown_seconds", 5) * 1000L;
-        enablePrestige = config.getBoolean("settings.enable_prestige", true);
-        enableEffects = config.getBoolean("settings.enable_effects", true);
-        enableBroadcast = config.getBoolean("settings.enable_broadcast", true);
-        maxRankupHistory = config.getInt("settings.max_history_entries", 100);
-
-        // Cargar rankups
-        loadRankups();
-
-        // Cargar prestiges si están habilitados
-        if (enablePrestige) {
-            loadPrestiges();
-        }
-
-        plugin.getLogger().info(String.format("Configuración de Rankup cargada: %d rangos, %d prestiges",
-                rankups.size(), prestiges.size()));
     }
 
     /**
-     * Carga los rankups desde la configuración
+     * Carga los rankups desde la configuración con mejor manejo de errores
      */
-    private void loadRankups() {
+    private int loadRankups() {
         ConfigurationSection ranksSection = config.getConfigurationSection("ranks");
         if (ranksSection == null) {
             plugin.getLogger().warning("No se encontró la sección 'ranks' en rankups.yml");
-            return;
+            plugin.getLogger().warning("Creando configuración de rangos por defecto...");
+            createDefaultRankConfig();
+            return 0;
         }
 
+        int loaded = 0;
         for (String rankKey : ranksSection.getKeys(false)) {
             try {
                 ConfigurationSection rankSection = ranksSection.getConfigurationSection(rankKey);
-                if (rankSection == null) continue;
+                if (rankSection == null) {
+                    plugin.getLogger().warning("Sección de rango inválida: " + rankKey);
+                    continue;
+                }
 
                 RankupData rankup = new RankupData();
                 rankup.setRankId(rankKey);
@@ -138,19 +199,38 @@ public class RankupManager {
                 rankup.setPermissionNode(rankSection.getString("permission_node"));
 
                 rankups.put(rankKey, rankup);
+                loaded++;
 
             } catch (Exception e) {
                 plugin.getLogger().warning("Error cargando rango '" + rankKey + "': " + e.getMessage());
             }
         }
+
+        return loaded;
+    }
+
+    /**
+     * Crea una configuración de rangos por defecto si no existe
+     */
+    private void createDefaultRankConfig() {
+        plugin.getLogger().info("Creando configuración de rangos por defecto...");
+        // Aquí podrías crear rangos básicos por defecto si el archivo está vacío
+        // Por ahora solo loggeamos que no hay rangos configurados
+        plugin.getLogger().warning("No hay rangos configurados en rankups.yml");
+        plugin.getLogger().warning("El sistema funcionará pero no habrá rankups disponibles.");
     }
 
     /**
      * Carga los prestiges desde la configuración
      */
-    private void loadPrestiges() {
+    /**
+     * Carga los prestiges desde la configuración
+     */
+    private int loadPrestiges() { // CAMBIO: Cambiar de void a int
         ConfigurationSection prestigeSection = config.getConfigurationSection("prestiges");
-        if (prestigeSection == null) return;
+        if (prestigeSection == null) return 0; // CAMBIO: Retornar 0 si no hay sección
+
+        int loaded = 0; // CAMBIO: Contador de prestiges cargados
 
         for (String prestigeKey : prestigeSection.getKeys(false)) {
             try {
@@ -168,11 +248,14 @@ public class RankupManager {
                 prestige.setKeepProgress(section.getStringList("keep_progress"));
 
                 prestiges.put(prestigeKey, prestige);
+                loaded++; // CAMBIO: Incrementar contador
 
             } catch (Exception e) {
                 plugin.getLogger().warning("Error cargando prestige '" + prestigeKey + "': " + e.getMessage());
             }
         }
+
+        return loaded; // CAMBIO: Retornar número de prestiges cargados
     }
 
     /**
@@ -619,21 +702,21 @@ public class RankupManager {
      */
     private void createHistoryTable() {
         String sql = """
-            CREATE TABLE IF NOT EXISTS rankup_history (
-                id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-                player_uuid CHAR(36) NOT NULL,
-                player_name VARCHAR(16) NOT NULL,
-                from_rank VARCHAR(64) NOT NULL,
-                to_rank VARCHAR(64) NOT NULL,
-                rankup_type ENUM('RANKUP', 'PRESTIGE') NOT NULL,
-                timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                INDEX idx_player_uuid (player_uuid),
-                INDEX idx_timestamp (timestamp)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-            """;
+        CREATE TABLE IF NOT EXISTS rankup_history (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            player_uuid CHAR(36) NOT NULL,
+            player_name VARCHAR(16) NOT NULL,
+            from_rank VARCHAR(64) NOT NULL,
+            to_rank VARCHAR(64) NOT NULL,
+            rankup_type ENUM('RANKUP', 'PRESTIGE') NOT NULL,
+            timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_player_uuid (player_uuid),
+            INDEX idx_timestamp (timestamp)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+        """;
 
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-            try (var conn = plugin.getDatabaseManager().newConnection();
+            try (var conn = plugin.getDatabaseManager().getConnection(); // CAMBIO AQUÍ
                  var stmt = conn.createStatement()) {
                 stmt.execute(sql);
                 plugin.getLogger().info("Tabla rankup_history creada/verificada correctamente.");
@@ -649,11 +732,11 @@ public class RankupManager {
     private void recordRankupHistory(Player player, String fromRank, String toRank, String type) {
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             String sql = """
-                INSERT INTO rankup_history (player_uuid, player_name, from_rank, to_rank, rankup_type)
-                VALUES (?, ?, ?, ?, ?)
-                """;
+            INSERT INTO rankup_history (player_uuid, player_name, from_rank, to_rank, rankup_type)
+            VALUES (?, ?, ?, ?, ?)
+            """;
 
-            try (var conn = plugin.getDatabaseManager().newConnection();
+            try (var conn = plugin.getDatabaseManager().getConnection(); // CAMBIO AQUÍ
                  var ps = conn.prepareStatement(sql)) {
 
                 ps.setString(1, player.getUniqueId().toString());
@@ -672,7 +755,6 @@ public class RankupManager {
             }
         });
     }
-
     /**
      * Limpia el historial antiguo
      */
@@ -680,17 +762,17 @@ public class RankupManager {
         if (maxRankupHistory <= 0) return;
 
         String sql = """
-            DELETE FROM rankup_history 
-            WHERE id NOT IN (
-                SELECT id FROM (
-                    SELECT id FROM rankup_history 
-                    ORDER BY timestamp DESC 
-                    LIMIT ?
-                ) AS recent
-            )
-            """;
+        DELETE FROM rankup_history 
+        WHERE id NOT IN (
+            SELECT id FROM (
+                SELECT id FROM rankup_history 
+                ORDER BY timestamp DESC 
+                LIMIT ?
+            ) AS recent
+        )
+        """;
 
-        try (var conn = plugin.getDatabaseManager().newConnection();
+        try (var conn = plugin.getDatabaseManager().getConnection(); // CAMBIO AQUÍ
              var ps = conn.prepareStatement(sql)) {
 
             ps.setInt(1, maxRankupHistory);

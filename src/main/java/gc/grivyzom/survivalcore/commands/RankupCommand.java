@@ -268,5 +268,143 @@ public class RankupCommand implements CommandExecutor, TabCompleter {
         return bar.toString();
     }
 
-/**
- * Formatea el nombre
+    /**
+     * Formatea el nombre de un requisito
+     */
+    private String formatRequirementName(String type) {
+        return switch (type.toLowerCase()) {
+            case "money", "eco", "economy" -> "Dinero";
+            case "xp", "experience" -> "Experiencia";
+            case "level", "levels" -> "Nivel";
+            case "playtime", "time_played" -> "Tiempo jugado";
+            case "farming_level" -> "Nivel de granjería";
+            case "mining_level" -> "Nivel de minería";
+            case "kills", "mob_kills" -> "Kills";
+            case "blocks_broken" -> "Bloques rotos";
+            case "permission" -> "Permiso";
+            default -> type;
+        };
+    }
+
+    /**
+     * Formatea el valor de un requisito
+     */
+    private String formatRequirementValue(RequirementProgress progress) {
+        String type = progress.getType().toLowerCase();
+        double current = progress.getCurrent();
+        double required = progress.getRequired();
+
+        return switch (type) {
+            case "money", "eco", "economy" -> String.format("$%,.0f/$%,.0f", current, required);
+            case "xp", "experience" -> String.format("%,.0f/%,.0f XP", current, required);
+            case "level", "levels" -> String.format("%.0f/%.0f", current, required);
+            case "playtime", "time_played" -> String.format("%.0f/%.0f horas", current, required);
+            case "farming_level", "mining_level" -> String.format("%.0f/%.0f", current, required);
+            case "kills", "mob_kills", "blocks_broken" -> String.format("%,.0f/%,.0f", current, required);
+            default -> String.format("%.0f/%.0f", current, required);
+        };
+    }
+
+    /**
+     * Muestra ayuda del comando rankup
+     */
+    private void showRankupHelp(Player player) {
+        player.sendMessage(ChatColor.GOLD + "═══ Ayuda de Rankup ═══");
+        player.sendMessage(ChatColor.YELLOW + "/rankup" + ChatColor.GRAY + " - Intenta subir de rango");
+        player.sendMessage(ChatColor.YELLOW + "/rankup info" + ChatColor.GRAY + " - Información de tu rango");
+        player.sendMessage(ChatColor.YELLOW + "/rankup progress" + ChatColor.GRAY + " - Ver tu progreso");
+        player.sendMessage(ChatColor.YELLOW + "/rankup list" + ChatColor.GRAY + " - Lista de rangos");
+        player.sendMessage(ChatColor.YELLOW + "/ranks" + ChatColor.GRAY + " - Abrir menú de rangos");
+    }
+
+    /**
+     * Muestra información de prestige
+     */
+    private void showPrestigeInfo(Player player) {
+        player.sendMessage(ChatColor.LIGHT_PURPLE + "Sistema de prestige en desarrollo...");
+    }
+
+    /**
+     * Muestra ayuda de prestige
+     */
+    private void showPrestigeHelp(Player player) {
+        player.sendMessage(ChatColor.LIGHT_PURPLE + "Ayuda de prestige en desarrollo...");
+    }
+
+    /**
+     * Muestra lista de prestiges
+     */
+    private void showPrestigeList(Player player) {
+        player.sendMessage(ChatColor.LIGHT_PURPLE + "Lista de prestiges en desarrollo...");
+    }
+
+    /**
+     * Muestra lista de rangos
+     */
+    private void showRankList(Player player) {
+        Map<String, RankupData> rankups = rankupManager.getRankups();
+        if (rankups.isEmpty()) {
+            player.sendMessage(ChatColor.RED + "No hay rangos configurados.");
+            return;
+        }
+
+        player.sendMessage(ChatColor.GREEN + "═══ Lista de Rangos ═══");
+
+        List<RankupData> sortedRanks = rankups.values().stream()
+                .sorted(Comparator.comparingInt(RankupData::getOrder))
+                .collect(Collectors.toList());
+
+        String currentRank = rankupManager.getCurrentRank(player);
+        for (RankupData rank : sortedRanks) {
+            String marker = rank.getRankId().equals(currentRank) ? ChatColor.GREEN + "► " : ChatColor.GRAY + "  ";
+            player.sendMessage(marker + rank.getDisplayName() + ChatColor.GRAY + " (Orden: " + rank.getOrder() + ")");
+        }
+    }
+
+    /**
+     * Muestra top de rangos
+     */
+    private void showTopRanks(Player player) {
+        player.sendMessage(ChatColor.YELLOW + "Top de rangos en desarrollo...");
+    }
+
+    /**
+     * Muestra historial de rankups
+     */
+    private void showRankupHistory(Player player) {
+        player.sendMessage(ChatColor.YELLOW + "Historial de rankups en desarrollo...");
+    }
+
+    /**
+     * Recarga la configuración
+     */
+    private void reloadConfig(Player player) {
+        try {
+            rankupManager.reloadConfig();
+            player.sendMessage(ChatColor.GREEN + "Configuración de rankup recargada correctamente.");
+        } catch (Exception e) {
+            player.sendMessage(ChatColor.RED + "Error al recargar la configuración: " + e.getMessage());
+            plugin.getLogger().severe("Error recargando configuración de rankup: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        if (args.length == 1) {
+            String cmdName = command.getName().toLowerCase();
+            List<String> completions = new ArrayList<>();
+
+            switch (cmdName) {
+                case "rankup" -> completions.addAll(Arrays.asList("info", "progress", "help", "list", "reload"));
+                case "prestige" -> completions.addAll(Arrays.asList("info", "help", "list"));
+                case "ranks" -> completions.addAll(Arrays.asList("gui", "list", "top", "history"));
+            }
+
+            return completions.stream()
+                    .filter(sub -> sub.startsWith(args[0].toLowerCase()))
+                    .collect(Collectors.toList());
+        }
+
+        return Collections.emptyList();
+    }
+}

@@ -66,6 +66,9 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (args.length > 0 && args[0].equalsIgnoreCase("rankup-debug")) {
+            return handleRankupDebug(sender);
+        }
         if (args.length > 0 && args[0].equalsIgnoreCase("xpbank")) {
             return handleXpbank(sender, args);
         }
@@ -157,6 +160,78 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
             }
             default -> sender.sendMessage(ChatColor.RED + "Subcomando desconocido. Usa /" + label + " help");
         }
+        return true;
+    }
+
+    // Añadir este método privado al ScoreCommand:
+    private boolean handleRankupDebug(CommandSender sender) {
+        if (!sender.hasPermission("survivalcore.admin")) {
+            sender.sendMessage(ChatColor.RED + "No tienes permisos para usar este comando.");
+            return true;
+        }
+
+        sender.sendMessage(ChatColor.GOLD + "=== DIAGNÓSTICO DEL SISTEMA RANKUP ===");
+
+        // 1. Verificar estado del plugin
+        boolean pluginEnabled = plugin.isEnabled();
+        sender.sendMessage(ChatColor.YELLOW + "Plugin habilitado: " +
+                (pluginEnabled ? ChatColor.GREEN + "✓ SÍ" : ChatColor.RED + "✗ NO"));
+
+        // 2. Verificar LuckPerms
+        org.bukkit.plugin.Plugin luckPerms = plugin.getServer().getPluginManager().getPlugin("LuckPerms");
+        if (luckPerms == null) {
+            sender.sendMessage(ChatColor.YELLOW + "LuckPerms: " + ChatColor.RED + "✗ NO INSTALADO");
+        } else if (!luckPerms.isEnabled()) {
+            sender.sendMessage(ChatColor.YELLOW + "LuckPerms: " + ChatColor.RED + "✗ INSTALADO PERO DESHABILITADO");
+        } else {
+            sender.sendMessage(ChatColor.YELLOW + "LuckPerms: " + ChatColor.GREEN + "✓ DISPONIBLE v" + luckPerms.getDescription().getVersion());
+        }
+
+        // 3. Verificar RankupManager
+        boolean rankupSystemEnabled = plugin.isRankupSystemEnabled();
+        sender.sendMessage(ChatColor.YELLOW + "Sistema Rankup: " +
+                (rankupSystemEnabled ? ChatColor.GREEN + "✓ ACTIVO" : ChatColor.RED + "✗ INACTIVO"));
+
+        if (rankupSystemEnabled) {
+            var rankupManager = plugin.getRankupManager();
+            if (rankupManager != null) {
+                sender.sendMessage(ChatColor.YELLOW + "Rangos cargados: " + ChatColor.AQUA + rankupManager.getRankups().size());
+                sender.sendMessage(ChatColor.YELLOW + "Prestige habilitado: " +
+                        (rankupManager.isPrestigeEnabled() ? ChatColor.GREEN + "SÍ" : ChatColor.GRAY + "NO"));
+            }
+        }
+
+        // 4. Verificar archivos de configuración
+        java.io.File rankupsFile = new java.io.File(plugin.getDataFolder(), "rankups.yml");
+        sender.sendMessage(ChatColor.YELLOW + "Archivo rankups.yml: " +
+                (rankupsFile.exists() ? ChatColor.GREEN + "✓ EXISTE" : ChatColor.RED + "✗ NO EXISTE"));
+
+        // 5. Verificar comandos registrados
+        boolean rankupCmdRegistered = plugin.getCommand("rankup") != null;
+        sender.sendMessage(ChatColor.YELLOW + "Comando /rankup: " +
+                (rankupCmdRegistered ? ChatColor.GREEN + "✓ REGISTRADO" : ChatColor.RED + "✗ NO REGISTRADO"));
+
+        // 6. Verificar base de datos
+        try {
+            plugin.getDatabaseManager().getConnection().close();
+            sender.sendMessage(ChatColor.YELLOW + "Conexión BD: " + ChatColor.GREEN + "✓ FUNCIONAL");
+        } catch (Exception e) {
+            sender.sendMessage(ChatColor.YELLOW + "Conexión BD: " + ChatColor.RED + "✗ ERROR - " + e.getMessage());
+        }
+
+        sender.sendMessage(ChatColor.GOLD + "=== FIN DEL DIAGNÓSTICO ===");
+
+        if (!rankupSystemEnabled) {
+            sender.sendMessage("");
+            sender.sendMessage(ChatColor.RED + "❌ PROBLEMA DETECTADO:");
+            sender.sendMessage(ChatColor.YELLOW + "El sistema de rankup no está funcionando.");
+            sender.sendMessage(ChatColor.GRAY + "Soluciones posibles:");
+            sender.sendMessage(ChatColor.GRAY + "1. Instalar LuckPerms si no está instalado");
+            sender.sendMessage(ChatColor.GRAY + "2. Verificar que LuckPerms se cargue antes que SurvivalCore");
+            sender.sendMessage(ChatColor.GRAY + "3. Revisar los logs del servidor para errores específicos");
+            sender.sendMessage(ChatColor.GRAY + "4. Verificar permisos del archivo rankups.yml");
+        }
+
         return true;
     }
 

@@ -381,4 +381,21 @@ public class DatabaseManager {
     public void close() {
         // No hay conexión persistente para cerrar
     }
+
+    /**
+     * Obtiene una nueva conexión a la base de datos para uso externo
+     * @return Nueva conexión a la base de datos
+     * @throws SQLException Si hay error al conectar
+     */
+    public Connection getConnection() throws SQLException {
+        return newConnection();
+    }
+
+    /**
+     * Obtiene una nueva conexión a la base de datos de forma estática
+     * Útil para clases que necesitan conexión directa
+     */
+    public static Connection createConnection(String url, String username, String password) throws SQLException {
+        return DriverManager.getConnection(url, username, password);
+    }
 }

@@ -233,3 +233,16 @@ permissions:
   survivalcore.rankup.admin:
     description: "Permisos de administración para rankup"
     default: op
+
+# Dependencias requeridas
+depend:
+  - LuckPerms
+
+# Dependencias opcionales (soft)
+softdepend:
+  - Vault
+  - PlaceholderAPI
+  - WorldGuard
+
+# Descripción actualizada
+description: "Sistema completo de supervivencia con rankups, transferencias de XP, cheques y más."

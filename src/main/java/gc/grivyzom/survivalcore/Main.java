@@ -24,6 +24,9 @@ import gc.grivyzom.survivalcore.listeners.XpChequeListener;
 import gc.grivyzom.survivalcore.util.XpChequeManager;
 import gc.grivyzom.survivalcore.rankup.*;
 import gc.grivyzom.survivalcore.listeners.RankupMenuListener;
+import gc.grivyzom.survivalcore.rankup.RankupManager;
+import gc.grivyzom.survivalcore.commands.RankupCommand;
+import gc.grivyzom.survivalcore.listeners.RankupMenuListener;
 
 import java.time.LocalDate;
 import java.util.logging.Level;
@@ -53,6 +56,8 @@ public class Main extends JavaPlugin {
     private XpTransferCommand xpTransferCommand;
     private SellWandManager sellWandManager;
     private XpChequeCommand xpChequeCommand;
+    private RankupManager rankupManager;
+
     /* =================== CICLO DE VIDA =================== */
     @Override
     public void onEnable() {
@@ -71,11 +76,15 @@ public class Main extends JavaPlugin {
         xpTransferManager = new XpTransferManager(this);
         xpTransferCommand = new XpTransferCommand(this);
 
+        // NUEVO: Inicializar RankupManager con validación
+        if (!initRankupSystem()) {
+            getLogger().warning("Sistema de Rankup no pudo inicializarse - comandos relacionados estarán deshabilitados");
+        }
+
         registerCommands();
         registerListeners();
         hookPlaceholderAPI();
         scheduleBackups();
-
 
         // Registrar el listener del Atril Mágico
         getServer().getPluginManager().registerEvents(
@@ -153,9 +162,21 @@ public class Main extends JavaPlugin {
 
         registerCommand("sellwand", new SellWandCommand(this, sellWandManager));
         registerCommand("sw", new SellWandCommand(this, sellWandManager));
+
         // Comandos de Cheques de XP
         xpChequeCommand = new XpChequeCommand(this);
         registerCommand("cheque", xpChequeCommand);
+
+        // COMANDOS DE RANKUP - Solo registrar si el sistema está disponible
+        if (rankupManager != null) {
+            RankupCommand rankupCmd = new RankupCommand(this, rankupManager);
+            registerCommand("rankup", rankupCmd);
+            registerCommand("prestige", rankupCmd);
+            registerCommand("ranks", rankupCmd);
+            getLogger().info("Comandos de rankup registrados correctamente.");
+        } else {
+            getLogger().warning("Comandos de rankup NO registrados - Sistema no disponible");
+        }
     }
 
     private void registerListeners() {
@@ -175,9 +196,13 @@ public class Main extends JavaPlugin {
         pm.registerEvents(new MiningExperienceListener(this, miningConfig), this);
         pm.registerEvents(new MiningBlockPlaceListener(this, miningConfig), this);
         pm.registerEvents(new XpChequeListener(this, xpChequeCommand.getChequeManager()), this);
-
-        // *** NUEVA LÍNEA: Listener SellWand ***
         pm.registerEvents(new SellWandListener(this, sellWandManager), this);
+
+        // LISTENER DE RANKUP - Solo registrar si el sistema está disponible
+        if (rankupManager != null) {
+            pm.registerEvents(new RankupMenuListener(this), this);
+            getLogger().info("Listeners de rankup registrados correctamente.");
+        }
     }
 
     private void initSellWand() {
@@ -187,6 +212,43 @@ public class Main extends JavaPlugin {
         } catch (Exception e) {
             getLogger().severe("Failed to initialize SellWand system: " + e.getMessage());
             e.printStackTrace();
+        }
+    }
+
+// NUEVO MÉTODO: Inicialización segura del sistema de rankup
+    /**
+     * Inicializa el sistema de rankup de forma segura
+     * @return true si se inicializó correctamente, false si hubo errores
+     */
+    private boolean initRankupSystem() {
+        try {
+            // Verificar si LuckPerms está disponible
+            if (getServer().getPluginManager().getPlugin("LuckPerms") == null) {
+                getLogger().warning("LuckPerms no encontrado - Sistema de Rankup deshabilitado");
+                getLogger().warning("Para usar el sistema de rankup, instala LuckPerms");
+                return false;
+            }
+
+            // Verificar si LuckPerms está habilitado
+            if (!getServer().getPluginManager().isPluginEnabled("LuckPerms")) {
+                getLogger().warning("LuckPerms no está habilitado - Sistema de Rankup deshabilitado");
+                return false;
+            }
+
+            // Intentar inicializar RankupManager
+            rankupManager = new RankupManager(this);
+            getLogger().info("Sistema de Rankup inicializado correctamente con LuckPerms.");
+            return true;
+
+        } catch (Exception e) {
+            getLogger().severe("Error crítico al inicializar el sistema de Rankup:");
+            getLogger().severe("Tipo de error: " + e.getClass().getSimpleName());
+            getLogger().severe("Mensaje: " + e.getMessage());
+            e.printStackTrace();
+
+            // Deshabilitar solo el sistema de rankup, no el plugin completo
+            rankupManager = null;
+            return false;
         }
     }
 
@@ -212,7 +274,9 @@ public class Main extends JavaPlugin {
         } else {
             getLogger().warning("No se pudo registrar el comando: " + name);
         }
-        // REMOVIDO: Las llamadas recursivas que causaban el StackOverflow
+        registerCommand("rankup", new RankupCommand(this, rankupManager));
+        registerCommand("prestige", new RankupCommand(this, rankupManager));
+        registerCommand("ranks", new RankupCommand(this, rankupManager));
     }
 
     /* =================== GETTERS PÚBLICOS =================== */
@@ -225,8 +289,11 @@ public class Main extends JavaPlugin {
     public LecternRecipeManager getLecternRecipeManager() { return lecternRecipeManager; }
     public XpTransferManager getXpTransferManager() { return xpTransferManager; }
     public XpTransferCommand getXpTransferCommand() { return xpTransferCommand; }
-
-
+    public RankupManager getRankupManager() {return rankupManager;}
+    // NUEVO MÉTODO: Verificar si el sistema de rankup está disponible
+    public boolean isRankupSystemEnabled() {
+        return rankupManager != null;
+    }
     /**
      * Refresca valores que cambian al recargar configuración.
      */

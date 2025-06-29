@@ -20,6 +20,9 @@ import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.Statement;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -128,7 +131,7 @@ public class RankupManager {
             // Crear archivo de configuración si no existe
             if (!configFile.exists()) {
                 plugin.getLogger().info("Creando archivo de configuración rankups.yml...");
-                plugin.saveResource("rankups.yml", false);
+                createDefaultConfig();
             }
 
             config = YamlConfiguration.loadConfiguration(configFile);
@@ -168,14 +171,77 @@ public class RankupManager {
     }
 
     /**
+     * Crea configuración por defecto
+     */
+    private void createDefaultConfig() {
+        try {
+            if (!plugin.getDataFolder().exists()) {
+                plugin.getDataFolder().mkdirs();
+            }
+
+            // Si el plugin tiene el recurso, usarlo
+            try {
+                plugin.saveResource("rankups.yml", false);
+                plugin.getLogger().info("Archivo rankups.yml creado desde recursos del plugin.");
+                return;
+            } catch (IllegalArgumentException e) {
+                // El recurso no existe, crear configuración básica
+                plugin.getLogger().info("Creando configuración básica de rankups...");
+            }
+
+            // Crear configuración básica
+            FileConfiguration defaultConfig = new YamlConfiguration();
+
+            // Configuración general
+            defaultConfig.set("settings.cooldown_seconds", 5);
+            defaultConfig.set("settings.enable_prestige", true);
+            defaultConfig.set("settings.enable_effects", true);
+            defaultConfig.set("settings.enable_broadcast", true);
+            defaultConfig.set("settings.max_history_entries", 100);
+
+            // Rangos de ejemplo
+            defaultConfig.set("ranks.novato.display_name", "&7[&fNovato&7]");
+            defaultConfig.set("ranks.novato.next_rank", "aprendiz");
+            defaultConfig.set("ranks.novato.order", 1);
+            defaultConfig.set("ranks.novato.permission_node", "group.novato");
+            defaultConfig.set("ranks.novato.requirements.money", 1000);
+            defaultConfig.set("ranks.novato.requirements.playtime", 1);
+            defaultConfig.set("ranks.novato.rewards.commands", Arrays.asList("say %player% ha ascendido a Aprendiz!"));
+
+            defaultConfig.set("ranks.aprendiz.display_name", "&a[&2Aprendiz&a]");
+            defaultConfig.set("ranks.aprendiz.next_rank", "experto");
+            defaultConfig.set("ranks.aprendiz.order", 2);
+            defaultConfig.set("ranks.aprendiz.permission_node", "group.aprendiz");
+            defaultConfig.set("ranks.aprendiz.requirements.money", 5000);
+            defaultConfig.set("ranks.aprendiz.requirements.playtime", 5);
+            defaultConfig.set("ranks.aprendiz.requirements.level", 10);
+            defaultConfig.set("ranks.aprendiz.rewards.commands", Arrays.asList("say %player% ha ascendido a Experto!"));
+
+            defaultConfig.set("ranks.experto.display_name", "&6[&eExperto&6]");
+            defaultConfig.set("ranks.experto.next_rank", null);
+            defaultConfig.set("ranks.experto.order", 3);
+            defaultConfig.set("ranks.experto.permission_node", "group.experto");
+            defaultConfig.set("ranks.experto.requirements.money", 25000);
+            defaultConfig.set("ranks.experto.requirements.playtime", 20);
+            defaultConfig.set("ranks.experto.requirements.level", 30);
+            defaultConfig.set("ranks.experto.rewards.commands", Arrays.asList("say %player% ha alcanzado el rango máximo!"));
+
+            defaultConfig.save(configFile);
+            plugin.getLogger().info("Configuración por defecto de rankups creada.");
+
+        } catch (Exception e) {
+            plugin.getLogger().severe("Error creando configuración por defecto: " + e.getMessage());
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
      * Carga los rankups desde la configuración con mejor manejo de errores
      */
     private int loadRankups() {
         ConfigurationSection ranksSection = config.getConfigurationSection("ranks");
         if (ranksSection == null) {
             plugin.getLogger().warning("No se encontró la sección 'ranks' en rankups.yml");
-            plugin.getLogger().warning("Creando configuración de rangos por defecto...");
-            createDefaultRankConfig();
             return 0;
         }
 
@@ -210,27 +276,13 @@ public class RankupManager {
     }
 
     /**
-     * Crea una configuración de rangos por defecto si no existe
-     */
-    private void createDefaultRankConfig() {
-        plugin.getLogger().info("Creando configuración de rangos por defecto...");
-        // Aquí podrías crear rangos básicos por defecto si el archivo está vacío
-        // Por ahora solo loggeamos que no hay rangos configurados
-        plugin.getLogger().warning("No hay rangos configurados en rankups.yml");
-        plugin.getLogger().warning("El sistema funcionará pero no habrá rankups disponibles.");
-    }
-
-    /**
      * Carga los prestiges desde la configuración
      */
-    /**
-     * Carga los prestiges desde la configuración
-     */
-    private int loadPrestiges() { // CAMBIO: Cambiar de void a int
+    private int loadPrestiges() {
         ConfigurationSection prestigeSection = config.getConfigurationSection("prestiges");
-        if (prestigeSection == null) return 0; // CAMBIO: Retornar 0 si no hay sección
+        if (prestigeSection == null) return 0;
 
-        int loaded = 0; // CAMBIO: Contador de prestiges cargados
+        int loaded = 0;
 
         for (String prestigeKey : prestigeSection.getKeys(false)) {
             try {
@@ -248,14 +300,14 @@ public class RankupManager {
                 prestige.setKeepProgress(section.getStringList("keep_progress"));
 
                 prestiges.put(prestigeKey, prestige);
-                loaded++; // CAMBIO: Incrementar contador
+                loaded++;
 
             } catch (Exception e) {
                 plugin.getLogger().warning("Error cargando prestige '" + prestigeKey + "': " + e.getMessage());
             }
         }
 
-        return loaded; // CAMBIO: Retornar número de prestiges cargados
+        return loaded;
     }
 
     /**
@@ -431,9 +483,10 @@ public class RankupManager {
      */
     private boolean checkPlaytimeRequirement(Player player, Object value) {
         try {
-            long required = ((Number) value).longValue() * 1000L; // Convertir a milisegundos
+            long required = ((Number) value).longValue(); // Horas requeridas
             long playtime = player.getStatistic(org.bukkit.Statistic.PLAY_ONE_MINUTE) * 50L; // Ticks a ms
-            return playtime >= required;
+            long hoursPlayed = playtime / (1000L * 60 * 60); // Convertir a horas
+            return hoursPlayed >= required;
         } catch (Exception e) {
             return false;
         }
@@ -446,7 +499,7 @@ public class RankupManager {
         try {
             int required = ((Number) value).intValue();
             UserData userData = plugin.getDatabaseManager().getUserData(player.getUniqueId().toString());
-            return userData.getFarmingLevel() >= required;
+            return userData != null && userData.getFarmingLevel() >= required;
         } catch (Exception e) {
             return false;
         }
@@ -459,7 +512,7 @@ public class RankupManager {
         try {
             int required = ((Number) value).intValue();
             UserData userData = plugin.getDatabaseManager().getUserData(player.getUniqueId().toString());
-            return userData.getMiningLevel() >= required;
+            return userData != null && userData.getMiningLevel() >= required;
         } catch (Exception e) {
             return false;
         }
@@ -519,7 +572,7 @@ public class RankupManager {
             case "money", "eco", "economy" -> String.format("§c$%,.2f de dinero", ((Number) value).doubleValue());
             case "xp", "experience" -> String.format("§c%,d puntos de experiencia", ((Number) value).intValue());
             case "level", "levels" -> String.format("§cNivel %d", ((Number) value).intValue());
-            case "playtime", "time_played" -> String.format("§c%d horas jugadas", ((Number) value).longValue() / 3600);
+            case "playtime", "time_played" -> String.format("§c%d horas jugadas", ((Number) value).longValue());
             case "farming_level" -> String.format("§cNivel de granjería %d", ((Number) value).intValue());
             case "mining_level" -> String.format("§cNivel de minería %d", ((Number) value).intValue());
             case "kills", "mob_kills" -> String.format("§c%,d kills", ((Number) value).intValue());
@@ -538,7 +591,7 @@ public class RankupManager {
         try {
             User user = luckPerms.getPlayerAdapter(Player.class).getUser(player);
 
-            // Remover rango anterior
+            // Remover rango anterior si hay nodo de permiso
             if (rankupData.getPermissionNode() != null) {
                 InheritanceNode oldNode = InheritanceNode.builder(fromRank).build();
                 user.data().remove(oldNode);
@@ -716,8 +769,8 @@ public class RankupManager {
         """;
 
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-            try (var conn = plugin.getDatabaseManager().getConnection(); // CAMBIO AQUÍ
-                 var stmt = conn.createStatement()) {
+            try (Connection conn = plugin.getDatabaseManager().getConnection();
+                 Statement stmt = conn.createStatement()) {
                 stmt.execute(sql);
                 plugin.getLogger().info("Tabla rankup_history creada/verificada correctamente.");
             } catch (Exception e) {
@@ -736,8 +789,8 @@ public class RankupManager {
             VALUES (?, ?, ?, ?, ?)
             """;
 
-            try (var conn = plugin.getDatabaseManager().getConnection(); // CAMBIO AQUÍ
-                 var ps = conn.prepareStatement(sql)) {
+            try (Connection conn = plugin.getDatabaseManager().getConnection();
+                 PreparedStatement ps = conn.prepareStatement(sql)) {
 
                 ps.setString(1, player.getUniqueId().toString());
                 ps.setString(2, player.getName());
@@ -755,6 +808,7 @@ public class RankupManager {
             }
         });
     }
+
     /**
      * Limpia el historial antiguo
      */
@@ -772,8 +826,8 @@ public class RankupManager {
         )
         """;
 
-        try (var conn = plugin.getDatabaseManager().getConnection(); // CAMBIO AQUÍ
-             var ps = conn.prepareStatement(sql)) {
+        try (Connection conn = plugin.getDatabaseManager().getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setInt(1, maxRankupHistory);
             int deleted = ps.executeUpdate();
@@ -876,14 +930,25 @@ public class RankupManager {
             case "money", "eco", "economy" -> 0.0; // Implementar con Vault
             case "xp", "experience" -> getTotalXp(player);
             case "level", "levels" -> player.getLevel();
-            case "playtime", "time_played" -> player.getStatistic(org.bukkit.Statistic.PLAY_ONE_MINUTE) * 50L / 1000L / 3600L; // Horas
+            case "playtime", "time_played" -> {
+                long playtime = player.getStatistic(org.bukkit.Statistic.PLAY_ONE_MINUTE) * 50L; // Ticks a ms
+                yield playtime / (1000L * 60 * 60); // Convertir a horas
+            }
             case "farming_level" -> {
-                UserData userData = plugin.getDatabaseManager().getUserData(player.getUniqueId().toString());
-                yield userData.getFarmingLevel();
+                try {
+                    UserData userData = plugin.getDatabaseManager().getUserData(player.getUniqueId().toString());
+                    yield userData != null ? userData.getFarmingLevel() : 0;
+                } catch (Exception e) {
+                    yield 0;
+                }
             }
             case "mining_level" -> {
-                UserData userData = plugin.getDatabaseManager().getUserData(player.getUniqueId().toString());
-                yield userData.getMiningLevel();
+                try {
+                    UserData userData = plugin.getDatabaseManager().getUserData(player.getUniqueId().toString());
+                    yield userData != null ? userData.getMiningLevel() : 0;
+                } catch (Exception e) {
+                    yield 0;
+                }
             }
             case "kills", "mob_kills" -> player.getStatistic(org.bukkit.Statistic.MOB_KILLS);
             case "blocks_broken" -> player.getStatistic(org.bukkit.Statistic.MINE_BLOCK);
@@ -895,8 +960,13 @@ public class RankupManager {
      * Recarga la configuración
      */
     public void reloadConfig() {
-        loadConfig();
-        plugin.getLogger().info("Configuración de Rankup recargada correctamente.");
+        try {
+            loadConfig();
+            plugin.getLogger().info("Configuración de Rankup recargada correctamente.");
+        } catch (Exception e) {
+            plugin.getLogger().severe("Error recargando configuración de Rankup: " + e.getMessage());
+            throw new RuntimeException("Error recargando configuración", e);
+        }
     }
 
     // Getters

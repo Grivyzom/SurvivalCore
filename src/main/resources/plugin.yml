@@ -1,248 +1,272 @@
 name: SurvivalCore
+version: '${project.version}'
 main: gc.grivyzom.survivalcore.Main
-version: 1.0
-author: Brocolitx
-api-version: 1.13
+api-version: '1.20'
+authors: [ Brocolitx ]
+description: Plugin principal para el servidor de supervivencia
+website: https://grivyzom.gc/
+
+# Dependencias opcionales
+softdepend: [LuckPerms, PlaceholderAPI, Vault]
+
 commands:
-  score:
-    description: Comando principal para SurvivalCore.
-    usage: /score <reload>
-  perfil:
-    description: Muestra tu perfil y te permite subir el nivel de Granjería.
-    usage: /perfil
-  genero:
-    description: Selecciona tu género desde un menú gráfico.
-    usage: /genero
-  birthday:
-    description: "Configura o anuncia tu cumpleaños"
-    usage: /birthday
-    aliases: [cumpleaños, cumpleanos]
-  lectern:
-    description: Gestión de recetas de Atril
-    usage: /lectern <subcmd>
-    aliases: [atril]
-  xpgive:
-    description: Transfiere experiencia de tu barra a otro jugador
-    usage: /xpgive <jugador> <cantidad>
-    aliases: [transferxp, darxp]
-  xptransfers:
-    description: Muestra información sobre tus transferencias diarias
-    usage: /xptransfers
-    aliases: [transferinfo, xlimits]
-  xptransferlog:
-    description: Muestra el historial de transferencias (solo staff)
-    usage: /xptransferlog <jugador> [días]
-    aliases: [xplog, transferlog]
+  # Comandos básicos existentes
   repair:
-    description: Repara completamente el ítem en mano a cambio de experiencia
-    usage: /repair [cost|info|help]
-    aliases: [reparar, fix]
+    description: Repara el item que tienes en la mano
+    usage: /repair
+    aliases: [reparar]
+
+  birthday:
+    description: Configura tu fecha de cumpleaños
+    usage: /birthday [fecha]
+
+  perfil:
+    description: Ver el perfil de un jugador
+    usage: /perfil [jugador]
+
+  score:
+    description: Ver tu puntuación
+    usage: /score
+
+  genero:
+    description: Configura tu género
+    usage: /genero
+
+  lectern:
+    description: Comandos del atril mágico
+    usage: /lectern
+
+  # Comandos de transferencia XP
+  xpgive:
+    description: Dar experiencia a un jugador
+    usage: /xpgive <jugador> <cantidad>
+    permission: survivalcore.xptransfer.give
+
+  xptransfers:
+    description: Ver historial de transferencias
+    usage: /xptransfers
+
+  xptransferlog:
+    description: Ver log de transferencias
+    usage: /xptransferlog
+    permission: survivalcore.xptransfer.log
+
+  # Comandos SellWand
   sellwand:
-    description: "Gestiona el sistema SellWand"
-    usage: /sellwand <give|reload|limits|prices|info|help> [argumentos]
-    aliases: [sw, varita, varitaventa]
+    description: Obtener vara de venta
+    usage: /sellwand
+    aliases: [sw]
+    permission: survivalcore.sellwand.use
+
+  # Comandos Cheques XP
   cheque:
-    description: Sistema de cheques de experiencia
-    usage: /cheque <crear|info|limites|help> [cantidad]
-    aliases: [check, xpcheck, experiencecheque]
+    description: Crear cheques de experiencia
+    usage: /cheque <cantidad>
+    permission: survivalcore.cheque.create
+
+  # ========== COMANDOS DE RANKUP ==========
   rankup:
-    description: "Sistema principal de rankup"
-    usage: /rankup [info|progress|help|list|reload]
-    aliases: [ru, rank, subir]
+    description: Comando principal del sistema de rankup
+    usage: |
+      /rankup - Intentar subir de rango
+      /rankup info - Ver información del rango actual
+      /rankup progress - Ver progreso hacia el siguiente rango
+      /rankup list - Ver lista de rangos
+      /rankup help - Mostrar ayuda
+      /rankup reload - Recargar configuración (admin)
+    aliases: [rangoup, ru]
+    permission-message: "§cNo tienes permisos para usar este comando."
 
   prestige:
-    description: "Sistema de prestige para jugadores de alto nivel"
-    usage: /prestige [info|help|list]
-    aliases: [pr, prestigio]
+    description: Comando del sistema de prestige
+    usage: |
+      /prestige - Intentar hacer prestige
+      /prestige info - Ver información de prestige
+      /prestige help - Mostrar ayuda
+      /prestige list - Ver lista de prestiges
+    aliases: [prestigio, prest]
+    permission-message: "§cNo tienes permisos para usar este comando."
 
   ranks:
-    description: "Interfaz gráfica del sistema de rangos"
-    usage: /ranks [gui|list|top|history]
+    description: Menú de rangos y gestión del sistema
+    usage: |
+      /ranks - Abrir menú principal de rangos
+      /ranks gui - Abrir interfaz gráfica
+      /ranks list - Ver lista de rangos
+      /ranks top - Ver ranking de jugadores
+      /ranks history - Ver historial de rankups
     aliases: [rangos, ranking]
+    permission-message: "§cNo tienes permisos para usar este comando."
+
+# Permisos del sistema
 permissions:
-  # Permisos básicos del sistema de cheques
-  survivalcore.cheque.*:
-    description: Acceso completo al sistema de cheques
-    children:
-      survivalcore.cheque.create: true
-      survivalcore.cheque.redeem: true
-      survivalcore.cheque.info: true
-      survivalcore.cheque.give: true
-      survivalcore.cheque.stats: true
-      survivalcore.cheque.reload: true
-    default: op
-
-  survivalcore.cheque.create:
-    description: Permite crear cheques de experiencia
-    default: true
-
-  survivalcore.cheque.redeem:
-    description: Permite canjear cheques de experiencia
-    default: true
-
-  survivalcore.cheque.info:
-    description: Permite ver información personal de cheques
-    default: true
-
-  survivalcore.cheque.give:
-    description: Permite dar cheques a otros jugadores (admin)
-    default: op
-
-  survivalcore.cheque.stats:
-    description: Permite ver estadísticas de cheques
-    default: op
-
-  survivalcore.cheque.stats.others:
-    description: Permite ver estadísticas de otros jugadores
-    default: op
-
-  survivalcore.cheque.reload:
-    description: Permite recargar la configuración del sistema de cheques
-    default: op
-
-  # Permisos por rango para límites y costos
-  survivalcore.cheque.rank.default:
-    description: Límites y costos de rango default
-    default: true
-
-  survivalcore.cheque.rank.vip:
-    description: Límites y costos de rango VIP
-    default: false
-
-  survivalcore.cheque.rank.elite:
-    description: Límites y costos de rango Elite
-    default: false
-
-  survivalcore.cheque.rank.mod:
-    description: Límites y costos de rango Moderador
-    default: false
-
-  survivalcore.cheque.rank.admin:
-    description: Límites y costos de rango Administrador (sin límites)
-    default: op
-  survivalcore.reload:
-    description: Permite recargar la configuración del plugin.
-    default: op
-  survivalcore.xpbank.upgrade:
-    description: Permite mejorar el Banco de Experiencia
-    default: true
-  survivalcore.use.lectern:
-    description: Permite interactuar con Atriles Mágicos
-    default: false
-  survivalcore.transfer.rank.default:
-    description: Límites de transferencia para jugadores default
-    default: true
-  survivalcore.transfer.rank.vip:
-    description: Límites de transferencia para VIPs
-    default: false
-  survivalcore.transfer.rank.elite:
-    description: Límites de transferencia para Elite
-    default: false
-  survivalcore.transfer.rank.mod:
-    description: Límites de transferencia para Moderadores
-    default: false
-  survivalcore.transfer.rank.admin:
-    description: Límites de transferencia para Administradores (ilimitado)
-    default: op
-  survivalcore.transferlog:
-    description: Permite ver historial de transferencias de otros jugadores
-    default: op
+  # Permisos básicos existentes
   survivalcore.repair:
-    description: Permite usar el comando /reparar básico
+    description: Permite usar el comando repair
     default: true
-  survivalcore.repair.all:
-    description: Permite reparar todos los ítems del inventario
+
+  survivalcore.birthday:
+    description: Permite configurar cumpleaños
     default: true
-  survivalcore.repair.armor:
-    description: Permite reparar toda la armadura
+
+  survivalcore.perfil:
+    description: Permite ver perfiles
     default: true
-  survivalcore.repair.weapon:
-    description: Permite reparar armas
+
+  survivalcore.score:
+    description: Permite ver puntuación
     default: true
-  survivalcore.repair.tool:
-    description: Permite reparar herramientas
+
+  survivalcore.genero:
+    description: Permite configurar género
     default: true
-  survivalcore.repair.nocooldown:
-    description: Ignora el cooldown de reparación
-    default: op
-  survivalcore.repair.discount:
-    description: Obtiene 25% de descuento en costos de reparación
-    default: false
-  survivalcore.repair.discount.vip:
-    description: Obtiene 50% de descuento en costos de reparación
-    default: false
-  survivalcore.repair.free:
-    description: Reparación completamente gratuita (admin)
-    default: op
+
+  # Permisos SellWand
   survivalcore.sellwand.*:
-    description: "Acceso completo al sistema SellWand"
+    description: Todos los permisos de SellWand
+    default: op
     children:
       survivalcore.sellwand.use: true
-      survivalcore.sellwand.give: true
-      survivalcore.sellwand.reload: true
-      survivalcore.sellwand.prices: true
-    default: op
+      survivalcore.sellwand.admin: true
 
   survivalcore.sellwand.use:
-    description: "Permite usar SellWands"
+    description: Permite usar las varas de venta
     default: true
 
-  survivalcore.sellwand.give:
-    description: "Permite dar SellWands a otros jugadores"
+  survivalcore.sellwand.admin:
+    description: Permisos administrativos de SellWand
     default: op
 
-  survivalcore.sellwand.reload:
-    description: "Permite recargar la configuración de SellWand"
+  # Permisos XP Transfer
+  survivalcore.xptransfer.*:
+    description: Todos los permisos de transferencia XP
     default: op
-
-  survivalcore.sellwand.prices:
-    description: "Permite ver los precios de items"
-    default: true
-
-  survivalcore.rankup.*:
-    description: "Acceso completo al sistema de rankup"
     children:
+      survivalcore.xptransfer.give: true
+      survivalcore.xptransfer.log: true
+
+  survivalcore.xptransfer.give:
+    description: Permite dar XP a otros jugadores
+    default: op
+
+  survivalcore.xptransfer.log:
+    description: Permite ver logs de transferencias
+    default: op
+
+  # Permisos Cheques XP
+  survivalcore.cheque.*:
+    description: Todos los permisos de cheques
+    default: op
+    children:
+      survivalcore.cheque.create: true
+      survivalcore.cheque.admin: true
+
+  survivalcore.cheque.create:
+    description: Permite crear cheques de XP
+    default: true
+
+  survivalcore.cheque.admin:
+    description: Permisos administrativos de cheques
+    default: op
+
+  # ========== PERMISOS DE RANKUP ==========
+
+  # Permisos básicos de rankup - Todos los jugadores pueden usar
+  survivalcore.rankup:
+    description: Permite usar comandos básicos de rankup
+    default: true
+
+  survivalcore.rankup.use:
+    description: Permite intentar hacer rankup
+    default: true
+
+  survivalcore.rankup.info:
+    description: Permite ver información de rangos
+    default: true
+
+  survivalcore.rankup.progress:
+    description: Permite ver progreso de rankup
+    default: true
+
+  survivalcore.rankup.list:
+    description: Permite ver lista de rangos
+    default: true
+
+  survivalcore.rankup.gui:
+    description: Permite abrir el menú de rangos
+    default: true
+
+  survivalcore.rankup.history:
+    description: Permite ver historial de rankups
+    default: true
+
+  # Permisos de prestige
+  survivalcore.prestige:
+    description: Permite usar el sistema de prestige
+    default: true
+
+  survivalcore.prestige.use:
+    description: Permite hacer prestige
+    default: true
+
+  survivalcore.prestige.info:
+    description: Permite ver información de prestige
+    default: true
+
+  # Permisos administrativos de rankup
+  survivalcore.rankup.admin:
+    description: Permisos administrativos del sistema de rankup
+    default: op
+
+  survivalcore.rankup.reload:
+    description: Permite recargar la configuración de rankup
+    default: op
+
+  survivalcore.rankup.bypass:
+    description: Permite saltarse requisitos de rankup
+    default: op
+
+  survivalcore.rankup.others:
+    description: Permite hacer rankup a otros jugadores
+    default: op
+
+  # Permisos consolidados para facilitar gestión
+  survivalcore.rankup.*:
+    description: Todos los permisos de rankup (jugadores)
+    default: true
+    children:
+      survivalcore.rankup: true
       survivalcore.rankup.use: true
+      survivalcore.rankup.info: true
       survivalcore.rankup.progress: true
       survivalcore.rankup.list: true
       survivalcore.rankup.gui: true
       survivalcore.rankup.history: true
+      survivalcore.prestige: true
+      survivalcore.prestige.use: true
+      survivalcore.prestige.info: true
+
+  survivalcore.rankup.admin.*:
+    description: Todos los permisos administrativos de rankup
+    default: op
+    children:
+      survivalcore.rankup.*: true
       survivalcore.rankup.admin: true
+      survivalcore.rankup.reload: true
+      survivalcore.rankup.bypass: true
+      survivalcore.rankup.others: true
+
+  # Permiso general del plugin
+  survivalcore.*:
+    description: Todos los permisos del plugin
     default: op
-
-  survivalcore.rankup.use:
-    description: "Permite usar el comando /rankup"
-    default: true
-
-  survivalcore.rankup.progress:
-    description: "Permite ver el progreso de rankup"
-    default: true
-
-  survivalcore.rankup.list:
-    description: "Permite ver la lista de rangos"
-    default: true
-
-  survivalcore.rankup.gui:
-    description: "Permite usar la interfaz gráfica"
-    default: true
-
-  survivalcore.rankup.history:
-    description: "Permite ver el historial de rankups"
-    default: true
-
-  survivalcore.rankup.admin:
-    description: "Permisos de administración para rankup"
-    default: op
-
-# Dependencias requeridas
-depend:
-  - LuckPerms
-
-# Dependencias opcionales (soft)
-softdepend:
-  - Vault
-  - PlaceholderAPI
-  - WorldGuard
-
-# Descripción actualizada
-description: "Sistema completo de supervivencia con rankups, transferencias de XP, cheques y más."
+    children:
+      survivalcore.repair: true
+      survivalcore.birthday: true
+      survivalcore.perfil: true
+      survivalcore.score: true
+      survivalcore.genero: true
+      survivalcore.sellwand.*: true
+      survivalcore.xptransfer.*: true
+      survivalcore.cheque.*: true
+      survivalcore.rankup.admin.*: true

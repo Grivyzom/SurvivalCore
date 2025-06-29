@@ -51,7 +51,7 @@ public class Main extends JavaPlugin {
     private MiningExperienceConfig miningConfig;
     private PlacedBlocksManager placedBlocksManager;
     private BirthdayCommand birthdayCommand;
-    private LecternRecipeManager lecternRecipeManager;   // +getter
+    private LecternRecipeManager lecternRecipeManager;
     private XpTransferManager xpTransferManager;
     private XpTransferCommand xpTransferCommand;
     private SellWandManager sellWandManager;
@@ -69,14 +69,14 @@ public class Main extends JavaPlugin {
         initManagers();
         RecipeUnlockManager.load();
 
-        // *** NUEVA LÍNEA: Inicializar SellWand ***
+        // Inicializar SellWand
         initSellWand();
 
         // Inicializar managers de transferencia ANTES de registrar comandos
         xpTransferManager = new XpTransferManager(this);
         xpTransferCommand = new XpTransferCommand(this);
 
-        // NUEVO: Inicializar RankupManager con validación
+        // Inicializar RankupManager con validación
         if (!initRankupSystem()) {
             getLogger().warning("Sistema de Rankup no pudo inicializarse - comandos relacionados estarán deshabilitados");
         }
@@ -142,10 +142,55 @@ public class Main extends JavaPlugin {
         lecternRecipeManager = new LecternRecipeManager(this);
     }
 
-    // =================== MODIFICAR registerCommands() ===================
+    /**
+     * Inicializa el sistema de rankup de forma segura
+     * @return true si se inicializó correctamente, false si hubo errores
+     */
+    private boolean initRankupSystem() {
+        try {
+            // Verificar si LuckPerms está disponible
+            if (getServer().getPluginManager().getPlugin("LuckPerms") == null) {
+                getLogger().warning("LuckPerms no encontrado - Sistema de Rankup deshabilitado");
+                getLogger().warning("Para usar el sistema de rankup, instala LuckPerms");
+                return false;
+            }
+
+            // Verificar si LuckPerms está habilitado
+            if (!getServer().getPluginManager().isPluginEnabled("LuckPerms")) {
+                getLogger().warning("LuckPerms no está habilitado - Sistema de Rankup deshabilitado");
+                return false;
+            }
+
+            // Intentar inicializar RankupManager
+            rankupManager = new RankupManager(this);
+            getLogger().info("Sistema de Rankup inicializado correctamente con LuckPerms.");
+            return true;
+
+        } catch (Exception e) {
+            getLogger().severe("Error crítico al inicializar el sistema de Rankup:");
+            getLogger().severe("Tipo de error: " + e.getClass().getSimpleName());
+            getLogger().severe("Mensaje: " + e.getMessage());
+            e.printStackTrace();
+
+            // Deshabilitar solo el sistema de rankup, no el plugin completo
+            rankupManager = null;
+            return false;
+        }
+    }
+
+    private void initSellWand() {
+        try {
+            sellWandManager = new SellWandManager(this);
+            getLogger().info("SellWand system initialized successfully.");
+        } catch (Exception e) {
+            getLogger().severe("Failed to initialize SellWand system: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    // =================== COMANDOS ===================
     private void registerCommands() {
         birthdayCommand = new BirthdayCommand(this);
-        xpTransferCommand = new XpTransferCommand(this);
 
         registerCommand("repair", new RepairCommand(this));
         registerCommand("reparar", new RepairCommand(this));
@@ -205,53 +250,6 @@ public class Main extends JavaPlugin {
         }
     }
 
-    private void initSellWand() {
-        try {
-            sellWandManager = new SellWandManager(this);
-            getLogger().info("SellWand system initialized successfully.");
-        } catch (Exception e) {
-            getLogger().severe("Failed to initialize SellWand system: " + e.getMessage());
-            e.printStackTrace();
-        }
-    }
-
-// NUEVO MÉTODO: Inicialización segura del sistema de rankup
-    /**
-     * Inicializa el sistema de rankup de forma segura
-     * @return true si se inicializó correctamente, false si hubo errores
-     */
-    private boolean initRankupSystem() {
-        try {
-            // Verificar si LuckPerms está disponible
-            if (getServer().getPluginManager().getPlugin("LuckPerms") == null) {
-                getLogger().warning("LuckPerms no encontrado - Sistema de Rankup deshabilitado");
-                getLogger().warning("Para usar el sistema de rankup, instala LuckPerms");
-                return false;
-            }
-
-            // Verificar si LuckPerms está habilitado
-            if (!getServer().getPluginManager().isPluginEnabled("LuckPerms")) {
-                getLogger().warning("LuckPerms no está habilitado - Sistema de Rankup deshabilitado");
-                return false;
-            }
-
-            // Intentar inicializar RankupManager
-            rankupManager = new RankupManager(this);
-            getLogger().info("Sistema de Rankup inicializado correctamente con LuckPerms.");
-            return true;
-
-        } catch (Exception e) {
-            getLogger().severe("Error crítico al inicializar el sistema de Rankup:");
-            getLogger().severe("Tipo de error: " + e.getClass().getSimpleName());
-            getLogger().severe("Mensaje: " + e.getMessage());
-            e.printStackTrace();
-
-            // Deshabilitar solo el sistema de rankup, no el plugin completo
-            rankupManager = null;
-            return false;
-        }
-    }
-
     /* =================== INTEGRACIONES EXTERNAS =================== */
     private void hookPlaceholderAPI() {
         if (getServer().getPluginManager().getPlugin("PlaceholderAPI") != null) {
@@ -274,9 +272,6 @@ public class Main extends JavaPlugin {
         } else {
             getLogger().warning("No se pudo registrar el comando: " + name);
         }
-        registerCommand("rankup", new RankupCommand(this, rankupManager));
-        registerCommand("prestige", new RankupCommand(this, rankupManager));
-        registerCommand("ranks", new RankupCommand(this, rankupManager));
     }
 
     /* =================== GETTERS PÚBLICOS =================== */
@@ -286,18 +281,23 @@ public class Main extends JavaPlugin {
     public double getCropXpChance()                             { return cropXpChance; }
     public PlacedBlocksManager getPlacedBlocksManager()         { return placedBlocksManager; }
     public MiningExperienceConfig getMiningConfig()             { return miningConfig; }
-    public LecternRecipeManager getLecternRecipeManager() { return lecternRecipeManager; }
-    public XpTransferManager getXpTransferManager() { return xpTransferManager; }
-    public XpTransferCommand getXpTransferCommand() { return xpTransferCommand; }
-    public RankupManager getRankupManager() {return rankupManager;}
-    // NUEVO MÉTODO: Verificar si el sistema de rankup está disponible
+    public LecternRecipeManager getLecternRecipeManager()       { return lecternRecipeManager; }
+    public XpTransferManager getXpTransferManager()             { return xpTransferManager; }
+    public XpTransferCommand getXpTransferCommand()             { return xpTransferCommand; }
+    public RankupManager getRankupManager()                     { return rankupManager; }
+    public SellWandManager getSellWandManager()                 { return sellWandManager; }
+    public XpChequeCommand getXpChequeCommand()                 { return xpChequeCommand; }
+
+    /**
+     * Verificar si el sistema de rankup está disponible
+     */
     public boolean isRankupSystemEnabled() {
         return rankupManager != null;
     }
+
     /**
      * Refresca valores que cambian al recargar configuración.
      */
-
     public void updateInternalConfig() {
         // Recargar configuración básica
         this.cropXpChance = getConfig().getDouble("plugin.cropXpChance", this.cropXpChance);
@@ -322,13 +322,15 @@ public class Main extends JavaPlugin {
             miningConfig.reload();
         }
 
+        // Recargar configuración de rankup
+        if (rankupManager != null) {
+            rankupManager.reloadConfig();
+        }
+
         getLogger().info("Configuración interna actualizada.");
     }
 
-    /**
-     * Dispara evento cuando un jugador deposita XP en el banco
-     */
-  // NUEVOS MÉTODOS para disparar eventos personalizados:
+    // =================== EVENTOS PERSONALIZADOS ===================
 
     /**
      * Dispara evento cuando un jugador deposita XP en el banco
@@ -343,6 +345,7 @@ public class Main extends JavaPlugin {
             player.sendMessage(ChatColor.RED + "Depósito cancelado por otro plugin.");
         }
     }
+
     /**
      * Dispara evento cuando un jugador retira XP del banco
      */
@@ -359,17 +362,12 @@ public class Main extends JavaPlugin {
         Bukkit.getPluginManager().callEvent(event);
     }
 
-
     /**
      * Dispara evento cuando un jugador sube de nivel en una profesión
      */
     public void firePlayerProfessionLevelUpEvent(Player player, String profession, int oldLevel, int newLevel) {
         PlayerProfessionLevelUpEvent event = new PlayerProfessionLevelUpEvent(player, profession, oldLevel, newLevel);
         Bukkit.getPluginManager().callEvent(event);
-    }
-
-    public SellWandManager getSellWandManager() {
-        return sellWandManager;
     }
 
     /**
@@ -466,11 +464,5 @@ public class Main extends JavaPlugin {
             // No lanzar fuegos artificiales si está deshabilitado
             return;
         }
-
     }
-
-    public XpChequeCommand getXpChequeCommand() {
-        return xpChequeCommand;
-    }
-
 }

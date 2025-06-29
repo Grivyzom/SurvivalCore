@@ -392,14 +392,36 @@ public class SellWandManager {
         }
     }
 
+
     /**
-     * Recarga la configuración
+     * Recarga la configuración completamente
+     * CORREGIDO: Ahora recarga el archivo desde disco antes de cargar los valores
      */
     public void reloadConfig() {
-        loadConfig();
-        loadPrices();
-        loadSoundEffects();
-        plugin.getLogger().info("Configuración de SellWand recargada.");
+        try {
+            // PASO 1: Recargar el archivo físico desde el disco
+            sellWandConfig = YamlConfiguration.loadConfiguration(sellWandConfigFile);
+
+            // PASO 2: Limpiar todos los mapas/caches existentes
+            itemPrices.clear();
+            soundEffects.clear();
+            playerSellLimits.clear();
+            playerCooldowns.clear();
+
+            // PASO 3: Recargar toda la configuración
+            loadConfig();
+            loadPrices();
+            loadSoundEffects();
+
+            plugin.getLogger().info("SellWand: Configuración recargada correctamente desde sellwand.yml");
+            plugin.getLogger().info("SellWand: " + itemPrices.size() + " precios de items cargados");
+            plugin.getLogger().info("SellWand: " + soundEffects.size() + " efectos de sonido cargados");
+
+        } catch (Exception e) {
+            plugin.getLogger().severe("ERROR al recargar configuración de SellWand: " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("No se pudo recargar la configuración de SellWand", e);
+        }
     }
 
     /**
@@ -461,6 +483,9 @@ public class SellWandManager {
         public void addAmount(int amount) { this.amount += amount; }
     }
 
+    public int getLoadedPriceCount() {
+        return itemPrices.size();
+    }
     /**
      * Clase para información de límites de venta
      */
@@ -512,4 +537,20 @@ public class SellWandManager {
         public double getMinPrice() { return minPrice; }
         public double getMaxPrice() { return maxPrice; }
     }
+
+    /**
+     * Método auxiliar para debugging - muestra los precios cargados
+     */
+    public void debugPrices() {
+        plugin.getLogger().info("=== DEBUG: Precios cargados en SellWand ===");
+        if (itemPrices.isEmpty()) {
+            plugin.getLogger().warning("¡NO HAY PRECIOS CARGADOS!");
+        } else {
+            for (Map.Entry<Material, Double> entry : itemPrices.entrySet()) {
+                plugin.getLogger().info("  " + entry.getKey() + " = " + entry.getValue());
+            }
+        }
+        plugin.getLogger().info("=== Fin debug precios ===");
+    }
+
 }

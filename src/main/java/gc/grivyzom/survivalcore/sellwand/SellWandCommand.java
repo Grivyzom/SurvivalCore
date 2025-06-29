@@ -11,6 +11,7 @@ import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
+import java.io.File; // ← IMPORT AÑADIDO
 import java.text.DecimalFormat;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -59,10 +60,74 @@ public class SellWandCommand implements CommandExecutor, TabCompleter {
             case "help":
                 sendHelp(sender, label);
                 return true;
+            case "debug":
+                return handleDebug(sender);
             default:
                 sender.sendMessage(ChatColor.RED + "Subcomando desconocido. Usa /" + label + " help");
                 return true;
         }
+    }
+
+    /**
+     * Maneja el subcomando debug (solo para admins)
+     */
+    private boolean handleDebug(CommandSender sender) {
+        if (!sender.hasPermission("survivalcore.sellwand.debug")) {
+            sender.sendMessage(ChatColor.RED + "No tienes permisos para usar el modo debug.");
+            return true;
+        }
+
+        sender.sendMessage("");
+        sender.sendMessage(ChatColor.GOLD + "════════════════════════════════");
+        sender.sendMessage(ChatColor.GOLD + "      🔧 SELLWAND DEBUG 🔧");
+        sender.sendMessage(ChatColor.GOLD + "════════════════════════════════");
+
+        // Información del archivo de configuración
+        File configFile = new File(plugin.getDataFolder(), "sellwand.yml");
+        sender.sendMessage(ChatColor.WHITE + "Archivo config existe: " +
+                (configFile.exists() ? ChatColor.GREEN + "SÍ" : ChatColor.RED + "NO"));
+
+        if (configFile.exists()) {
+            sender.sendMessage(ChatColor.WHITE + "Última modificación: " +
+                    ChatColor.YELLOW + new java.util.Date(configFile.lastModified()));
+            sender.sendMessage(ChatColor.WHITE + "Tamaño archivo: " +
+                    ChatColor.YELLOW + configFile.length() + " bytes");
+        }
+
+        // Información de precios cargados
+        sender.sendMessage("");
+        sender.sendMessage(ChatColor.YELLOW + "Precios cargados en memoria:");
+
+        Map<Material, Double> prices = new HashMap<>();
+
+        // Obtener algunos precios de ejemplo para mostrar
+        Material[] testMaterials = {
+                Material.WHEAT, Material.DIAMOND, Material.EMERALD,
+                Material.GOLD_INGOT, Material.IRON_INGOT, Material.COAL
+        };
+
+        for (Material material : testMaterials) {
+            double price = manager.getItemPrice(material);
+            if (price > 0) {
+                prices.put(material, price);
+            }
+        }
+
+        if (prices.isEmpty()) {
+            sender.sendMessage(ChatColor.RED + "  ¡NO HAY PRECIOS CARGADOS!");
+            sender.sendMessage(ChatColor.RED + "  Esto indica un problema en la configuración.");
+        } else {
+            for (Map.Entry<Material, Double> entry : prices.entrySet()) {
+                sender.sendMessage(ChatColor.WHITE + "  • " + entry.getKey() + ": " +
+                        ChatColor.GREEN + String.format("%.2f", entry.getValue()) + " pts");
+            }
+            sender.sendMessage(ChatColor.GRAY + "  ... y más (total cargados: " +
+                    manager.getLoadedPriceCount() + ")"); // ← CORREGIDO: usar manager en lugar de itemPrices
+        }
+
+        sender.sendMessage(ChatColor.GOLD + "════════════════════════════════");
+
+        return true;
     }
 
     /**
@@ -335,6 +400,10 @@ public class SellWandCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage(ChatColor.YELLOW + "/" + label + " reload" + ChatColor.GRAY + " - Recargar configuración");
         }
 
+        if (sender.hasPermission("survivalcore.sellwand.debug")) {
+            sender.sendMessage(ChatColor.YELLOW + "/" + label + " debug" + ChatColor.GRAY + " - Modo debug (admin)");
+        }
+
         sender.sendMessage(ChatColor.GOLD + "══════════════════════════");
     }
 
@@ -359,6 +428,10 @@ public class SellWandCommand implements CommandExecutor, TabCompleter {
 
             if (sender.hasPermission("survivalcore.sellwand.reload")) {
                 subCommands.add("reload");
+            }
+
+            if (sender.hasPermission("survivalcore.sellwand.debug")) {
+                subCommands.add("debug");
             }
 
             // Filtrar subcomandos que coincidan

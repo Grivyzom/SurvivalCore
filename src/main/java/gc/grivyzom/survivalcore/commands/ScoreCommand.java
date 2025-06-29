@@ -303,12 +303,41 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage(ChatColor.RED + "No tienes permisos.");
             return;
         }
+
         sender.sendMessage(ChatColor.WHITE + "Recargando configuración...");
-        plugin.reloadConfig();
-        plugin.getCropExperienceConfig().reload();
-        plugin.updateInternalConfig();
-        plugin.getLecternRecipeManager().reloadAsync();
-        sender.sendMessage(ChatColor.GREEN + "¡Recarga completa!");
+
+        try {
+            // 1. Recargar configuración principal del plugin
+            plugin.reloadConfig();
+
+            // 2. Recargar configuración de crops
+            plugin.getCropExperienceConfig().reload();
+
+            // 3. Actualizar configuración interna
+            plugin.updateInternalConfig();
+
+            // 4. Recargar recetas del lectern de forma asíncrona
+            plugin.getLecternRecipeManager().reloadAsync();
+
+            // 5. NUEVO: Recargar configuración de SellWand
+            if (plugin.getSellWandManager() != null) {
+                plugin.getSellWandManager().reloadConfig();
+                sender.sendMessage(ChatColor.GREEN + "✓ SellWand configuración recargada");
+            }
+
+            // 6. NUEVO: Recargar transferencias si existe
+            if (plugin.getXpTransferManager() != null) {
+                plugin.getXpTransferManager().reloadConfig();
+                sender.sendMessage(ChatColor.GREEN + "✓ Sistema de transferencias recargado");
+            }
+
+            sender.sendMessage(ChatColor.GREEN + "¡Recarga completa!");
+
+        } catch (Exception e) {
+            sender.sendMessage(ChatColor.RED + "Error durante la recarga: " + e.getMessage());
+            plugin.getLogger().severe("Error en recarga de configuración: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     private void handleBirthday(CommandSender sender, String[] args) {

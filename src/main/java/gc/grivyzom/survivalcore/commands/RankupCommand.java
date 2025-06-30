@@ -143,26 +143,18 @@ public class RankupCommand implements CommandExecutor, TabCompleter {
         rankupManager.attemptRankup(player).thenAccept(result -> {
             Bukkit.getScheduler().runTask(plugin, () -> {
                 if (result.isSuccess()) {
+                    // ✅ MENSAJE DE ÉXITO MEJORADO
                     player.sendMessage("");
-                    player.sendMessage(ChatColor.GOLD + "╔══════════════════════════════════════╗");
-                    player.sendMessage(ChatColor.GOLD + "║ " + ChatColor.GREEN + "✓ ¡RANKUP EXITOSO!" + ChatColor.GOLD + "                ║");
-                    player.sendMessage(ChatColor.GOLD + "╠══════════════════════════════════════╣");
-                    player.sendMessage(ChatColor.GOLD + "║ " + result.getMessage() + ChatColor.GOLD + " ║");
-                    player.sendMessage(ChatColor.GOLD + "║                                      ║");
-                    player.sendMessage(ChatColor.GOLD + "║ " + ChatColor.YELLOW + "Usa /rankup progress para ver tu" + ChatColor.GOLD + "     ║");
-                    player.sendMessage(ChatColor.GOLD + "║ " + ChatColor.YELLOW + "progreso hacia el siguiente rango." + ChatColor.GOLD + "   ║");
-                    player.sendMessage(ChatColor.GOLD + "╚══════════════════════════════════════╝");
+                    player.sendMessage(ChatColor.GREEN + "✅ " + ChatColor.BOLD + "¡RANKUP EXITOSO!");
+                    player.sendMessage(ChatColor.GRAY + "▶ " + result.getMessage());
+                    player.sendMessage(ChatColor.YELLOW + "💡 Usa /rankup progress para ver tu siguiente objetivo");
                     player.sendMessage("");
                 } else {
+                    // ❌ MENSAJE DE ERROR MEJORADO
                     player.sendMessage("");
-                    player.sendMessage(ChatColor.RED + "╔══════════════════════════════════════╗");
-                    player.sendMessage(ChatColor.RED + "║ " + ChatColor.YELLOW + "❌ RANKUP NO DISPONIBLE" + ChatColor.RED + "            ║");
-                    player.sendMessage(ChatColor.RED + "╠══════════════════════════════════════╣");
-                    player.sendMessage(ChatColor.RED + "║ " + result.getMessage() + ChatColor.RED + " ║");
-                    player.sendMessage(ChatColor.RED + "║                                      ║");
-                    player.sendMessage(ChatColor.RED + "║ " + ChatColor.GRAY + "Usa /rankup progress para ver qué" + ChatColor.RED + "     ║");
-                    player.sendMessage(ChatColor.RED + "║ " + ChatColor.GRAY + "requisitos te faltan." + ChatColor.RED + "               ║");
-                    player.sendMessage(ChatColor.RED + "╚══════════════════════════════════════╝");
+                    player.sendMessage(ChatColor.RED + "❌ " + ChatColor.BOLD + "RANKUP NO DISPONIBLE");
+                    player.sendMessage(ChatColor.GRAY + "▶ " + result.getMessage());
+                    player.sendMessage(ChatColor.YELLOW + "💡 Usa /rankup progress para ver qué te falta");
                     player.sendMessage("");
                 }
             });
@@ -183,7 +175,7 @@ public class RankupCommand implements CommandExecutor, TabCompleter {
     private void showRankupInfo(Player player) {
         String currentRank = rankupManager.getCurrentRank(player);
         if (currentRank == null) {
-            player.sendMessage(ChatColor.RED + "No se pudo determinar tu rango actual.");
+            player.sendMessage(ChatColor.RED + "❌ No se pudo determinar tu rango actual");
             return;
         }
 
@@ -191,33 +183,29 @@ public class RankupCommand implements CommandExecutor, TabCompleter {
         RankupData rankupData = rankups.get(currentRank);
 
         if (rankupData == null) {
-            player.sendMessage(ChatColor.RED + "No hay información disponible para tu rango actual.");
+            player.sendMessage(ChatColor.RED + "❌ No hay información para tu rango actual");
             return;
         }
 
-        player.sendMessage(ChatColor.GOLD + "╔══════════════════════════════════════╗");
-        player.sendMessage(ChatColor.GOLD + "║ " + ChatColor.YELLOW + "INFORMACIÓN DE RANGO" + ChatColor.GOLD + "                ║");
-        player.sendMessage(ChatColor.GOLD + "╠══════════════════════════════════════╣");
-        player.sendMessage(ChatColor.GOLD + "║ " + ChatColor.WHITE + "Rango actual: " + rankupData.getDisplayName() + ChatColor.GOLD + " ║");
+        // ℹ️ INFORMACIÓN MEJORADA
+        player.sendMessage("");
+        player.sendMessage(ChatColor.AQUA + "ℹ️ " + ChatColor.BOLD + "INFORMACIÓN DE RANGO");
+        player.sendMessage("");
+        player.sendMessage(ChatColor.WHITE + "🎯 Rango actual: " + rankupData.getDisplayName());
 
         if (rankupData.hasNextRank()) {
             RankupData nextRankData = rankups.get(rankupData.getNextRank());
             String nextRankDisplay = nextRankData != null ? nextRankData.getDisplayName() : rankupData.getNextRank();
-            player.sendMessage(ChatColor.GOLD + "║ " + ChatColor.WHITE + "Siguiente rango: " + nextRankDisplay + ChatColor.GOLD + " ║");
+            player.sendMessage(ChatColor.WHITE + "⬆️ Siguiente rango: " + nextRankDisplay);
         } else {
-            player.sendMessage(ChatColor.GOLD + "║ " + ChatColor.LIGHT_PURPLE + "¡Has alcanzado el rango máximo!" + ChatColor.GOLD + "     ║");
+            player.sendMessage(ChatColor.LIGHT_PURPLE + "🏆 ¡Has alcanzado el rango máximo!");
         }
 
-        player.sendMessage(ChatColor.GOLD + "║                                      ║");
-        player.sendMessage(ChatColor.GOLD + "║ " + ChatColor.GRAY + "Usa /rankup progress para ver tu" + ChatColor.GOLD + "     ║");
-        player.sendMessage(ChatColor.GOLD + "║ " + ChatColor.GRAY + "progreso detallado." + ChatColor.GOLD + "                ║");
-
-        if (rankupManager.isPlaceholderAPIEnabled()) {
-            player.sendMessage(ChatColor.GOLD + "║ " + ChatColor.GRAY + "Usa /rankup placeholders para info" + ChatColor.GOLD + "   ║");
-            player.sendMessage(ChatColor.GOLD + "║ " + ChatColor.GRAY + "sobre placeholders disponibles." + ChatColor.GOLD + "     ║");
-        }
-
-        player.sendMessage(ChatColor.GOLD + "╚══════════════════════════════════════╝");
+        player.sendMessage("");
+        player.sendMessage(ChatColor.GRAY + "💡 Comandos útiles:");
+        player.sendMessage(ChatColor.GRAY + "  • /rankup progress - Ver tu progreso");
+        player.sendMessage(ChatColor.GRAY + "  • /ranks - Abrir menú de rangos");
+        player.sendMessage("");
     }
 
     /**
@@ -227,38 +215,41 @@ public class RankupCommand implements CommandExecutor, TabCompleter {
         rankupManager.getPlayerProgress(player).thenAccept(progress -> {
             Bukkit.getScheduler().runTask(plugin, () -> {
                 if (progress.getCurrentRank() == null) {
-                    player.sendMessage(ChatColor.RED + "No se pudo determinar tu rango actual.");
+                    player.sendMessage(ChatColor.RED + "❌ No se pudo obtener tu información de rango");
                     return;
                 }
 
-                player.sendMessage(ChatColor.GOLD + "╔══════════════════════════════════════╗");
-                player.sendMessage(ChatColor.GOLD + "║ " + ChatColor.YELLOW + "PROGRESO DE RANKUP" + ChatColor.GOLD + "                  ║");
-                player.sendMessage(ChatColor.GOLD + "╠══════════════════════════════════════╣");
+                // 📊 PROGRESO MEJORADO
+                player.sendMessage("");
+                player.sendMessage(ChatColor.AQUA + "📊 " + ChatColor.BOLD + "TU PROGRESO DE RANKUP");
+                player.sendMessage("");
 
                 if (progress.getNextRank() == null) {
-                    player.sendMessage(ChatColor.GOLD + "║ " + ChatColor.LIGHT_PURPLE + "¡Has alcanzado el rango máximo!" + ChatColor.GOLD + "     ║");
-                    player.sendMessage(ChatColor.GOLD + "╚══════════════════════════════════════╝");
+                    player.sendMessage(ChatColor.LIGHT_PURPLE + "🏆 ¡Has alcanzado el rango máximo!");
+                    player.sendMessage("");
                     return;
                 }
 
-                // Progreso general
-                String progressBar = createProgressBar(progress.getOverallProgress(), 20);
-                player.sendMessage(ChatColor.GOLD + "║ " + ChatColor.WHITE + "Progreso general: " +
-                        String.format("%.1f%%", progress.getOverallProgress()) + ChatColor.GOLD + " ║");
-                player.sendMessage(ChatColor.GOLD + "║ " + progressBar + ChatColor.GOLD + " ║");
-                player.sendMessage(ChatColor.GOLD + "║                                      ║");
+                // Progreso general más limpio
+                String progressBar = createProgressBar(progress.getOverallProgress(), 15);
+                player.sendMessage(ChatColor.WHITE + "Progreso: " + ChatColor.YELLOW +
+                        String.format("%.1f%%", progress.getOverallProgress()));
+                player.sendMessage(progressBar);
+                player.sendMessage("");
 
-                // Requisitos individuales
+                // Requisitos más compactos
+                player.sendMessage(ChatColor.GRAY + "Requisitos:");
                 for (Map.Entry<String, RequirementProgress> entry : progress.getRequirements().entrySet()) {
                     RequirementProgress reqProgress = entry.getValue();
-                    String status = reqProgress.isCompleted() ? ChatColor.GREEN + "✓" : ChatColor.RED + "✗";
+                    String status = reqProgress.isCompleted() ?
+                            ChatColor.GREEN + "✓" : ChatColor.RED + "✗";
                     String reqName = formatRequirementName(reqProgress.getType());
 
-                    player.sendMessage(ChatColor.GOLD + "║ " + status + ChatColor.WHITE + " " + reqName + ": " +
-                            formatRequirementValue(reqProgress) + ChatColor.GOLD + " ║");
+                    player.sendMessage(ChatColor.GRAY + "  " + status + " " +
+                            ChatColor.WHITE + reqName + ": " +
+                            ChatColor.YELLOW + formatRequirementValue(reqProgress));
                 }
-
-                player.sendMessage(ChatColor.GOLD + "╚══════════════════════════════════════╝");
+                player.sendMessage("");
             });
         });
     }
@@ -428,19 +419,21 @@ public class RankupCommand implements CommandExecutor, TabCompleter {
      * Muestra ayuda del comando rankup - ACTUALIZADA
      */
     private void showRankupHelp(Player player) {
-        player.sendMessage(ChatColor.GOLD + "═══ Ayuda de Rankup ═══");
-        player.sendMessage(ChatColor.YELLOW + "/rankup" + ChatColor.GRAY + " - Intenta subir de rango");
-        player.sendMessage(ChatColor.YELLOW + "/rankup info" + ChatColor.GRAY + " - Información de tu rango");
-        player.sendMessage(ChatColor.YELLOW + "/rankup progress" + ChatColor.GRAY + " - Ver tu progreso");
-        player.sendMessage(ChatColor.YELLOW + "/rankup list" + ChatColor.GRAY + " - Lista de rangos");
-        player.sendMessage(ChatColor.YELLOW + "/rankup placeholders" + ChatColor.GRAY + " - Info sobre placeholders");
-        player.sendMessage(ChatColor.YELLOW + "/ranks" + ChatColor.GRAY + " - Abrir menú de rangos");
+        player.sendMessage("");
+        player.sendMessage(ChatColor.GOLD + "📖 " + ChatColor.BOLD + "AYUDA DE RANKUP");
+        player.sendMessage("");
+        player.sendMessage(ChatColor.YELLOW + "📌 Comandos básicos:");
+        player.sendMessage(ChatColor.WHITE + "  /rankup " + ChatColor.GRAY + "- Subir de rango");
+        player.sendMessage(ChatColor.WHITE + "  /rankup info " + ChatColor.GRAY + "- Info de tu rango");
+        player.sendMessage(ChatColor.WHITE + "  /rankup progress " + ChatColor.GRAY + "- Ver progreso");
+        player.sendMessage(ChatColor.WHITE + "  /ranks " + ChatColor.GRAY + "- Menú interactivo");
+        player.sendMessage("");
 
         if (player.hasPermission("survivalcore.rankup.admin")) {
+            player.sendMessage(ChatColor.RED + "🔧 Comandos de Admin:");
+            player.sendMessage(ChatColor.WHITE + "  /rankup debug <placeholder> " + ChatColor.GRAY + "- Debug");
+            player.sendMessage(ChatColor.WHITE + "  /rankup reload " + ChatColor.GRAY + "- Recargar config");
             player.sendMessage("");
-            player.sendMessage(ChatColor.RED + "Comandos de Admin:");
-            player.sendMessage(ChatColor.YELLOW + "/rankup debug <placeholder>" + ChatColor.GRAY + " - Debug placeholders");
-            player.sendMessage(ChatColor.YELLOW + "/rankup reload" + ChatColor.GRAY + " - Recargar configuración");
         }
     }
 

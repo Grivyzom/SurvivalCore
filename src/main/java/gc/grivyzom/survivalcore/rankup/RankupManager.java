@@ -11,6 +11,7 @@ import net.luckperms.api.node.types.InheritanceNode;
 import me.clip.placeholderapi.PlaceholderAPI;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
+import org.bukkit.Location;
 import org.bukkit.Sound;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -488,16 +489,29 @@ public class RankupManager {
 
         if (failedRequirements.isEmpty()) {
             plugin.getLogger().info("Todos los requisitos cumplidos para " + player.getName());
-            return new RequirementCheckResult(true, "§aTodos los requisitos cumplidos.");
+            return new RequirementCheckResult(true, "✅ Todos los requisitos cumplidos");
         } else {
             plugin.getLogger().info("Requisitos no cumplidos para " + player.getName() + ": " + failedRequirements.size());
-            StringBuilder message = new StringBuilder("§cRequisitos no cumplidos:\n");
+
+            // MENSAJE DE ERROR MÁS LIMPIO
+            StringBuilder message = new StringBuilder();
+            message.append("Te faltan estos requisitos:\n");
+
+            int count = 0;
             for (String failed : failedRequirements) {
-                message.append("§7- ").append(failed).append("\n");
+                if (count >= 3) {
+                    message.append("§7  ... y ").append(failedRequirements.size() - 3).append(" más");
+                    break;
+                }
+                message.append("§7  • ").append(failed).append("\n");
+                count++;
             }
+
             return new RequirementCheckResult(false, message.toString().trim());
         }
     }
+
+
 
     /**
      * Añade un comando de debug para admins
@@ -799,16 +813,16 @@ public class RankupManager {
         }
 
         return switch (type.toLowerCase()) {
-            case "money", "eco", "economy" -> String.format("§c$%,.2f de dinero", ((Number) value).doubleValue());
-            case "xp", "experience" -> String.format("§c%,d puntos de experiencia", ((Number) value).intValue());
-            case "level", "levels" -> String.format("§cNivel %d", ((Number) value).intValue());
-            case "playtime", "time_played" -> String.format("§c%d horas jugadas", ((Number) value).longValue());
-            case "farming_level" -> String.format("§cNivel de granjería %d", ((Number) value).intValue());
-            case "mining_level" -> String.format("§cNivel de minería %d", ((Number) value).intValue());
-            case "kills", "mob_kills" -> String.format("§c%,d kills", ((Number) value).intValue());
-            case "blocks_broken" -> String.format("§c%,d bloques rotos", ((Number) value).intValue());
-            case "permission" -> String.format("§cPermiso: %s", value.toString());
-            default -> String.format("§c%s: %s", type, value.toString());
+            case "money", "eco", "economy" -> String.format("$%,.0f", ((Number) value).doubleValue());
+            case "xp", "experience" -> String.format("%,d XP", ((Number) value).intValue());
+            case "level", "levels" -> String.format("Nivel %d", ((Number) value).intValue());
+            case "playtime", "time_played" -> String.format("%dh jugadas", ((Number) value).longValue());
+            case "farming_level" -> String.format("Farming Lv.%d", ((Number) value).intValue());
+            case "mining_level" -> String.format("Minería Lv.%d", ((Number) value).intValue());
+            case "kills", "mob_kills" -> String.format("%,d kills", ((Number) value).intValue());
+            case "blocks_broken" -> String.format("%,d bloques", ((Number) value).intValue());
+            case "permission" -> String.format("Permiso: %s", value.toString());
+            default -> String.format("%s: %s", type, value.toString());
         };
     }
 
@@ -904,13 +918,12 @@ public class RankupManager {
             plugin.getLogger().info("Guardando cambios de permisos para " + player.getName());
             luckPerms.getUserManager().saveUser(user).join(); // Usar join() para esperar que complete
 
-            // 4. APLICAR RECOMPENSAS
             plugin.getLogger().info("Aplicando recompensas del rankup");
             applyRewards(player, rankupData);
 
-            // 5. EFECTOS Y MENSAJES
+// 5. EFECTOS MEJORADOS - AÑADIR TÍTULO Y SUBTÍTULO
             if (enableEffects) {
-                playRankupEffects(player);
+                playRankupEffects(player, fromRank, toRank);
             }
 
             if (enableBroadcast) {
@@ -993,17 +1006,48 @@ public class RankupManager {
     /**
      * Reproduce efectos de rankup
      */
-    private void playRankupEffects(Player player) {
-        player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
-        player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.2f);
+    private void playRankupEffects(Player player, String fromRank, String toRank) {
+        // Obtener nombres de display
+        RankupData fromData = rankups.get(fromRank);
+        RankupData toData = rankups.get(toRank);
 
-        // Efectos de partículas
+        String fromDisplay = fromData != null ? fromData.getDisplayName() : fromRank;
+        String toDisplay = toData != null ? toData.getDisplayName() : toRank;
+
+        // 🎉 TÍTULO Y SUBTÍTULO
+        String title = ChatColor.GOLD + "🎉 " + ChatColor.BOLD + "¡RANKUP!";
+        String subtitle = ChatColor.WHITE + "Ahora eres " + toDisplay;
+
+        // Enviar título (compatible con Java y Bedrock)
+        player.sendTitle(title, subtitle, 10, 60, 20);
+
+        // 🔊 SONIDOS MEJORADOS
+        player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
+
+        // Segundo sonido después de 1 segundo
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.2f);
+        }, 20L);
+
+        // ✨ EFECTOS DE PARTÍCULAS MEJORADOS
+        Location loc = player.getLocation().add(0, 1, 0);
+
+        // Fireworks inmediatos
         player.getWorld().spawnParticle(
                 org.bukkit.Particle.FIREWORKS_SPARK,
-                player.getLocation().add(0, 1, 0),
-                50, 0.5, 0.5, 0.5, 0.1
+                loc, 50, 0.5, 0.5, 0.5, 0.15
         );
+
+        // Efecto dorado después de 0.5 segundos
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            player.getWorld().spawnParticle(
+                    org.bukkit.Particle.VILLAGER_HAPPY,
+                    loc, 30, 0.8, 1.0, 0.8, 0.1
+            );
+        }, 10L);
     }
+
+
 
     /**
      * Anuncia el rankup al servidor
@@ -1015,8 +1059,10 @@ public class RankupManager {
         String fromDisplay = fromData != null ? fromData.getDisplayName() : fromRank;
         String toDisplay = toData != null ? toData.getDisplayName() : toRank;
 
-        String message = String.format("§6★ §e%s §aha ascendido de %s §aa %s§a! §6★",
-                player.getName(), fromDisplay, toDisplay);
+        // 📢 MENSAJE PÚBLICO MEJORADO
+        String message = ChatColor.YELLOW + "🌟 " + ChatColor.BOLD + player.getName() +
+                ChatColor.RESET + ChatColor.YELLOW + " ascendió a " +
+                toDisplay + ChatColor.YELLOW + "! 🎉";
 
         Bukkit.broadcastMessage(message);
     }

@@ -2,7 +2,7 @@
 #                    RANKUP SYSTEM CONFIG
 # =======================================================
 # Plugin: SurvivalCore
-# Sistema de rangos automático con integración LuckPerms
+# Sistema de rangos automático con integración LuckPerms y PlaceholderAPI
 # =======================================================
 
 # Configuración general del sistema
@@ -37,111 +37,8 @@ ranks:
       money: 500
       playtime: 0.5  # 30 minutos
       level: 3
-    rewards:
-      commands:
-        - "broadcast &a%player% &fha ascendido a &7Novato&f!"
-        - "give %player% coal 16"
-      xp: 100
-      levels: 1
-
-  # Segundo rango
-  novato:
-    display_name: "&7[&fNovato&7]"
-    next_rank: "aprendiz"
-    order: 1
-    permission_node: "group.novato"
-    requirements:
-      money: 1000
-      playtime: 1  # 1 hora
-      level: 5
-    rewards:
-      commands:
-        - "broadcast &a%player% &fha ascendido a &aAprendiz&f!"
-        - "give %player% iron_ingot 10"
-      xp: 500
-      levels: 2
-
-  # Tercer rango
-  aprendiz:
-    display_name: "&a[&2Aprendiz&a]"
-    next_rank: "aventurero"
-    order: 2
-    permission_node: "group.aprendiz"
-    requirements:
-      money: 5000
-      playtime: 5  # 5 horas
-      level: 15
-      farming_level: 10
-      kills: 50
-    rewards:
-      commands:
-        - "broadcast &a%player% &fha ascendido a &6Aventurero&f!"
-        - "give %player% gold_ingot 15"
-        - "give %player% diamond 3"
-      xp: 1000
-      levels: 3
-
-  # Cuarto rango
-  aventurero:
-    display_name: "&6[&eAventurero&6]"
-    next_rank: "experto"
-    order: 3
-    permission_node: "group.aventurero"
-    requirements:
-      money: 15000
-      playtime: 15  # 15 horas
-      level: 25
-      farming_level: 25
-      mining_level: 20
-      kills: 200
-      blocks_broken: 1000
-    rewards:
-      commands:
-        - "broadcast &a%player% &fha ascendido a &cExperto&f!"
-        - "give %player% diamond 10"
-        - "give %player% emerald 5"
-        - "kit expert %player%"
-      xp: 2000
-      levels: 5
-
-  # Quinto rango
-  experto:
-    display_name: "&c[&4Experto&c]"
-    next_rank: "maestro"
-    order: 4
-    permission_node: "group.experto"
-    requirements:
-      money: 50000
-      playtime: 40  # 40 horas
-      level: 40
-      farming_level: 50
-      mining_level: 45
-      kills: 500
-      blocks_broken: 5000
-    rewards:
-      commands:
-        - "broadcast &a%player% &fha ascendido a &5Maestro&f!"
-        - "give %player% diamond 25"
-        - "give %player% emerald 15"
-        - "give %player% netherite_ingot 2"
-        - "kit master %player%"
-      xp: 5000
-      levels: 8
-
-  # Sexto rango
-  maestro:
-    display_name: "&5[&dMaestro&5]"
-    next_rank: "leyenda"
-    order: 5
-    permission_node: "group.maestro"
-    requirements:
-      money: 150000
-      playtime: 80  # 80 horas
-      level: 60
-      farming_level: 75
-      mining_level: 70
-      kills: 1000
-      blocks_broken: 15000
+      # Ejemplo básico con placeholder
+      placeholder_player_health: "%player_health%:20"
     rewards:
       commands:
         - "broadcast &a%player% &fha ascendido a &6Leyenda&f!"
@@ -153,7 +50,7 @@ ranks:
       xp: 10000
       levels: 15
 
-  # Rango máximo
+  # Rango máximo con los requisitos más exigentes
   leyenda:
     display_name: "&6&l[&e&lLEYENDA&6&l]"
     next_rank: null  # Rango máximo
@@ -167,7 +64,7 @@ ranks:
 # =======================================================
 
 prestiges:
-  # Primer prestige
+  # Primer prestige con placeholders
   prestige_1:
     display_name: "&b[&3Prestige I&b]"
     level: 1
@@ -175,6 +72,10 @@ prestiges:
       current_rank: "leyenda"
       money: 500000
       playtime: 200  # 200 horas
+      # Placeholders para prestige
+      placeholder_total_mob_kills: "%statistic_mob_kills%:5000"
+      placeholder_total_blocks_mined: "%statistic_mine_block%:100000"
+      placeholder_enderdragon_kills: "%statistic_kill_entity_ender_dragon%:10"
     rewards:
       commands:
         - "broadcast &b%player% &fha alcanzado &bPrestige I&f!"
@@ -189,7 +90,7 @@ prestiges:
       - "mining_level"
       - "playtime"
 
-  # Segundo prestige
+  # Segundo prestige con requisitos más exigentes
   prestige_2:
     display_name: "&d[&5Prestige II&d]"
     level: 2
@@ -198,6 +99,12 @@ prestiges:
       current_prestige: "prestige_1"
       money: 1000000
       playtime: 400  # 400 horas
+      # Placeholders extremos
+      placeholder_total_mob_kills: "%statistic_mob_kills%:15000"
+      placeholder_total_blocks_mined: "%statistic_mine_block%:250000"
+      placeholder_enderdragon_kills: "%statistic_kill_entity_ender_dragon%:25"
+      placeholder_wither_kills: "%statistic_kill_entity_wither%:15"
+      placeholder_player_kills: "%statistic_player_kills%:100"
     rewards:
       commands:
         - "broadcast &d%player% &fha alcanzado &dPrestige II&f!"
@@ -212,7 +119,7 @@ prestiges:
       - "mining_level"
       - "playtime"
 
-  # Tercer prestige (máximo)
+  # Tercer prestige (máximo) con los requisitos más duros
   prestige_3:
     display_name: "&4&l[&c&lPRESTIGE III&4&l]"
     level: 3
@@ -221,6 +128,14 @@ prestiges:
       current_prestige: "prestige_2"
       money: 2000000
       playtime: 600  # 600 horas
+      # Los placeholders más exigentes del servidor
+      placeholder_total_mob_kills: "%statistic_mob_kills%:50000"
+      placeholder_total_blocks_mined: "%statistic_mine_block%:500000"
+      placeholder_enderdragon_kills: "%statistic_kill_entity_ender_dragon%:50"
+      placeholder_wither_kills: "%statistic_kill_entity_wither%:30"
+      placeholder_player_kills: "%statistic_player_kills%:250"
+      placeholder_items_crafted: "%statistic_craft_item%:10000"
+      placeholder_distance_traveled: "%statistic_walk_one_cm%:10000000"  # 100km
     rewards:
       commands:
         - "broadcast &4%player% &fha alcanzado el &4&lPRESTIGE MÁXIMO&f!"
@@ -248,6 +163,8 @@ messages:
   prestige_failed: "&cNo cumples los requisitos para prestige."
   cooldown: "&cDebes esperar %seconds% segundos."
   max_rank: "&eHas alcanzado el rango máximo."
+  placeholder_error: "&cError procesando placeholder: %placeholder%"
+  placeholder_not_available: "&cPlaceholderAPI no está disponible."
 
 # Configuración de efectos
 effects:
@@ -277,6 +194,8 @@ effects:
 integrations:
   placeholders:
     enabled: true
+    # Debug para ver valores de placeholders en console
+    debug_placeholders: false
   vault:
     enabled: true
   discord:
@@ -284,3 +203,210 @@ integrations:
     webhook_url: ""
     announce_rankups: true
     announce_prestiges: true
+
+      # =======================================================
+      #              GUÍA DE PLACEHOLDERS
+      # =======================================================
+      #
+      # FORMATO: placeholder_nombre: "placeholder:valor_requerido"
+      #
+      # PLACEHOLDERS DE ESTADÍSTICAS VANILLA:
+      # - %statistic_mob_kills%          - Mobs matados
+      # - %statistic_player_kills%       - Jugadores matados
+      # - %statistic_deaths%             - Muertes del jugador
+      # - %statistic_mine_block%         - Bloques minados
+      # - %statistic_craft_item%         - Items crafteados
+      # - %statistic_walk_one_cm%        - Distancia caminada (en cm)
+      # - %statistic_swim_one_cm%        - Distancia nadada (en cm)
+      # - %statistic_fly_one_cm%         - Distancia volada (en cm)
+      # - %statistic_animals_bred%       - Animales criados
+      # - %statistic_fish_caught%        - Peces pescados
+      # - %statistic_damage_dealt%       - Daño causado
+      # - %statistic_damage_taken%       - Daño recibido
+      # - %statistic_item_enchanted%     - Items encantados
+      # - %statistic_play_one_minute%    - Tiempo jugado (en minutos)
+      # - %statistic_sneak_time%         - Tiempo agachado
+      # - %statistic_time_since_death%   - Tiempo desde última muerte
+      # - %statistic_time_since_rest%    - Tiempo desde último descanso
+      #
+      # PLACEHOLDERS DE MOBS ESPECÍFICOS:
+      # - %statistic_kill_entity_zombie%        - Zombies matados
+      # - %statistic_kill_entity_skeleton%      - Esqueletos matados
+      # - %statistic_kill_entity_creeper%       - Creepers matados
+      # - %statistic_kill_entity_spider%        - Arañas matadas
+      # - %statistic_kill_entity_enderman%      - Endermen matados
+      # - %statistic_kill_entity_ender_dragon%  - Ender Dragons matados
+      # - %statistic_kill_entity_wither%        - Withers matados
+      #
+      # PLACEHOLDERS DE BLOQUES ESPECÍFICOS:
+      # - %statistic_mine_block_stone%       - Piedra minada
+      # - %statistic_mine_block_coal_ore%    - Carbón minado
+      # - %statistic_mine_block_iron_ore%    - Hierro minado
+      # - %statistic_mine_block_gold_ore%    - Oro minado
+      # - %statistic_mine_block_diamond_ore% - Diamantes minados
+      #
+      # PLACEHOLDERS DE JUGADOR:
+      # - %player_name%                  - Nombre del jugador
+      # - %player_level%                 - Nivel de experiencia
+      # - %player_health%                - Vida actual
+      # - %player_max_health%            - Vida máxima
+      # - %player_food_level%            - Nivel de comida
+      # - %player_total_experience%      - Experiencia total
+      #
+      # PLACEHOLDERS DE PLUGINS EXTERNOS (ejemplos):
+      # - %vault_eco_balance%            - Balance de Vault Economy
+      # - %mcmmo_level_mining%           - Nivel minería McMMO
+      # - %mcmmo_level_excavation%       - Nivel excavación McMMO
+      # - %mcmmo_power_level%            - Nivel total McMMO
+      # - %jobs_total_level%             - Nivel total Jobs
+      # - %townyadvanced_town_residents% - Residentes en pueblo Towny
+      # - %factions_power%               - Poder en Factions
+      # - %essentials_money%             - Dinero de Essentials
+      #
+      # EJEMPLOS DE USO:
+      # placeholder_mob_kills: "%statistic_mob_kills%:100"     # Requiere 100 mobs matados
+      # placeholder_blocks_mined: "%statistic_mine_block%:500" # Requiere 500 bloques minados
+      # placeholder_diamonds: "%statistic_mine_block_diamond_ore%:20" # 20 diamantes minados
+      # placeholder_mcmmo_mining: "%mcmmo_level_mining%:250"   # Nivel 250 en minería McMMO
+      #
+      # NOTAS IMPORTANTES:
+      # - Los placeholders deben empezar con "placeholder_"
+      # - El formato es siempre "placeholder:valor_numérico"
+      # - Si PlaceholderAPI no está instalado, los requisitos de placeholder se ignoran
+      # - Los valores decimales son soportados (ej: 1.5, 10.25)
+      # - Los placeholders que no se pueden resolver se consideran como 0
+      # ======================================================= ascendido a &7Novato&f!"
+      #- "give %player% coal 16"
+      #xp: 100
+      #levels: 1
+
+  # Segundo rango con placeholders de estadísticas
+  novato:
+    display_name: "&7[&fNovato&7]"
+    next_rank: "aprendiz"
+    order: 1
+    permission_node: "group.novato"
+    requirements:
+      money: 1000
+      playtime: 1  # 1 hora
+      level: 5
+      # Placeholders de estadísticas básicas
+      placeholder_mob_kills: "%statistic_mob_kills%:25"
+      placeholder_player_food_level: "%player_food_level%:15"
+    rewards:
+      commands:
+        - "broadcast &a%player% &fha ascendido a &aAprendiz&f!"
+        - "give %player% iron_ingot 10"
+      xp: 500
+      levels: 2
+
+  # Tercer rango con múltiples placeholders
+  aprendiz:
+    display_name: "&a[&2Aprendiz&a]"
+    next_rank: "aventurero"
+    order: 2
+    permission_node: "group.aprendiz"
+    requirements:
+      money: 5000
+      playtime: 5  # 5 horas
+      level: 15
+      farming_level: 10
+      # Múltiples placeholders de estadísticas
+      placeholder_mob_kills: "%statistic_mob_kills%:100"
+      placeholder_deaths: "%statistic_deaths%:5"
+      placeholder_play_time: "%statistic_play_one_minute%:18000"  # 15 horas en ticks
+      # Placeholder personalizado si tienes otros plugins
+      placeholder_mcmmo_mining: "%mcmmo_level_mining%:50"
+    rewards:
+      commands:
+        - "broadcast &a%player% &fha ascendido a &6Aventurero&f!"
+        - "give %player% gold_ingot 15"
+        - "give %player% diamond 3"
+      xp: 1000
+      levels: 3
+
+  # Cuarto rango con placeholders avanzados
+  aventurero:
+    display_name: "&6[&eAventurero&6]"
+    next_rank: "experto"
+    order: 3
+    permission_node: "group.aventurero"
+    requirements:
+      money: 15000
+      playtime: 15  # 15 horas
+      level: 25
+      farming_level: 25
+      mining_level: 20
+      # Placeholders de bloques y estadísticas específicas
+      placeholder_blocks_mined: "%statistic_mine_block%:2000"
+      placeholder_distance_walked: "%statistic_walk_one_cm%:1000000"  # 10km en cm
+      placeholder_animals_bred: "%statistic_animals_bred%:20"
+      placeholder_fish_caught: "%statistic_fish_caught%:50"
+      # Placeholders de combate
+      placeholder_damage_dealt: "%statistic_damage_dealt%:10000"
+      placeholder_mob_kills: "%statistic_mob_kills%:300"
+    rewards:
+      commands:
+        - "broadcast &a%player% &fha ascendido a &cExperto&f!"
+        - "give %player% diamond 10"
+        - "give %player% emerald 5"
+        - "kit expert %player%"
+      xp: 2000
+      levels: 5
+
+  # Quinto rango con placeholders de plugins externos
+  experto:
+    display_name: "&c[&4Experto&c]"
+    next_rank: "maestro"
+    order: 4
+    permission_node: "group.experto"
+    requirements:
+      money: 50000
+      playtime: 40  # 40 horas
+      level: 40
+      farming_level: 50
+      mining_level: 45
+      # Placeholders avanzados
+      placeholder_mob_kills: "%statistic_mob_kills%:750"
+      placeholder_blocks_broken: "%statistic_mine_block%:7500"
+      placeholder_crafted_items: "%statistic_craft_item%:1000"
+      # Placeholders de plugins externos (ejemplos)
+      placeholder_vault_balance: "%vault_eco_balance%:100000"
+      placeholder_mcmmo_power_level: "%mcmmo_power_level%:500"
+      placeholder_jobs_total_level: "%jobs_total_level%:100"
+      placeholder_towny_resident_count: "%townyadvanced_town_residents%:5"
+    rewards:
+      commands:
+        - "broadcast &a%player% &fha ascendido a &5Maestro&f!"
+        - "give %player% diamond 25"
+        - "give %player% emerald 15"
+        - "give %player% netherite_ingot 2"
+        - "kit master %player%"
+      xp: 5000
+      levels: 8
+
+  # Sexto rango con placeholders muy específicos
+  maestro:
+    display_name: "&5[&dMaestro&5]"
+    next_rank: "leyenda"
+    order: 5
+    permission_node: "group.maestro"
+    requirements:
+      money: 150000
+      playtime: 80  # 80 horas
+      level: 60
+      farming_level: 75
+      mining_level: 70
+      # Placeholders de logros complejos
+      placeholder_mob_kills: "%statistic_mob_kills%:1500"
+      placeholder_player_kills: "%statistic_player_kills%:25"
+      placeholder_blocks_broken: "%statistic_mine_block%:25000"
+      placeholder_items_enchanted: "%statistic_item_enchanted%:100"
+      placeholder_enderdragon_kills: "%statistic_kill_entity_ender_dragon%:3"
+      placeholder_wither_kills: "%statistic_kill_entity_wither%:5"
+      # Placeholders de tiempo específico
+      placeholder_time_since_death: "%statistic_time_since_death%:72000"  # 1 hora sin morir
+      placeholder_sneak_time: "%statistic_sneak_time%:36000"  # 30 min sneaking
+    rewards:
+      commands:
+        - "broadcast &a%player% &fha

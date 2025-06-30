@@ -3,6 +3,7 @@ package gc.grivyzom.survivalcore.commands;
 import gc.grivyzom.survivalcore.Main;
 import gc.grivyzom.survivalcore.rankup.*;
 import gc.grivyzom.survivalcore.rankup.RankupManager.*;
+import me.clip.placeholderapi.PlaceholderAPI;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
@@ -16,10 +17,10 @@ import java.util.stream.Collectors;
 
 /**
  * Comando principal del sistema de rankup.
- * Maneja /rankup, /prestige y /ranks
+ * Maneja /rankup, /prestige y /ranks con soporte completo para PlaceholderAPI
  *
  * @author Brocolitx
- * @version 1.0
+ * @version 1.1
  */
 public class RankupCommand implements CommandExecutor, TabCompleter {
 
@@ -64,6 +65,14 @@ public class RankupCommand implements CommandExecutor, TabCompleter {
             case "progress", "progreso" -> showProgress(player);
             case "help", "ayuda" -> showRankupHelp(player);
             case "list", "lista" -> showRankList(player);
+            case "placeholders", "ph" -> showPlaceholderInfo(player);
+            case "debug" -> {
+                if (!player.hasPermission("survivalcore.rankup.admin")) {
+                    player.sendMessage(ChatColor.RED + "No tienes permisos para usar este comando.");
+                    return true;
+                }
+                debugPlaceholders(player, args);
+            }
             case "reload" -> {
                 if (!player.hasPermission("survivalcore.rankup.admin")) {
                     player.sendMessage(ChatColor.RED + "No tienes permisos para recargar la configuración.");
@@ -202,11 +211,17 @@ public class RankupCommand implements CommandExecutor, TabCompleter {
         player.sendMessage(ChatColor.GOLD + "║                                      ║");
         player.sendMessage(ChatColor.GOLD + "║ " + ChatColor.GRAY + "Usa /rankup progress para ver tu" + ChatColor.GOLD + "     ║");
         player.sendMessage(ChatColor.GOLD + "║ " + ChatColor.GRAY + "progreso detallado." + ChatColor.GOLD + "                ║");
+
+        if (rankupManager.isPlaceholderAPIEnabled()) {
+            player.sendMessage(ChatColor.GOLD + "║ " + ChatColor.GRAY + "Usa /rankup placeholders para info" + ChatColor.GOLD + "   ║");
+            player.sendMessage(ChatColor.GOLD + "║ " + ChatColor.GRAY + "sobre placeholders disponibles." + ChatColor.GOLD + "     ║");
+        }
+
         player.sendMessage(ChatColor.GOLD + "╚══════════════════════════════════════╝");
     }
 
     /**
-     * Muestra el progreso del jugador
+     * Muestra el progreso del jugador con soporte mejorado para placeholders
      */
     private void showProgress(Player player) {
         rankupManager.getPlayerProgress(player).thenAccept(progress -> {
@@ -249,6 +264,98 @@ public class RankupCommand implements CommandExecutor, TabCompleter {
     }
 
     /**
+     * Muestra información sobre placeholders disponibles
+     */
+    private void showPlaceholderInfo(Player player) {
+        if (!rankupManager.isPlaceholderAPIEnabled()) {
+            player.sendMessage(ChatColor.RED + "PlaceholderAPI no está disponible en este servidor.");
+            player.sendMessage(ChatColor.GRAY + "Los requisitos de placeholder no funcionarán sin PlaceholderAPI.");
+            return;
+        }
+
+        player.sendMessage(ChatColor.AQUA + "═══ Información de Placeholders ═══");
+        player.sendMessage(ChatColor.WHITE + "PlaceholderAPI está " + ChatColor.GREEN + "ACTIVO" + ChatColor.WHITE + " en este servidor.");
+        player.sendMessage("");
+        player.sendMessage(ChatColor.YELLOW + "Formato de placeholders en rankups:");
+        player.sendMessage(ChatColor.GRAY + "placeholder_nombre: \"placeholder:valor_requerido\"");
+        player.sendMessage("");
+        player.sendMessage(ChatColor.YELLOW + "Ejemplos comunes:");
+        player.sendMessage(ChatColor.GRAY + "• placeholder_mob_kills: \"%statistic_mob_kills%:100\"");
+        player.sendMessage(ChatColor.GRAY + "• placeholder_blocks_mined: \"%statistic_mine_block%:500\"");
+        player.sendMessage(ChatColor.GRAY + "• placeholder_player_level: \"%player_level%:30\"");
+        player.sendMessage("");
+        player.sendMessage(ChatColor.YELLOW + "Para debug: " + ChatColor.WHITE + "/rankup debug <placeholder>");
+        player.sendMessage(ChatColor.GRAY + "Ejemplo: /rankup debug %statistic_mob_kills%");
+    }
+
+    /**
+     * Función de debug para placeholders (solo admins) - MEJORADA
+     */
+    private void debugPlaceholders(Player player, String[] args) {
+        if (args.length < 2) {
+            player.sendMessage(ChatColor.RED + "Uso: /rankup debug <placeholder|player>");
+            player.sendMessage(ChatColor.GRAY + "Ejemplos:");
+            player.sendMessage(ChatColor.GRAY + "  /rankup debug %statistic_mob_kills%");
+            player.sendMessage(ChatColor.GRAY + "  /rankup debug player <nombre> - Debug completo del jugador");
+            return;
+        }
+
+        // Debug de jugador específico
+        if (args[1].equalsIgnoreCase("player")) {
+            if (args.length < 3) {
+                player.sendMessage(ChatColor.RED + "Uso: /rankup debug player <nombre>");
+                return;
+            }
+
+            Player targetPlayer = plugin.getServer().getPlayer(args[2]);
+            if (targetPlayer == null) {
+                player.sendMessage(ChatColor.RED + "Jugador no encontrado: " + args[2]);
+                return;
+            }
+
+            rankupManager.debugPlayerRankup(targetPlayer, player);
+            return;
+        }
+
+        // Debug de placeholder
+        if (!rankupManager.isPlaceholderAPIEnabled()) {
+            player.sendMessage(ChatColor.RED + "PlaceholderAPI no está disponible.");
+            return;
+        }
+
+        String placeholder = args[1];
+        if (!placeholder.startsWith("%") || !placeholder.endsWith("%")) {
+            placeholder = "%" + placeholder + "%";
+        }
+
+        try {
+            String result = PlaceholderAPI.setPlaceholders(player, placeholder);
+
+            player.sendMessage(ChatColor.AQUA + "═══ Debug de Placeholder ═══");
+            player.sendMessage(ChatColor.WHITE + "Placeholder: " + ChatColor.YELLOW + placeholder);
+            player.sendMessage(ChatColor.WHITE + "Resultado: " + ChatColor.GREEN + result);
+
+            // Intentar parsearlo como número
+            try {
+                double numericValue = Double.parseDouble(result.replaceAll("[^0-9.-]", ""));
+                player.sendMessage(ChatColor.WHITE + "Valor numérico: " + ChatColor.YELLOW + numericValue);
+            } catch (NumberFormatException e) {
+                player.sendMessage(ChatColor.RED + "No se pudo convertir a número.");
+            }
+
+            // Verificar si el placeholder se resolvió
+            if (result.equals(placeholder)) {
+                player.sendMessage(ChatColor.RED + "⚠ El placeholder no se resolvió (devolvió el mismo texto)");
+            } else {
+                player.sendMessage(ChatColor.GREEN + "✓ Placeholder resuelto correctamente");
+            }
+
+        } catch (Exception e) {
+            player.sendMessage(ChatColor.RED + "Error procesando placeholder: " + e.getMessage());
+        }
+    }
+
+    /**
      * Crea una barra de progreso visual
      */
     private String createProgressBar(double percentage, int length) {
@@ -269,9 +376,15 @@ public class RankupCommand implements CommandExecutor, TabCompleter {
     }
 
     /**
-     * Formatea el nombre de un requisito
+     * Formatea el nombre de un requisito - MEJORADO para placeholders
      */
     private String formatRequirementName(String type) {
+        if (type.startsWith("placeholder_")) {
+            // Convertir "placeholder_mob_kills" a "Mob Kills"
+            String name = type.replace("placeholder_", "").replace("_", " ");
+            return name.substring(0, 1).toUpperCase() + name.substring(1);
+        }
+
         return switch (type.toLowerCase()) {
             case "money", "eco", "economy" -> "Dinero";
             case "xp", "experience" -> "Experiencia";
@@ -287,13 +400,19 @@ public class RankupCommand implements CommandExecutor, TabCompleter {
     }
 
     /**
-     * Formatea el valor de un requisito
+     * Formatea el valor de un requisito - MEJORADO para placeholders
      */
     private String formatRequirementValue(RequirementProgress progress) {
         String type = progress.getType().toLowerCase();
         double current = progress.getCurrent();
         double required = progress.getRequired();
 
+        // Manejar placeholders
+        if (type.startsWith("placeholder_")) {
+            return String.format("%.0f/%.0f", current, required);
+        }
+
+        // Requisitos tradicionales
         return switch (type) {
             case "money", "eco", "economy" -> String.format("$%,.0f/$%,.0f", current, required);
             case "xp", "experience" -> String.format("%,.0f/%,.0f XP", current, required);
@@ -306,7 +425,7 @@ public class RankupCommand implements CommandExecutor, TabCompleter {
     }
 
     /**
-     * Muestra ayuda del comando rankup
+     * Muestra ayuda del comando rankup - ACTUALIZADA
      */
     private void showRankupHelp(Player player) {
         player.sendMessage(ChatColor.GOLD + "═══ Ayuda de Rankup ═══");
@@ -314,7 +433,15 @@ public class RankupCommand implements CommandExecutor, TabCompleter {
         player.sendMessage(ChatColor.YELLOW + "/rankup info" + ChatColor.GRAY + " - Información de tu rango");
         player.sendMessage(ChatColor.YELLOW + "/rankup progress" + ChatColor.GRAY + " - Ver tu progreso");
         player.sendMessage(ChatColor.YELLOW + "/rankup list" + ChatColor.GRAY + " - Lista de rangos");
+        player.sendMessage(ChatColor.YELLOW + "/rankup placeholders" + ChatColor.GRAY + " - Info sobre placeholders");
         player.sendMessage(ChatColor.YELLOW + "/ranks" + ChatColor.GRAY + " - Abrir menú de rangos");
+
+        if (player.hasPermission("survivalcore.rankup.admin")) {
+            player.sendMessage("");
+            player.sendMessage(ChatColor.RED + "Comandos de Admin:");
+            player.sendMessage(ChatColor.YELLOW + "/rankup debug <placeholder>" + ChatColor.GRAY + " - Debug placeholders");
+            player.sendMessage(ChatColor.YELLOW + "/rankup reload" + ChatColor.GRAY + " - Recargar configuración");
+        }
     }
 
     /**
@@ -339,7 +466,7 @@ public class RankupCommand implements CommandExecutor, TabCompleter {
     }
 
     /**
-     * Muestra lista de rangos
+     * Muestra lista de rangos con información de placeholders
      */
     private void showRankList(Player player) {
         Map<String, RankupData> rankups = rankupManager.getRankups();
@@ -357,7 +484,23 @@ public class RankupCommand implements CommandExecutor, TabCompleter {
         String currentRank = rankupManager.getCurrentRank(player);
         for (RankupData rank : sortedRanks) {
             String marker = rank.getRankId().equals(currentRank) ? ChatColor.GREEN + "► " : ChatColor.GRAY + "  ";
-            player.sendMessage(marker + rank.getDisplayName() + ChatColor.GRAY + " (Orden: " + rank.getOrder() + ")");
+
+            // Contar placeholders en requisitos
+            long placeholderCount = rank.getRequirements().entrySet().stream()
+                    .filter(entry -> entry.getKey().startsWith("placeholder_"))
+                    .count();
+
+            String placeholderInfo = placeholderCount > 0 ?
+                    ChatColor.AQUA + " [" + placeholderCount + " placeholders]" : "";
+
+            player.sendMessage(marker + rank.getDisplayName() + ChatColor.GRAY + " (Orden: " +
+                    rank.getOrder() + ")" + placeholderInfo);
+        }
+
+        if (rankupManager.isPlaceholderAPIEnabled()) {
+            player.sendMessage("");
+            player.sendMessage(ChatColor.GRAY + "Usa " + ChatColor.YELLOW + "/rankup placeholders" +
+                    ChatColor.GRAY + " para más información sobre placeholders.");
         }
     }
 
@@ -382,6 +525,12 @@ public class RankupCommand implements CommandExecutor, TabCompleter {
         try {
             rankupManager.reloadConfig();
             player.sendMessage(ChatColor.GREEN + "Configuración de rankup recargada correctamente.");
+
+            if (rankupManager.isPlaceholderAPIEnabled()) {
+                player.sendMessage(ChatColor.GREEN + "PlaceholderAPI está disponible y activo.");
+            } else {
+                player.sendMessage(ChatColor.YELLOW + "PlaceholderAPI no está disponible - Los placeholders no funcionarán.");
+            }
         } catch (Exception e) {
             player.sendMessage(ChatColor.RED + "Error al recargar la configuración: " + e.getMessage());
             plugin.getLogger().severe("Error recargando configuración de rankup: " + e.getMessage());
@@ -395,13 +544,54 @@ public class RankupCommand implements CommandExecutor, TabCompleter {
             List<String> completions = new ArrayList<>();
 
             switch (cmdName) {
-                case "rankup" -> completions.addAll(Arrays.asList("info", "progress", "help", "list", "reload"));
+                case "rankup" -> {
+                    completions.addAll(Arrays.asList("info", "progress", "help", "list", "placeholders"));
+                    if (sender.hasPermission("survivalcore.rankup.admin")) {
+                        completions.addAll(Arrays.asList("reload", "debug"));
+                    }
+                }
                 case "prestige" -> completions.addAll(Arrays.asList("info", "help", "list"));
                 case "ranks" -> completions.addAll(Arrays.asList("gui", "list", "top", "history"));
             }
 
             return completions.stream()
                     .filter(sub -> sub.startsWith(args[0].toLowerCase()))
+                    .collect(Collectors.toList());
+        }
+
+        // Tab completion para debug
+        if (args.length == 2 && args[0].equalsIgnoreCase("debug") &&
+                sender.hasPermission("survivalcore.rankup.admin")) {
+
+            List<String> options = new ArrayList<>();
+            options.add("player");
+
+            // Añadir placeholders comunes
+            options.addAll(Arrays.asList(
+                    "%statistic_mob_kills%",
+                    "%statistic_mine_block%",
+                    "%statistic_player_kills%",
+                    "%statistic_deaths%",
+                    "%player_level%",
+                    "%player_health%",
+                    "%statistic_walk_one_cm%",
+                    "%statistic_animals_bred%",
+                    "%statistic_fish_caught%"
+            ));
+
+            return options.stream()
+                    .filter(option -> option.toLowerCase().contains(args[1].toLowerCase()))
+                    .collect(Collectors.toList());
+        }
+
+        // Tab completion para nombres de jugadores en debug
+        if (args.length == 3 && args[0].equalsIgnoreCase("debug") &&
+                args[1].equalsIgnoreCase("player") &&
+                sender.hasPermission("survivalcore.rankup.admin")) {
+
+            return plugin.getServer().getOnlinePlayers().stream()
+                    .map(Player::getName)
+                    .filter(name -> name.toLowerCase().startsWith(args[2].toLowerCase()))
                     .collect(Collectors.toList());
         }
 

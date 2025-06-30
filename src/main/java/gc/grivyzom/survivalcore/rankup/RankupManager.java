@@ -8,6 +8,7 @@ import net.luckperms.api.LuckPermsProvider;
 import net.luckperms.api.model.user.User;
 import net.luckperms.api.node.Node;
 import net.luckperms.api.node.types.InheritanceNode;
+import me.clip.placeholderapi.PlaceholderAPI;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Sound;
@@ -30,10 +31,10 @@ import java.util.logging.Level;
 
 /**
  * Gestor principal del sistema de rankups.
- * Maneja toda la lógica de ascensos de rango con integración a LuckPerms.
+ * Maneja toda la lógica de ascensos de rango con integración a LuckPerms y PlaceholderAPI.
  *
  * @author Brocolitx
- * @version 1.0
+ * @version 1.1
  */
 public class RankupManager {
 
@@ -45,6 +46,7 @@ public class RankupManager {
     private File configFile;
     private FileConfiguration config;
     private LuckPerms luckPerms;
+    private boolean placeholderAPIEnabled = false;
 
     // Configuración cache
     private long cooldownTime;
@@ -56,6 +58,9 @@ public class RankupManager {
     public RankupManager(Main plugin) {
         this.plugin = plugin;
         this.configFile = new File(plugin.getDataFolder(), "rankups.yml");
+
+        // Verificar PlaceholderAPI
+        checkPlaceholderAPI();
 
         // Inicializar LuckPerms con mejor manejo de errores
         if (!initLuckPerms()) {
@@ -79,6 +84,18 @@ public class RankupManager {
         }
 
         plugin.getLogger().info("Sistema de Rankup inicializado correctamente.");
+    }
+
+    /**
+     * Verifica si PlaceholderAPI está disponible
+     */
+    private void checkPlaceholderAPI() {
+        if (plugin.getServer().getPluginManager().getPlugin("PlaceholderAPI") != null) {
+            placeholderAPIEnabled = true;
+            plugin.getLogger().info("PlaceholderAPI detectado - Soporte para placeholders habilitado");
+        } else {
+            plugin.getLogger().warning("PlaceholderAPI no encontrado - Los requisitos con placeholders no funcionarán");
+        }
     }
 
     /**
@@ -171,7 +188,7 @@ public class RankupManager {
     }
 
     /**
-     * Crea configuración por defecto
+     * Crea configuración por defecto con ejemplos de placeholders
      */
     private void createDefaultConfig() {
         try {
@@ -186,10 +203,10 @@ public class RankupManager {
                 return;
             } catch (IllegalArgumentException e) {
                 // El recurso no existe, crear configuración básica
-                plugin.getLogger().info("Creando configuración básica de rankups...");
+                plugin.getLogger().info("Creando configuración básica de rankups con soporte para placeholders...");
             }
 
-            // Crear configuración básica
+            // Crear configuración básica con ejemplos de placeholders
             FileConfiguration defaultConfig = new YamlConfiguration();
 
             // Configuración general
@@ -199,13 +216,15 @@ public class RankupManager {
             defaultConfig.set("settings.enable_broadcast", true);
             defaultConfig.set("settings.max_history_entries", 100);
 
-            // Rangos de ejemplo
+            // Rangos de ejemplo con diferentes tipos de requisitos
             defaultConfig.set("ranks.novato.display_name", "&7[&fNovato&7]");
             defaultConfig.set("ranks.novato.next_rank", "aprendiz");
             defaultConfig.set("ranks.novato.order", 1);
             defaultConfig.set("ranks.novato.permission_node", "group.novato");
             defaultConfig.set("ranks.novato.requirements.money", 1000);
             defaultConfig.set("ranks.novato.requirements.playtime", 1);
+            // Ejemplo de placeholder para kills
+            defaultConfig.set("ranks.novato.requirements.placeholder_mob_kills", "%statistic_mob_kills%:50");
             defaultConfig.set("ranks.novato.rewards.commands", Arrays.asList("say %player% ha ascendido a Aprendiz!"));
 
             defaultConfig.set("ranks.aprendiz.display_name", "&a[&2Aprendiz&a]");
@@ -215,6 +234,8 @@ public class RankupManager {
             defaultConfig.set("ranks.aprendiz.requirements.money", 5000);
             defaultConfig.set("ranks.aprendiz.requirements.playtime", 5);
             defaultConfig.set("ranks.aprendiz.requirements.level", 10);
+            // Ejemplo de placeholder personalizado
+            defaultConfig.set("ranks.aprendiz.requirements.placeholder_player_level", "%player_level%:15");
             defaultConfig.set("ranks.aprendiz.rewards.commands", Arrays.asList("say %player% ha ascendido a Experto!"));
 
             defaultConfig.set("ranks.experto.display_name", "&6[&eExperto&6]");
@@ -224,10 +245,22 @@ public class RankupManager {
             defaultConfig.set("ranks.experto.requirements.money", 25000);
             defaultConfig.set("ranks.experto.requirements.playtime", 20);
             defaultConfig.set("ranks.experto.requirements.level", 30);
+            // Ejemplo de múltiples placeholders
+            defaultConfig.set("ranks.experto.requirements.placeholder_deaths", "%statistic_deaths%:10");
+            defaultConfig.set("ranks.experto.requirements.placeholder_blocks_broken", "%statistic_mine_block%:1000");
             defaultConfig.set("ranks.experto.rewards.commands", Arrays.asList("say %player% ha alcanzado el rango máximo!"));
 
+            // Agregar comentarios explicativos
+            defaultConfig.setComments("ranks.novato.requirements.placeholder_mob_kills",
+                    Arrays.asList(
+                            "Requisitos con placeholders:",
+                            "Formato: placeholder_nombre: 'placeholder:valor_requerido'",
+                            "Ejemplo: placeholder_mob_kills: '%statistic_mob_kills%:50'",
+                            "Esto requiere que el jugador tenga al menos 50 kills de mobs"
+                    ));
+
             defaultConfig.save(configFile);
-            plugin.getLogger().info("Configuración por defecto de rankups creada.");
+            plugin.getLogger().info("Configuración por defecto de rankups creada con ejemplos de placeholders.");
 
         } catch (Exception e) {
             plugin.getLogger().severe("Error creando configuración por defecto: " + e.getMessage());
@@ -266,6 +299,15 @@ public class RankupManager {
 
                 rankups.put(rankKey, rankup);
                 loaded++;
+
+                // Log de placeholders detectados
+                long placeholderCount = rankup.getRequirements().entrySet().stream()
+                        .filter(entry -> entry.getKey().startsWith("placeholder_"))
+                        .count();
+
+                if (placeholderCount > 0) {
+                    plugin.getLogger().info("Rango '" + rankKey + "' tiene " + placeholderCount + " requisitos con placeholders");
+                }
 
             } catch (Exception e) {
                 plugin.getLogger().warning("Error cargando rango '" + rankKey + "': " + e.getMessage());
@@ -392,46 +434,230 @@ public class RankupManager {
     }
 
     /**
-     * Verifica los requisitos para un rankup
+     * Verifica los requisitos para un rankup - MEJORADO con mejor logging
      */
     private RequirementCheckResult checkRequirements(Player player, RankupData rankupData) {
         Map<String, Object> requirements = rankupData.getRequirements();
         List<String> failedRequirements = new ArrayList<>();
 
+        plugin.getLogger().info("Verificando requisitos para " + player.getName() + ":");
+        plugin.getLogger().info("Total de requisitos: " + requirements.size());
+
         for (Map.Entry<String, Object> requirement : requirements.entrySet()) {
             String type = requirement.getKey();
             Object value = requirement.getValue();
 
-            boolean met = switch (type.toLowerCase()) {
-                case "money", "eco", "economy" -> checkMoneyRequirement(player, value);
-                case "xp", "experience" -> checkXpRequirement(player, value);
-                case "level", "levels" -> checkLevelRequirement(player, value);
-                case "playtime", "time_played" -> checkPlaytimeRequirement(player, value);
-                case "farming_level" -> checkFarmingLevelRequirement(player, value);
-                case "mining_level" -> checkMiningLevelRequirement(player, value);
-                case "kills", "mob_kills" -> checkKillsRequirement(player, value);
-                case "blocks_broken" -> checkBlocksBrokenRequirement(player, value);
-                case "permission" -> checkPermissionRequirement(player, value);
-                case "custom" -> checkCustomRequirement(player, value);
-                default -> {
-                    plugin.getLogger().warning("Tipo de requisito desconocido: " + type);
-                    yield true; // No fallar por requisitos desconocidos
-                }
-            };
+            boolean met = false;
 
-            if (!met) {
-                failedRequirements.add(formatRequirementMessage(type, value, player));
+            try {
+                // Verificar si es un requisito de placeholder
+                if (type.startsWith("placeholder_")) {
+                    met = checkPlaceholderRequirement(player, type, value);
+                } else {
+                    // Requisitos tradicionales
+                    met = switch (type.toLowerCase()) {
+                        case "money", "eco", "economy" -> checkMoneyRequirement(player, value);
+                        case "xp", "experience" -> checkXpRequirement(player, value);
+                        case "level", "levels" -> checkLevelRequirement(player, value);
+                        case "playtime", "time_played" -> checkPlaytimeRequirement(player, value);
+                        case "farming_level" -> checkFarmingLevelRequirement(player, value);
+                        case "mining_level" -> checkMiningLevelRequirement(player, value);
+                        case "kills", "mob_kills" -> checkKillsRequirement(player, value);
+                        case "blocks_broken" -> checkBlocksBrokenRequirement(player, value);
+                        case "permission" -> checkPermissionRequirement(player, value);
+                        case "custom" -> checkCustomRequirement(player, value);
+                        default -> {
+                            plugin.getLogger().warning("Tipo de requisito desconocido: " + type);
+                            yield true; // No fallar por requisitos desconocidos
+                        }
+                    };
+                }
+
+                plugin.getLogger().info("Requisito '" + type + "' = " + value + " -> " + (met ? "CUMPLIDO" : "NO CUMPLIDO"));
+
+                if (!met) {
+                    failedRequirements.add(formatRequirementMessage(type, value, player));
+                }
+
+            } catch (Exception e) {
+                plugin.getLogger().severe("Error verificando requisito '" + type + "': " + e.getMessage());
+                e.printStackTrace();
+                failedRequirements.add("Error verificando " + type);
             }
         }
 
         if (failedRequirements.isEmpty()) {
+            plugin.getLogger().info("Todos los requisitos cumplidos para " + player.getName());
             return new RequirementCheckResult(true, "§aTodos los requisitos cumplidos.");
         } else {
+            plugin.getLogger().info("Requisitos no cumplidos para " + player.getName() + ": " + failedRequirements.size());
             StringBuilder message = new StringBuilder("§cRequisitos no cumplidos:\n");
             for (String failed : failedRequirements) {
                 message.append("§7- ").append(failed).append("\n");
             }
             return new RequirementCheckResult(false, message.toString().trim());
+        }
+    }
+
+    /**
+     * Añade un comando de debug para admins
+     */
+    public void debugPlayerRankup(Player player, Player admin) {
+        admin.sendMessage(ChatColor.GOLD + "═══ Debug de Rankup para " + player.getName() + " ═══");
+
+        // 1. Rango actual
+        String currentRank = getCurrentRank(player);
+        admin.sendMessage(ChatColor.WHITE + "Rango actual: " + ChatColor.YELLOW +
+                (currentRank != null ? currentRank : "NULL"));
+
+        if (currentRank == null) {
+            admin.sendMessage(ChatColor.RED + "ERROR: No se pudo determinar el rango actual");
+            return;
+        }
+
+        // 2. Datos del rango
+        RankupData rankupData = rankups.get(currentRank);
+        if (rankupData == null) {
+            admin.sendMessage(ChatColor.RED + "ERROR: No hay datos para el rango " + currentRank);
+            return;
+        }
+
+        admin.sendMessage(ChatColor.WHITE + "Siguiente rango: " + ChatColor.YELLOW +
+                (rankupData.getNextRank() != null ? rankupData.getNextRank() : "NINGUNO (Rango máximo)"));
+
+        if (rankupData.getNextRank() == null) {
+            admin.sendMessage(ChatColor.GREEN + "El jugador ya tiene el rango máximo");
+            return;
+        }
+
+        // 3. Verificar requisitos individualmente
+        admin.sendMessage(ChatColor.WHITE + "Verificando requisitos:");
+        Map<String, Object> requirements = rankupData.getRequirements();
+
+        for (Map.Entry<String, Object> req : requirements.entrySet()) {
+            String type = req.getKey();
+            Object value = req.getValue();
+
+            boolean met = false;
+            String details = "";
+
+            try {
+                if (type.startsWith("placeholder_")) {
+                    met = checkPlaceholderRequirement(player, type, value);
+                    if (placeholderAPIEnabled) {
+                        String[] parts = value.toString().split(":");
+                        if (parts.length == 2) {
+                            String placeholder = parts[0].trim();
+                            String currentValue = PlaceholderAPI.setPlaceholders(player, placeholder);
+                            details = " (Actual: " + currentValue + ", Requerido: " + parts[1] + ")";
+                        }
+                    }
+                } else {
+                    met = switch (type.toLowerCase()) {
+                        case "money", "eco", "economy" -> checkMoneyRequirement(player, value);
+                        case "xp", "experience" -> {
+                            int current = getTotalXp(player);
+                            int required = ((Number) value).intValue();
+                            details = " (Actual: " + current + ", Requerido: " + required + ")";
+                            yield current >= required;
+                        }
+                        case "level", "levels" -> {
+                            int current = player.getLevel();
+                            int required = ((Number) value).intValue();
+                            details = " (Actual: " + current + ", Requerido: " + required + ")";
+                            yield current >= required;
+                        }
+                        case "playtime", "time_played" -> {
+                            long playtime = player.getStatistic(org.bukkit.Statistic.PLAY_ONE_MINUTE) * 50L;
+                            long hoursPlayed = playtime / (1000L * 60 * 60);
+                            long required = ((Number) value).longValue();
+                            details = " (Actual: " + hoursPlayed + "h, Requerido: " + required + "h)";
+                            yield hoursPlayed >= required;
+                        }
+                        default -> {
+                            details = " (Tipo: " + type + ")";
+                            yield true;
+                        }
+                    };
+                }
+            } catch (Exception e) {
+                details = " (ERROR: " + e.getMessage() + ")";
+            }
+
+            String status = met ? ChatColor.GREEN + "✓" : ChatColor.RED + "✗";
+            admin.sendMessage("  " + status + ChatColor.WHITE + " " + type + details);
+        }
+
+        // 4. Verificar cooldown
+        if (isOnCooldown(player.getUniqueId())) {
+            long remaining = getRemainingCooldown(player.getUniqueId());
+            admin.sendMessage(ChatColor.YELLOW + "COOLDOWN: " + (remaining / 1000) + " segundos restantes");
+        } else {
+            admin.sendMessage(ChatColor.GREEN + "Sin cooldown activo");
+        }
+    }
+    /**
+     * Verifica un requisito basado en PlaceholderAPI
+     */
+    private boolean checkPlaceholderRequirement(Player player, String type, Object value) {
+        if (!placeholderAPIEnabled) {
+            plugin.getLogger().warning("Intento de usar placeholder '" + type + "' pero PlaceholderAPI no está disponible");
+            return true; // No fallar si PlaceholderAPI no está disponible
+        }
+
+        try {
+            String valueStr = value.toString();
+
+            // Formato esperado: "placeholder:valor_requerido"
+            // Ejemplo: "%statistic_mob_kills%:50"
+            String[] parts = valueStr.split(":");
+            if (parts.length != 2) {
+                plugin.getLogger().warning("Formato de placeholder inválido en '" + type + "': " + valueStr);
+                plugin.getLogger().warning("Formato esperado: 'placeholder:valor_requerido'");
+                return true;
+            }
+
+            String placeholder = parts[0].trim();
+            String requiredValueStr = parts[1].trim();
+
+            // Parsear el valor requerido
+            double requiredValue;
+            try {
+                requiredValue = Double.parseDouble(requiredValueStr);
+            } catch (NumberFormatException e) {
+                plugin.getLogger().warning("Valor numérico inválido en placeholder '" + type + "': " + requiredValueStr);
+                return true;
+            }
+
+            // Obtener el valor actual del placeholder
+            String currentValueStr = PlaceholderAPI.setPlaceholders(player, placeholder);
+
+            if (currentValueStr == null || currentValueStr.equals(placeholder)) {
+                plugin.getLogger().warning("Placeholder no resuelto: " + placeholder + " para jugador " + player.getName());
+                return true; // No fallar si el placeholder no se puede resolver
+            }
+
+            // Parsear el valor actual
+            double currentValue;
+            try {
+                // Limpiar el string de posibles caracteres no numéricos (como comas en números grandes)
+                currentValueStr = currentValueStr.replaceAll("[^0-9.-]", "");
+                currentValue = Double.parseDouble(currentValueStr);
+            } catch (NumberFormatException e) {
+                plugin.getLogger().warning("No se pudo parsear el valor del placeholder '" + placeholder + "': " + currentValueStr);
+                return true;
+            }
+
+            boolean result = currentValue >= requiredValue;
+
+            plugin.getLogger().fine(String.format("Verificación placeholder '%s': actual=%.2f, requerido=%.2f, cumplido=%s",
+                    placeholder, currentValue, requiredValue, result));
+
+            return result;
+
+        } catch (Exception e) {
+            plugin.getLogger().warning("Error verificando requisito de placeholder '" + type + "': " + e.getMessage());
+            return true; // No fallar por errores en placeholders
         }
     }
 
@@ -565,9 +791,13 @@ public class RankupManager {
     }
 
     /**
-     * Formatea el mensaje de un requisito no cumplido
+     * Formatea el mensaje de un requisito no cumplido - MEJORADO para placeholders
      */
     private String formatRequirementMessage(String type, Object value, Player player) {
+        if (type.startsWith("placeholder_")) {
+            return formatPlaceholderRequirementMessage(type, value, player);
+        }
+
         return switch (type.toLowerCase()) {
             case "money", "eco", "economy" -> String.format("§c$%,.2f de dinero", ((Number) value).doubleValue());
             case "xp", "experience" -> String.format("§c%,d puntos de experiencia", ((Number) value).intValue());
@@ -583,34 +813,102 @@ public class RankupManager {
     }
 
     /**
-     * Realiza el rankup efectivo
+     * Formatea el mensaje de un requisito de placeholder no cumplido
+     */
+    private String formatPlaceholderRequirementMessage(String type, Object value, Player player) {
+        try {
+            String valueStr = value.toString();
+            String[] parts = valueStr.split(":");
+
+            if (parts.length != 2) {
+                return String.format("§c%s (formato inválido)", type);
+            }
+
+            String placeholder = parts[0].trim();
+            String requiredValueStr = parts[1].trim();
+
+            // Obtener valor actual si PlaceholderAPI está disponible
+            String currentValueStr = "N/A";
+            if (placeholderAPIEnabled) {
+                currentValueStr = PlaceholderAPI.setPlaceholders(player, placeholder);
+                if (currentValueStr.equals(placeholder)) {
+                    currentValueStr = "N/A";
+                }
+            }
+
+            // Crear nombre amigable del requisito
+            String friendlyName = type.replace("placeholder_", "").replace("_", " ");
+
+            return String.format("§c%s: §7%s §c(requerido: §7%s§c)",
+                    friendlyName, currentValueStr, requiredValueStr);
+
+        } catch (Exception e) {
+            return String.format("§c%s (error al procesar)", type);
+        }
+    }
+
+
+    /**
+     * Realiza el rankup efectivo - CORREGIDO
      */
     private boolean performRankup(Player player, String fromRank, String toRank, RankupData rankupData) {
-        if (luckPerms == null) return false;
+        if (luckPerms == null) {
+            plugin.getLogger().severe("LuckPerms no está disponible para realizar rankup");
+            return false;
+        }
 
         try {
+            plugin.getLogger().info("Iniciando rankup para " + player.getName() + " de " + fromRank + " a " + toRank);
+
             User user = luckPerms.getPlayerAdapter(Player.class).getUser(player);
-
-            // Remover rango anterior si hay nodo de permiso
-            if (rankupData.getPermissionNode() != null) {
-                InheritanceNode oldNode = InheritanceNode.builder(fromRank).build();
-                user.data().remove(oldNode);
+            if (user == null) {
+                plugin.getLogger().severe("No se pudo obtener el usuario de LuckPerms para " + player.getName());
+                return false;
             }
 
-            // Añadir nuevo rango
+            // Obtener datos del siguiente rango
             RankupData nextRankData = rankups.get(toRank);
-            if (nextRankData != null && nextRankData.getPermissionNode() != null) {
-                InheritanceNode newNode = InheritanceNode.builder(toRank).build();
-                user.data().add(newNode);
+            if (nextRankData == null) {
+                plugin.getLogger().severe("No se encontraron datos para el rango de destino: " + toRank);
+                return false;
             }
 
-            // Guardar cambios
-            luckPerms.getUserManager().saveUser(user);
+            // Log de debug
+            plugin.getLogger().info("Rango actual: " + fromRank + " -> Rango destino: " + toRank);
+            plugin.getLogger().info("Permission node del rango actual: " + rankupData.getPermissionNode());
+            plugin.getLogger().info("Permission node del nuevo rango: " + nextRankData.getPermissionNode());
 
-            // Aplicar recompensas
+            // 1. REMOVER RANGO ANTERIOR
+            if (rankupData.getPermissionNode() != null && !rankupData.getPermissionNode().isEmpty()) {
+                // Extraer solo el nombre del grupo del permission node
+                String oldGroupName = extractGroupName(rankupData.getPermissionNode());
+                plugin.getLogger().info("Removiendo grupo anterior: " + oldGroupName);
+
+                InheritanceNode oldNode = InheritanceNode.builder(oldGroupName).build();
+                user.data().remove(oldNode);
+                plugin.getLogger().info("Grupo anterior removido: " + oldGroupName);
+            }
+
+            // 2. AÑADIR NUEVO RANGO
+            if (nextRankData.getPermissionNode() != null && !nextRankData.getPermissionNode().isEmpty()) {
+                // Extraer solo el nombre del grupo del permission node
+                String newGroupName = extractGroupName(nextRankData.getPermissionNode());
+                plugin.getLogger().info("Añadiendo nuevo grupo: " + newGroupName);
+
+                InheritanceNode newNode = InheritanceNode.builder(newGroupName).build();
+                user.data().add(newNode);
+                plugin.getLogger().info("Nuevo grupo añadido: " + newGroupName);
+            }
+
+            // 3. GUARDAR CAMBIOS
+            plugin.getLogger().info("Guardando cambios de permisos para " + player.getName());
+            luckPerms.getUserManager().saveUser(user).join(); // Usar join() para esperar que complete
+
+            // 4. APLICAR RECOMPENSAS
+            plugin.getLogger().info("Aplicando recompensas del rankup");
             applyRewards(player, rankupData);
 
-            // Efectos y mensajes
+            // 5. EFECTOS Y MENSAJES
             if (enableEffects) {
                 playRankupEffects(player);
             }
@@ -619,12 +917,34 @@ public class RankupManager {
                 broadcastRankup(player, fromRank, toRank);
             }
 
+            plugin.getLogger().info("Rankup completado exitosamente para " + player.getName());
             return true;
 
         } catch (Exception e) {
-            plugin.getLogger().log(Level.SEVERE, "Error realizando rankup", e);
+            plugin.getLogger().severe("Error crítico realizando rankup para " + player.getName() + ":");
+            plugin.getLogger().severe("Rango origen: " + fromRank + " -> Rango destino: " + toRank);
+            plugin.getLogger().severe("Error: " + e.getMessage());
+            e.printStackTrace();
             return false;
         }
+    }
+
+    /**
+     * Extrae el nombre del grupo del permission node
+     * Convierte "group.novato" -> "novato"
+     */
+    private String extractGroupName(String permissionNode) {
+        if (permissionNode == null || permissionNode.isEmpty()) {
+            return permissionNode;
+        }
+
+        // Si empieza con "group.", remover ese prefijo
+        if (permissionNode.startsWith("group.")) {
+            return permissionNode.substring(6); // Remover "group."
+        }
+
+        // Si no tiene prefijo, usar tal como está
+        return permissionNode;
     }
 
     /**
@@ -698,79 +1018,77 @@ public class RankupManager {
     }
 
     /**
-     * Obtiene el rango actual del jugador
-     */
-    /**
-     * Obtiene el rango actual del jugador - VERSIÓN CORREGIDA
+     * Obtiene el rango actual del jugador - VERSIÓN CORREGIDA Y OPTIMIZADA
      */
     public String getCurrentRank(Player player) {
-        if (luckPerms == null) return null;
+        if (luckPerms == null) {
+            plugin.getLogger().warning("LuckPerms no está disponible para obtener rango de " + player.getName());
+            return null;
+        }
 
         try {
             User user = luckPerms.getPlayerAdapter(Player.class).getUser(player);
+            if (user == null) {
+                plugin.getLogger().warning("No se pudo obtener usuario de LuckPerms para " + player.getName());
+                return getDefaultRank();
+            }
+
+            // 1. Verificar grupo primario
             String primaryGroup = user.getPrimaryGroup();
+            plugin.getLogger().fine("Grupo primario de " + player.getName() + ": " + primaryGroup);
 
-            plugin.getLogger().info("Detectando rango para " + player.getName() + ": grupo primario = " + primaryGroup);
-
-            // 1. Verificar si el grupo primario está en nuestros rankups
             if (rankups.containsKey(primaryGroup)) {
-                plugin.getLogger().info("Rango encontrado directamente: " + primaryGroup);
+                plugin.getLogger().fine("Rango encontrado directamente: " + primaryGroup);
                 return primaryGroup;
             }
 
-            // 2. Si el grupo primario es "default", verificar si tenemos ese rango definido
-            if ("default".equals(primaryGroup) && rankups.containsKey("default")) {
-                plugin.getLogger().info("Usando rango default definido");
-                return "default";
-            }
-
-            // 3. Buscar en todos los grupos heredados
-            plugin.getLogger().info("Buscando en grupos heredados...");
-            String foundRank = user.getInheritedGroups(user.getQueryOptions())
+            // 2. Buscar en grupos heredados
+            Set<String> inheritedGroups = user.getInheritedGroups(user.getQueryOptions())
                     .stream()
                     .map(group -> group.getName())
-                    .filter(groupName -> {
-                        boolean contains = rankups.containsKey(groupName);
-                        plugin.getLogger().info("Verificando grupo: " + groupName + " -> " + contains);
-                        return contains;
-                    })
-                    .findFirst()
-                    .orElse(null);
+                    .collect(java.util.stream.Collectors.toSet());
 
-            if (foundRank != null) {
-                plugin.getLogger().info("Rango encontrado en grupos heredados: " + foundRank);
-                return foundRank;
-            }
+            plugin.getLogger().fine("Grupos heredados de " + player.getName() + ": " + inheritedGroups);
 
-            // 4. FALLBACK: Si no se encuentra nada y tenemos un rango "default", usarlo
-            if (rankups.containsKey("default")) {
-                plugin.getLogger().info("Usando fallback al rango default");
-                return "default";
-            }
-
-            // 5. ÚLTIMO RECURSO: Buscar el rango con orden más bajo (primer rango)
-            String firstRank = rankups.values().stream()
-                    .min((r1, r2) -> Integer.compare(r1.getOrder(), r2.getOrder()))
+            // Buscar el rango de mayor orden (más avanzado) que tenga el jugador
+            String foundRank = rankups.values().stream()
+                    .filter(rankData -> inheritedGroups.contains(rankData.getRankId()) ||
+                            inheritedGroups.contains(extractGroupName(rankData.getPermissionNode())))
+                    .max(Comparator.comparingInt(RankupData::getOrder))
                     .map(RankupData::getRankId)
                     .orElse(null);
 
-            if (firstRank != null) {
-                plugin.getLogger().info("Usando primer rango disponible como fallback: " + firstRank);
-                return firstRank;
+            if (foundRank != null) {
+                plugin.getLogger().fine("Rango encontrado en grupos heredados: " + foundRank);
+                return foundRank;
             }
 
-            plugin.getLogger().warning("No se pudo determinar rango para " + player.getName() + ". Grupos: " +
-                    user.getInheritedGroups(user.getQueryOptions()).stream()
-                            .map(group -> group.getName())
-                            .collect(java.util.stream.Collectors.joining(", ")));
+            // 3. FALLBACK: Usar rango por defecto
+            plugin.getLogger().info("No se encontró rango específico para " + player.getName() +
+                    ", usando rango por defecto. Grupos: " + inheritedGroups);
 
-            return null;
+            return getDefaultRank();
 
         } catch (Exception e) {
-            plugin.getLogger().warning("Error obteniendo rango actual de " + player.getName() + ": " + e.getMessage());
-            e.printStackTrace();
-            return null;
+            plugin.getLogger().warning("Error obteniendo rango de " + player.getName() + ": " + e.getMessage());
+            return getDefaultRank();
         }
+    }
+
+    /**
+     * Obtiene el rango por defecto del sistema
+     */
+    private String getDefaultRank() {
+        // 1. Buscar rango "default" si existe
+        if (rankups.containsKey("default")) {
+            return "default";
+        }
+
+        // 2. Buscar el rango con orden más bajo
+        return rankups.values().stream()
+                .min(Comparator.comparingInt(RankupData::getOrder))
+                .map(RankupData::getRankId)
+                .orElse(null);
     }
 
     /**
@@ -913,7 +1231,7 @@ public class RankupManager {
     }
 
     /**
-     * Obtiene información de progreso de un jugador
+     * Obtiene información de progreso de un jugador - MEJORADO para placeholders
      */
     public CompletableFuture<RankupProgress> getPlayerProgress(Player player) {
         return CompletableFuture.supplyAsync(() -> {
@@ -949,10 +1267,16 @@ public class RankupManager {
     }
 
     /**
-     * Calcula el progreso de un requisito específico
+     * Calcula el progreso de un requisito específico - MEJORADO para placeholders
      */
     private RequirementProgress calculateRequirementProgress(Player player, String type, Object requiredValue) {
         try {
+            // Manejar requisitos de placeholder
+            if (type.startsWith("placeholder_")) {
+                return calculatePlaceholderProgress(player, type, requiredValue);
+            }
+
+            // Requisitos tradicionales
             double required = ((Number) requiredValue).doubleValue();
             double current = getCurrentValue(player, type);
             double percentage = Math.min((current / required) * 100.0, 100.0);
@@ -965,6 +1289,49 @@ public class RankupManager {
                     current >= required
             );
         } catch (Exception e) {
+            plugin.getLogger().warning("Error calculando progreso para requisito '" + type + "': " + e.getMessage());
+            return new RequirementProgress(type, 0, 0, 0, false);
+        }
+    }
+
+    /**
+     * Calcula el progreso de un requisito de placeholder
+     */
+    private RequirementProgress calculatePlaceholderProgress(Player player, String type, Object requiredValue) {
+        if (!placeholderAPIEnabled) {
+            return new RequirementProgress(type, 0, 0, 0, false);
+        }
+
+        try {
+            String valueStr = requiredValue.toString();
+            String[] parts = valueStr.split(":");
+
+            if (parts.length != 2) {
+                plugin.getLogger().warning("Formato de placeholder inválido: " + valueStr);
+                return new RequirementProgress(type, 0, 0, 0, false);
+            }
+
+            String placeholder = parts[0].trim();
+            double required = Double.parseDouble(parts[1].trim());
+
+            // Obtener valor actual del placeholder
+            String currentValueStr = PlaceholderAPI.setPlaceholders(player, placeholder);
+
+            if (currentValueStr == null || currentValueStr.equals(placeholder)) {
+                return new RequirementProgress(type, 0, required, 0, false);
+            }
+
+            // Limpiar y parsear el valor actual
+            currentValueStr = currentValueStr.replaceAll("[^0-9.-]", "");
+            double current = Double.parseDouble(currentValueStr);
+
+            double percentage = Math.min((current / required) * 100.0, 100.0);
+            boolean completed = current >= required;
+
+            return new RequirementProgress(type, current, required, percentage, completed);
+
+        } catch (Exception e) {
+            plugin.getLogger().warning("Error calculando progreso de placeholder '" + type + "': " + e.getMessage());
             return new RequirementProgress(type, 0, 0, 0, false);
         }
     }
@@ -1008,8 +1375,17 @@ public class RankupManager {
      */
     public void reloadConfig() {
         try {
+            // Recargar verificación de PlaceholderAPI
+            checkPlaceholderAPI();
+
             loadConfig();
             plugin.getLogger().info("Configuración de Rankup recargada correctamente.");
+
+            if (placeholderAPIEnabled) {
+                plugin.getLogger().info("Soporte para PlaceholderAPI está activo.");
+            } else {
+                plugin.getLogger().warning("PlaceholderAPI no está disponible - Los requisitos con placeholders no funcionarán.");
+            }
         } catch (Exception e) {
             plugin.getLogger().severe("Error recargando configuración de Rankup: " + e.getMessage());
             throw new RuntimeException("Error recargando configuración", e);
@@ -1023,6 +1399,7 @@ public class RankupManager {
     public boolean areEffectsEnabled() { return enableEffects; }
     public boolean isBroadcastEnabled() { return enableBroadcast; }
     public long getCooldownTime() { return cooldownTime; }
+    public boolean isPlaceholderAPIEnabled() { return placeholderAPIEnabled; }
 
     // Clases internas para resultados
     public static class RankupResult {

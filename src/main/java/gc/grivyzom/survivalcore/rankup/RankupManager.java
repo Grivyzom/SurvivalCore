@@ -973,10 +973,14 @@ public class RankupManager {
                     if (value instanceof List) {
                         @SuppressWarnings("unchecked")
                         List<String> commands = (List<String>) value;
-                        for (String command : commands) {
-                            String processedCommand = command.replace("%player%", player.getName());
-                            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), processedCommand);
-                        }
+
+                        // EJECUTAR EN EL HILO PRINCIPAL
+                        Bukkit.getScheduler().runTask(plugin, () -> {
+                            for (String command : commands) {
+                                String processedCommand = command.replace("%player%", player.getName());
+                                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), processedCommand);
+                            }
+                        });
                     }
                 }
                 case "items" -> {

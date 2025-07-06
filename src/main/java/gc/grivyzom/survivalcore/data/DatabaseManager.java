@@ -392,6 +392,27 @@ public class DatabaseManager {
     }
 
     /**
+     * Prueba la conexión a la base de datos
+     * @throws Exception si la conexión falla
+     */
+    public void testConnection() throws Exception {
+        try (Connection conn = getConnection()) {
+            if (conn == null || conn.isClosed()) {
+                throw new Exception("Conexión nula o cerrada");
+            }
+
+            // Hacer una consulta simple para verificar que funciona
+            try (Statement stmt = conn.createStatement();
+                 ResultSet rs = stmt.executeQuery("SELECT 1")) {
+
+                if (!rs.next()) {
+                    throw new Exception("No se pudo ejecutar consulta de prueba");
+                }
+            }
+        }
+    }
+
+    /**
      * Obtiene una nueva conexión a la base de datos de forma estática
      * Útil para clases que necesitan conexión directa
      */

@@ -298,36 +298,88 @@ public class Main extends JavaPlugin {
     /**
      * Refresca valores que cambian al recargar configuración.
      */
+    /**
+     * Refresca valores que cambian al recargar configuración.
+     * VERSIÓN MEJORADA con soporte completo para todos los sistemas
+     */
     public void updateInternalConfig() {
-        // Recargar configuración básica
-        this.cropXpChance = getConfig().getDouble("plugin.cropXpChance", this.cropXpChance);
+        getLogger().info("Iniciando actualización de configuración interna...");
 
-        // Recargar configuración de transferencias
-        if (xpTransferManager != null) {
-            xpTransferManager.reloadConfig();
+        try {
+            // Recargar configuración básica
+            this.cropXpChance = getConfig().getDouble("plugin.cropXpChance", this.cropXpChance);
+            getLogger().info("✓ Configuración básica actualizada");
+
+            // Recargar configuración de transferencias
+            if (xpTransferManager != null) {
+                try {
+                    xpTransferManager.reloadConfig();
+                    getLogger().info("✓ Configuración de transferencias XP actualizada");
+                } catch (Exception e) {
+                    getLogger().warning("Error recargando transferencias XP: " + e.getMessage());
+                }
+            }
+
+            // Recargar configuración de cheques
+            if (xpChequeCommand != null && xpChequeCommand.getChequeManager() != null) {
+                try {
+                    xpChequeCommand.getChequeManager().reloadConfig();
+                    getLogger().info("✓ Configuración de cheques XP actualizada");
+                } catch (Exception e) {
+                    getLogger().warning("Error recargando cheques XP: " + e.getMessage());
+                }
+            }
+
+            // Recargar configuración de SellWand
+            if (sellWandManager != null) {
+                try {
+                    sellWandManager.reloadConfig();
+                    getLogger().info("✓ Configuración de SellWand actualizada");
+                } catch (Exception e) {
+                    getLogger().warning("Error recargando SellWand: " + e.getMessage());
+                }
+            }
+
+            // Recargar configuración de mining si existe
+            if (miningConfig != null) {
+                try {
+                    miningConfig.reload();
+                    getLogger().info("✓ Configuración de minería actualizada");
+                } catch (Exception e) {
+                    getLogger().warning("Error recargando configuración de minería: " + e.getMessage());
+                }
+            }
+
+            // Recargar configuración de crops si existe
+            if (cropConfig != null) {
+                try {
+                    cropConfig.reload();
+                    getLogger().info("✓ Configuración de cultivos actualizada");
+                } catch (Exception e) {
+                    getLogger().warning("Error recargando configuración de cultivos: " + e.getMessage());
+                }
+            }
+
+            // 🚀 NUEVO: Recargar configuración de rankup
+            if (rankupManager != null) {
+                try {
+                    rankupManager.reloadConfig();
+                    getLogger().info("✓ Configuración de rankup actualizada");
+                } catch (Exception e) {
+                    getLogger().severe("Error recargando configuración de rankup: " + e.getMessage());
+                    e.printStackTrace();
+                }
+            } else {
+                getLogger().info("ℹ Sistema de rankup no está disponible");
+            }
+            
+
+            getLogger().info("Configuración interna actualizada correctamente.");
+
+        } catch (Exception e) {
+            getLogger().severe("Error crítico actualizando configuración interna: " + e.getMessage());
+            e.printStackTrace();
         }
-
-        // Recargar configuración de cheques
-        if (xpChequeCommand != null && xpChequeCommand.getChequeManager() != null) {
-            xpChequeCommand.getChequeManager().reloadConfig();
-        }
-
-        // Recargar configuración de SellWand
-        if (sellWandManager != null) {
-            sellWandManager.reloadConfig();
-        }
-
-        // Recargar configuración de mining si existe
-        if (miningConfig != null) {
-            miningConfig.reload();
-        }
-
-        // Recargar configuración de rankup
-        if (rankupManager != null) {
-            rankupManager.reloadConfig();
-        }
-
-        getLogger().info("Configuración interna actualizada.");
     }
 
     // =================== EVENTOS PERSONALIZADOS ===================

@@ -2,691 +2,698 @@ package gc.grivyzom.survivalcore.commands;
 
 import gc.grivyzom.survivalcore.Main;
 import gc.grivyzom.survivalcore.data.UserData;
-import net.md_5.bungee.api.chat.ClickEvent;
-import net.md_5.bungee.api.chat.ComponentBuilder;
-import net.md_5.bungee.api.chat.HoverEvent;
-import net.md_5.bungee.api.chat.TextComponent;
-import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
-import org.bukkit.Material;
-import org.bukkit.NamespacedKey;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.persistence.PersistentDataType;
-import org.bukkit.ChatColor;
-import java.util.Arrays;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
-import java.util.*;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
+/**
+ * Comando principal /score con soporte completo para reload de todos los sistemas
+ *
+ * @author Brocolitx
+ * @version 2.0
+ */
 public class ScoreCommand implements CommandExecutor, TabCompleter {
 
     private final Main plugin;
-    private final List<HelpEntry> helpEntries;
-    private final int messagesPerPage = 5;
-    private final NamespacedKey lecternKey;
-    private final NamespacedKey levelKey;
-
-    private static class HelpEntry {
-        String command, message, permission;
-        HelpEntry(String cmd, String msg, String perm) {
-            this.command = cmd;
-            this.message = msg;
-            this.permission = perm;
-        }
-    }
+    private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     public ScoreCommand(Main plugin) {
         this.plugin = plugin;
-        this.helpEntries = new ArrayList<>();
-        loadHelpMessages();
-
-        this.lecternKey = new NamespacedKey(plugin, "is_magic_lectern");
-        this.levelKey   = new NamespacedKey(plugin, "lectern_level");
-    }
-
-    private void loadHelpMessages() {
-        var list = plugin.getConfig().getMapList("help.commands");
-        if (list != null) {
-            for (Map<?, ?> map : list) {
-                String cmd = map.get("command").toString();
-                String msg = ChatColor.translateAlternateColorCodes('&', map.get("message").toString());
-                String perm = map.get("permission").toString();
-                helpEntries.add(new HelpEntry(cmd, msg, perm));
-            }
-        }
     }
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (args.length > 0 && args[0].equalsIgnoreCase("rankup-debug")) {
-            return handleRankupDebug(sender);
-        }
-        if (args.length > 0 && args[0].equalsIgnoreCase("xpbank")) {
-            return handleXpbank(sender, args);
-        }
-        if (args.length > 0 && args[0].equalsIgnoreCase("admin")) {
-            return handleAdmin(sender, args);
-        }
         if (args.length == 0) {
-            sendHelp(sender, 1);
-            return true;
-        }
-// /score lectern give <jugador>
-//  ─── antes de la comprobación de cooldown ───
-        if (args[0].equalsIgnoreCase("lectern")) {
-            // /score lectern give <jugador>
-            if (args.length == 3 && args[1].equalsIgnoreCase("give")) {
-                if (!sender.hasPermission("survivalcore.admin")) {
-                    sender.sendMessage(ChatColor.RED + "No tienes permisos.");
-                    return true;
-                }
-                String targetName = args[2];
-                Player target = Bukkit.getPlayerExact(targetName);
-                if (target == null) {
-                    sender.sendMessage(ChatColor.RED + "Jugador no encontrado o no está online.");
-                    return true;
-                }
-                ItemStack it  = new ItemStack(Material.LECTERN);
-                ItemMeta meta = it.getItemMeta();
-                meta.getPersistentDataContainer().set(lecternKey, PersistentDataType.BYTE,  (byte)1);
-                meta.getPersistentDataContainer().set(levelKey,   PersistentDataType.INTEGER, 1);
-                meta.setDisplayName(ChatColor.LIGHT_PURPLE + "Atril Mágico");
-                meta.setLore(Arrays.asList(ChatColor.GRAY + "Haz clic derecho para usar"));
-                it.setItemMeta(meta);
-
-                target.getInventory().addItem(it);
-                sender.sendMessage(ChatColor.GREEN + "Se ha dado un Atril Mágico a " + targetName + ".");
+            if (!(sender instanceof Player)) {
+                sender.sendMessage(ChatColor.RED + "Solo los jugadores pueden ver su puntuación.");
                 return true;
             }
-            // Si hay otros subcomandos de lectern ponlos aquí…
-        }
-        if (args.length == 3 &&
-                args[1].equalsIgnoreCase("give")) {
-
-            if (!sender.hasPermission("survivalcore.admin")) {
-                sender.sendMessage(ChatColor.RED + "No tienes permisos.");
-                return true;
-            }
-
-            String targetName = args[2];
-            Player target = Bukkit.getPlayerExact(targetName);
-            if (target == null) {
-                sender.sendMessage(ChatColor.RED + "Jugador no encontrado o no está online.");
-                return true;
-            }
-
-            ItemStack it = new ItemStack(Material.LECTERN);
-            ItemMeta meta = it.getItemMeta();
-            meta.getPersistentDataContainer().set(lecternKey, PersistentDataType.BYTE, (byte)1);
-            meta.getPersistentDataContainer().set(levelKey,    PersistentDataType.INTEGER, 1);
-            meta.setDisplayName(ChatColor.LIGHT_PURPLE + "Atril Mágico");
-            meta.setLore(Arrays.asList(ChatColor.GRAY + "Haz clic derecho para usar"));
-            it.setItemMeta(meta);
-
-            target.getInventory().addItem(it);
-            sender.sendMessage(ChatColor.GREEN + "Se ha dado un Atril Mágico a " + targetName + ".");
-            return true;
-        }
-        // Cooldown para operaciones de set
-        if (args.length >= 2 && (args[0].equalsIgnoreCase("birthday") || args[0].equalsIgnoreCase("gender"))
-                && args[1].equalsIgnoreCase("set") && sender instanceof Player p) {
-            if (plugin.getCooldownManager().isOnCooldown(p.getName())) {
-                sender.sendMessage(ChatColor.RED + "Espera antes de usar este comando de nuevo.");
-                return true;
-            }
-            plugin.getCooldownManager().setCooldown(p.getName());
-        }
-        String sub = args[0].toLowerCase();
-        switch (sub) {
-            case "version" -> sender.sendMessage(ChatColor.WHITE + "Versión del plugin: " + ChatColor.GREEN + plugin.getDescription().getVersion());
-            case "reload"  -> reloadConfig(sender);
-            case "birthday"-> handleBirthday(sender, args);
-            case "gender"  -> handleGender(sender, args);
-            case "country" -> handleCountry(sender, args);
-            case "help"    -> {
-                int page = 1;
-                if (args.length >= 2) {
-                    try { page = Integer.parseInt(args[1]); } catch (NumberFormatException ignored) {}
-                }
-                sendHelp(sender, page);
-            }
-            default -> sender.sendMessage(ChatColor.RED + "Subcomando desconocido. Usa /" + label + " help");
-        }
-        return true;
-    }
-
-    // Añadir este método privado al ScoreCommand:
-    private boolean handleRankupDebug(CommandSender sender) {
-        if (!sender.hasPermission("survivalcore.admin")) {
-            sender.sendMessage(ChatColor.RED + "No tienes permisos para usar este comando.");
+            showPlayerScore((Player) sender);
             return true;
         }
 
-        sender.sendMessage(ChatColor.GOLD + "=== DIAGNÓSTICO DEL SISTEMA RANKUP ===");
+        String subcommand = args[0].toLowerCase();
 
-        // 1. Verificar estado del plugin
-        boolean pluginEnabled = plugin.isEnabled();
-        sender.sendMessage(ChatColor.YELLOW + "Plugin habilitado: " +
-                (pluginEnabled ? ChatColor.GREEN + "✓ SÍ" : ChatColor.RED + "✗ NO"));
-
-        // 2. Verificar LuckPerms
-        org.bukkit.plugin.Plugin luckPerms = plugin.getServer().getPluginManager().getPlugin("LuckPerms");
-        if (luckPerms == null) {
-            sender.sendMessage(ChatColor.YELLOW + "LuckPerms: " + ChatColor.RED + "✗ NO INSTALADO");
-        } else if (!luckPerms.isEnabled()) {
-            sender.sendMessage(ChatColor.YELLOW + "LuckPerms: " + ChatColor.RED + "✗ INSTALADO PERO DESHABILITADO");
-        } else {
-            sender.sendMessage(ChatColor.YELLOW + "LuckPerms: " + ChatColor.GREEN + "✓ DISPONIBLE v" + luckPerms.getDescription().getVersion());
-        }
-
-        // 3. Verificar RankupManager
-        boolean rankupSystemEnabled = plugin.isRankupSystemEnabled();
-        sender.sendMessage(ChatColor.YELLOW + "Sistema Rankup: " +
-                (rankupSystemEnabled ? ChatColor.GREEN + "✓ ACTIVO" : ChatColor.RED + "✗ INACTIVO"));
-
-        if (rankupSystemEnabled) {
-            var rankupManager = plugin.getRankupManager();
-            if (rankupManager != null) {
-                sender.sendMessage(ChatColor.YELLOW + "Rangos cargados: " + ChatColor.AQUA + rankupManager.getRankups().size());
-                sender.sendMessage(ChatColor.YELLOW + "Prestige habilitado: " +
-                        (rankupManager.isPrestigeEnabled() ? ChatColor.GREEN + "SÍ" : ChatColor.GRAY + "NO"));
+        switch (subcommand) {
+            case "version", "v" -> showVersion(sender);
+            case "reload", "r" -> handleReload(sender);
+            case "birthday", "cumpleanos" -> handleBirthday(sender, args);
+            case "gender", "genero" -> handleGender(sender, args);
+            case "country", "pais" -> handleCountry(sender, args);
+            case "help", "ayuda" -> showHelp(sender, args);
+            case "debug" -> handleDebug(sender, args);
+            default -> {
+                sender.sendMessage(ChatColor.RED + "Subcomando desconocido. Usa /score help para ver la ayuda.");
+                return true;
             }
-        }
-
-        // 4. Verificar archivos de configuración
-        java.io.File rankupsFile = new java.io.File(plugin.getDataFolder(), "rankups.yml");
-        sender.sendMessage(ChatColor.YELLOW + "Archivo rankups.yml: " +
-                (rankupsFile.exists() ? ChatColor.GREEN + "✓ EXISTE" : ChatColor.RED + "✗ NO EXISTE"));
-
-        // 5. Verificar comandos registrados
-        boolean rankupCmdRegistered = plugin.getCommand("rankup") != null;
-        sender.sendMessage(ChatColor.YELLOW + "Comando /rankup: " +
-                (rankupCmdRegistered ? ChatColor.GREEN + "✓ REGISTRADO" : ChatColor.RED + "✗ NO REGISTRADO"));
-
-        // 6. Verificar base de datos
-        try {
-            plugin.getDatabaseManager().getConnection().close();
-            sender.sendMessage(ChatColor.YELLOW + "Conexión BD: " + ChatColor.GREEN + "✓ FUNCIONAL");
-        } catch (Exception e) {
-            sender.sendMessage(ChatColor.YELLOW + "Conexión BD: " + ChatColor.RED + "✗ ERROR - " + e.getMessage());
-        }
-
-        sender.sendMessage(ChatColor.GOLD + "=== FIN DEL DIAGNÓSTICO ===");
-
-        if (!rankupSystemEnabled) {
-            sender.sendMessage("");
-            sender.sendMessage(ChatColor.RED + "❌ PROBLEMA DETECTADO:");
-            sender.sendMessage(ChatColor.YELLOW + "El sistema de rankup no está funcionando.");
-            sender.sendMessage(ChatColor.GRAY + "Soluciones posibles:");
-            sender.sendMessage(ChatColor.GRAY + "1. Instalar LuckPerms si no está instalado");
-            sender.sendMessage(ChatColor.GRAY + "2. Verificar que LuckPerms se cargue antes que SurvivalCore");
-            sender.sendMessage(ChatColor.GRAY + "3. Revisar los logs del servidor para errores específicos");
-            sender.sendMessage(ChatColor.GRAY + "4. Verificar permisos del archivo rankups.yml");
         }
 
         return true;
     }
 
-    private boolean handleXpbank(CommandSender sender, String[] args) {
-        if (!(sender instanceof Player p)) {
-            sender.sendMessage(ChatColor.RED + "Solo jugadores pueden usar este comando.");
-            return true;
-        }
-
-        // /score xpbank upgrade
-        if (args.length == 2 && args[1].equalsIgnoreCase("upgrade")) {
-            return upgradeXpBank(p);
-        }
-
-        // /score xpbank transfer <jugador> <cantidad>
-        if (args.length >= 3 && args[1].equalsIgnoreCase("transfer")) {
-            // CORRECCIÓN: Pasar los argumentos correctamente
-            // args[0] = "xpbank", args[1] = "transfer", args[2] = jugador, args[3] = cantidad
-
-            if (args.length != 4) {
-                p.sendMessage(ChatColor.RED + "Uso: /score xpbank transfer <jugador> <cantidad>");
-                p.sendMessage(ChatColor.GRAY + "Transfiere experiencia de tu banco a otro jugador.");
-                p.sendMessage(ChatColor.YELLOW + "Ejemplo: /score xpbank transfer Steve 1000");
-                return true;
-            }
-
-            // Crear array con los argumentos en el formato esperado por handleBankTransfer
-            String[] transferArgs = {"transfer", args[2], args[3]};
-            return plugin.getXpTransferCommand().handleBankTransfer(sender, transferArgs);
-        }
-
-        // /score xpbank give <jugador>
-        if (args.length == 3 && args[1].equalsIgnoreCase("give")) {
-            if (!sender.hasPermission("survivalcore.admin")) {
-                sender.sendMessage(ChatColor.RED + "No tienes permisos para dar ánforas.");
-                return true;
-            }
-            String targetName = args[2];
-            Player target = Bukkit.getPlayerExact(targetName);
-            if (target == null) {
-                sender.sendMessage(ChatColor.RED + "Jugador no encontrado o no está online.");
-                return true;
-            }
-            ItemStack pot = new ItemStack(Material.DECORATED_POT);
-            ItemMeta meta = pot.getItemMeta();
-            NamespacedKey potKey = new NamespacedKey(plugin, "is_xp_pot");
-            NamespacedKey xpKey  = new NamespacedKey(plugin, "banked_xp");
-
-            meta.getPersistentDataContainer().set(potKey, PersistentDataType.BYTE, (byte)1);
-            meta.getPersistentDataContainer().set(xpKey,  PersistentDataType.LONG,  0L);
-
-            meta.setDisplayName(ChatColor.GREEN + "Ánfora de Experiencia");
-            meta.setLore(Arrays.asList(
-                    ChatColor.GRAY + "Una ánfora forjada por antiguos sabios,",
-                    ChatColor.GRAY + "capaz de contener fragmentos de tu experiencia.",
-                    "",
-                    ChatColor.GOLD + "Coloca para usar"
-            ));
-
-            pot.setItemMeta(meta);
-            target.getInventory().addItem(pot);
-            sender.sendMessage(ChatColor.GREEN + "Se ha dado una Ánfora de Experiencia a " + targetName + ".");
-            return true;
-        }
-
-        // /score xpbank info - Mostrar información del banco
-        if (args.length == 2 && args[1].equalsIgnoreCase("info")) {
-            Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-                String uuid = p.getUniqueId().toString();
-                long bankedXp = plugin.getDatabaseManager().getBankedXp(uuid);
-                long capacity = plugin.getDatabaseManager().getBankCapacity(uuid);
-                long capacityLevels = capacity / 68L;
-                long bankedLevels = bankedXp / 68L;
-
-                Bukkit.getScheduler().runTask(plugin, () -> {
-                    p.sendMessage(ChatColor.GOLD + "╔══════════════════════════════════╗");
-                    p.sendMessage(ChatColor.GOLD + "║ " + ChatColor.YELLOW + "🏦 Banco de Experiencia" + ChatColor.GOLD + "        ║");
-                    p.sendMessage(ChatColor.GOLD + "╠══════════════════════════════════╣");
-                    p.sendMessage(ChatColor.GOLD + "║ " + ChatColor.WHITE + "XP Almacenada: " + ChatColor.YELLOW +
-                            String.format("%,d", bankedXp) + " XP" + ChatColor.GOLD + " ║");
-                    p.sendMessage(ChatColor.GOLD + "║ " + ChatColor.WHITE + "Equivalente: " + ChatColor.AQUA +
-                            String.format("%,d", bankedLevels) + " niveles" + ChatColor.GOLD + " ║");
-                    p.sendMessage(ChatColor.GOLD + "║ " + ChatColor.WHITE + "Capacidad: " + ChatColor.GREEN +
-                            String.format("%,d", capacity) + " XP" + ChatColor.GOLD + " ║");
-                    p.sendMessage(ChatColor.GOLD + "║ " + ChatColor.WHITE + "Espacio libre: " + ChatColor.LIGHT_PURPLE +
-                            String.format("%,d", capacity - bankedXp) + " XP" + ChatColor.GOLD + " ║");
-                    p.sendMessage(ChatColor.GOLD + "╚══════════════════════════════════╝");
-                    p.sendMessage(ChatColor.GRAY + "Usa " + ChatColor.WHITE + "/score xpbank transfer <jugador> <cantidad>" +
-                            ChatColor.GRAY + " para transferir");
-                    p.sendMessage(ChatColor.GRAY + "Usa " + ChatColor.WHITE + "/score xpbank upgrade" +
-                            ChatColor.GRAY + " para aumentar capacidad");
-                });
-            });
-            return true;
-        }
-
-        // Ayuda por defecto
-        p.sendMessage(ChatColor.RED + "Subcomandos de xpbank:");
-        p.sendMessage(ChatColor.YELLOW + "/score xpbank info" + ChatColor.GRAY + " - Ver información del banco");
-        p.sendMessage(ChatColor.YELLOW + "/score xpbank transfer <jugador> <cantidad>" + ChatColor.GRAY + " - Transferir XP");
-        p.sendMessage(ChatColor.YELLOW + "/score xpbank upgrade" + ChatColor.GRAY + " - Mejorar capacidad del banco");
-        if (sender.hasPermission("survivalcore.admin")) {
-            p.sendMessage(ChatColor.YELLOW + "/score xpbank give <jugador>" + ChatColor.GRAY + " - Dar ánfora (admin)");
-        }
-        return true;
-    }
-    private boolean handleAdmin(CommandSender sender, String[] args) {
-        if (!sender.hasPermission("survivalcore.admin")) {
-            sender.sendMessage(ChatColor.RED + "No tienes permisos para usar este comando.");
-            return true;
-        }
-        if (args.length < 4) {
-            sender.sendMessage(ChatColor.RED + "Uso: /score admin <profession|abilities> reset <jugador>");
-            return true;
-        }
-        String type = args[1].toLowerCase();
-        String action = args[2].toLowerCase();
-        String target = args[3];
-        String uuid = Bukkit.getOfflinePlayer(target).getUniqueId().toString();
-        UserData data = plugin.getDatabaseManager().getUserData(uuid);
-        if (data == null) {
-            sender.sendMessage(ChatColor.RED + "Jugador no encontrado.");
-            return true;
-        }
-        if (type.equals("profession") && action.equals("reset")) {
-            data.setFarmingLevel(1);
-            data.setFarmingXP(0);
-            data.setMiningLevel(1);
-            data.setMiningXP(0);
-            Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> plugin.getDatabaseManager().saveUserData(data));
-            sender.sendMessage(ChatColor.GREEN + "Professions de " + target + " reseteadas.");
-        } else if (type.equals("abilities") && action.equals("reset")) {
-            data.setAbilities(new HashMap<>());
-            Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> plugin.getDatabaseManager().saveUserData(data));
-            sender.sendMessage(ChatColor.GREEN + "Habilidades de " + target + " reseteadas.");
-        } else {
-            sender.sendMessage(ChatColor.RED + "Uso: /score admin <profession|abilities> reset <jugador>");
-        }
-        return true;
-    }
-
-    private void reloadConfig(CommandSender sender) {
+    /**
+     * Maneja el reload completo del plugin - VERSIÓN COMPLETA
+     */
+    private void handleReload(CommandSender sender) {
         if (!sender.hasPermission("survivalcore.reload")) {
-            sender.sendMessage(ChatColor.RED + "No tienes permisos.");
+            sender.sendMessage(ChatColor.RED + "No tienes permisos para recargar la configuración.");
             return;
         }
 
-        sender.sendMessage(ChatColor.WHITE + "Recargando configuración...");
+        sender.sendMessage(ChatColor.YELLOW + "🔄 Iniciando recarga completa de SurvivalCore...");
+
+        long startTime = System.currentTimeMillis();
+        boolean hasErrors = false;
+        StringBuilder report = new StringBuilder();
 
         try {
-            // 1. Recargar configuración principal del plugin
+            // 1. Recargar configuración principal
             plugin.reloadConfig();
+            report.append(ChatColor.GREEN + "✓ Configuración principal\n");
 
-            // 2. Recargar configuración de crops
-            plugin.getCropExperienceConfig().reload();
-
-            // 3. Actualizar configuración interna
+            // 2. Actualizar configuración interna (incluye rankup)
             plugin.updateInternalConfig();
+            report.append(ChatColor.GREEN + "✓ Configuración interna\n");
 
-            // 4. Recargar recetas del lectern de forma asíncrona
-            plugin.getLecternRecipeManager().reloadAsync();
+            // 3. Verificar estado del sistema de rankup
+            if (plugin.isRankupSystemEnabled()) {
+                try {
+                    var rankupManager = plugin.getRankupManager();
+                    int ranksCount = rankupManager.getRankups().size();
+                    int prestigesCount = rankupManager.getPrestiges().size();
 
-            // 5. Recargar configuración de SellWand
-            if (plugin.getSellWandManager() != null) {
-                plugin.getSellWandManager().reloadConfig();
-                sender.sendMessage(ChatColor.GREEN + "✓ SellWand configuración recargada");
+                    report.append(ChatColor.GREEN + "✓ Sistema de rankup (" + ranksCount + " rangos, " + prestigesCount + " prestiges)\n");
+
+                    if (rankupManager.isPlaceholderAPIEnabled()) {
+                        report.append(ChatColor.GREEN + "✓ PlaceholderAPI integrado\n");
+                    } else {
+                        report.append(ChatColor.YELLOW + "⚠ PlaceholderAPI no disponible\n");
+                    }
+                } catch (Exception e) {
+                    hasErrors = true;
+                    report.append(ChatColor.RED + "✗ Sistema de rankup: ").append(e.getMessage()).append("\n");
+                    plugin.getLogger().severe("Error verificando rankup: " + e.getMessage());
+                }
+            } else {
+                report.append(ChatColor.YELLOW + "⚠ Sistema de rankup: No disponible (LuckPerms requerido)\n");
             }
 
-            // 6. NUEVO: Recargar transferencias si existe
-            if (plugin.getXpTransferManager() != null) {
-                plugin.getXpTransferManager().reloadConfig();
-                sender.sendMessage(ChatColor.GREEN + "✓ Sistema de transferencias recargado");
+            // 4. Verificar configuraciones específicas
+            try {
+                if (plugin.getCropExperienceConfig() != null) {
+                    report.append(ChatColor.GREEN + "✓ Configuración de cultivos\n");
+                } else {
+                    report.append(ChatColor.YELLOW + "⚠ Configuración de cultivos: No cargada\n");
+                }
+
+                if (plugin.getMiningConfig() != null) {
+                    report.append(ChatColor.GREEN + "✓ Configuración de minería\n");
+                } else {
+                    report.append(ChatColor.YELLOW + "⚠ Configuración de minería: No cargada\n");
+                }
+            } catch (Exception e) {
+                hasErrors = true;
+                report.append(ChatColor.RED + "✗ Configuraciones específicas: ").append(e.getMessage()).append("\n");
             }
 
-            // 7. NUEVO: Recargar sistema de cheques si existe
-            if (plugin.getXpChequeCommand() != null && plugin.getXpChequeCommand().getChequeManager() != null) {
-                plugin.getXpChequeCommand().getChequeManager().reloadConfig();
-                sender.sendMessage(ChatColor.GREEN + "✓ Sistema de cheques recargado");
+            // 5. Verificar managers
+            report.append(verifyManager("XpTransferManager", plugin.getXpTransferManager()));
+            report.append(verifyManager("SellWandManager", plugin.getSellWandManager()));
+            report.append(verifyManager("XpChequeManager", plugin.getXpChequeCommand()));
+            report.append(verifyManager("LecternRecipeManager", plugin.getLecternRecipeManager()));
+
+            // 6. Verificar base de datos
+            try {
+                plugin.getDatabaseManager().testConnection();
+                report.append(ChatColor.GREEN + "✓ Conexión a base de datos\n");
+            } catch (Exception e) {
+                hasErrors = true;
+                report.append(ChatColor.RED + "✗ Base de datos: ").append(e.getMessage()).append("\n");
             }
 
-            sender.sendMessage(ChatColor.GREEN + "¡Recarga completa!");
+            // 7. Verificar PlaceholderAPI
+            try {
+                if (plugin.getServer().getPluginManager().getPlugin("PlaceholderAPI") != null) {
+                    report.append(ChatColor.GREEN + "✓ PlaceholderAPI disponible\n");
+
+                    // Verificar si nuestros placeholders están registrados
+                    var papiPlugin = (me.clip.placeholderapi.PlaceholderAPIPlugin)
+                            plugin.getServer().getPluginManager().getPlugin("PlaceholderAPI");
+
+                    if (papiPlugin.getLocalExpansionManager().getExpansion("score") != null) {
+                        report.append(ChatColor.GREEN + "✓ Placeholders de SurvivalCore registrados\n");
+                    } else {
+                        report.append(ChatColor.YELLOW + "⚠ Placeholders de SurvivalCore no registrados\n");
+                    }
+                } else {
+                    report.append(ChatColor.YELLOW + "⚠ PlaceholderAPI no instalado\n");
+                }
+            } catch (Exception e) {
+                report.append(ChatColor.YELLOW + "⚠ Error verificando PlaceholderAPI: " + e.getMessage() + "\n");
+            }
 
         } catch (Exception e) {
-            sender.sendMessage(ChatColor.RED + "Error durante la recarga: " + e.getMessage());
-            plugin.getLogger().severe("Error en recarga de configuración: " + e.getMessage());
+            hasErrors = true;
+            report.append(ChatColor.RED + "✗ Error crítico: ").append(e.getMessage()).append("\n");
+            plugin.getLogger().severe("Error crítico durante reload: " + e.getMessage());
             e.printStackTrace();
+        }
+
+        long duration = System.currentTimeMillis() - startTime;
+
+        // Mostrar reporte final
+        sender.sendMessage("");
+        sender.sendMessage(ChatColor.AQUA + "═══════ REPORTE DE RECARGA ═══════");
+        sender.sendMessage(report.toString());
+
+        if (hasErrors) {
+            sender.sendMessage(ChatColor.RED + "⚠ Recarga completada con errores");
+            sender.sendMessage(ChatColor.GRAY + "Revisa la consola para más detalles");
+        } else {
+            sender.sendMessage(ChatColor.GREEN + "✅ Recarga completada exitosamente");
+        }
+
+        sender.sendMessage(ChatColor.GRAY + "Tiempo: " + duration + "ms");
+        sender.sendMessage(ChatColor.AQUA + "═══════════════════════════════════");
+
+        // Log en consola
+        if (hasErrors) {
+            plugin.getLogger().warning("Recarga completada con errores en " + duration + "ms");
+        } else {
+            plugin.getLogger().info("Recarga completada exitosamente en " + duration + "ms");
         }
     }
 
-    private void handleBirthday(CommandSender sender, String[] args) {
-        DateTimeFormatter inFmt = DateTimeFormatter.ofPattern("MM/dd/yyyy");
-        if (args.length == 1 && sender instanceof Player p) {
-            UserData d = plugin.getDatabaseManager().getUserData(p.getUniqueId().toString());
-            String fecha = d.getCumpleaños();
-            sender.sendMessage((fecha == null)
-                    ? ChatColor.RED + "No tienes cumpleaños seteado."
-                    : ChatColor.GREEN + "Tu cumpleaños: " + ChatColor.WHITE + fecha);
-        } else if (args.length >= 3 && args[1].equalsIgnoreCase("set") && sender instanceof Player p) {
-            String raw = args[2];
-            LocalDate ld;
-            try { ld = LocalDate.parse(raw, inFmt); } catch (DateTimeParseException ex) {
-                sender.sendMessage(ChatColor.RED + "Formato inválido. Usa MM/dd/yyyy."); return;
-            }
-            String iso = ld.toString();
-            UserData d = plugin.getDatabaseManager().getUserData(p.getUniqueId().toString());
-            d.setCumpleaños(iso);
-            Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> plugin.getDatabaseManager().saveUserData(d));
-            sender.sendMessage(ChatColor.GREEN + "Cumpleaños seteado: " + ChatColor.WHITE + iso);
-        } else if (args.length == 4 && args[1].equalsIgnoreCase("set") && sender.hasPermission("survivalcore.admin")) {
-            String raw = args[2]; String target = args[3];
-            LocalDate ld;
-            try { ld = LocalDate.parse(raw, inFmt); } catch (DateTimeParseException ex) {
-                sender.sendMessage(ChatColor.RED + "Formato inválido. Usa MM/dd/yyyy."); return;
-            }
-            String iso = ld.toString();
-            String uuid = Bukkit.getOfflinePlayer(target).getUniqueId().toString();
-            UserData d = plugin.getDatabaseManager().getUserData(uuid);
-            d.setCumpleaños(iso);
-            Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> plugin.getDatabaseManager().saveUserData(d));
-            sender.sendMessage(ChatColor.GREEN + "Cumple de " + target + ": " + ChatColor.WHITE + iso);
+    /**
+     * Verifica el estado de un manager
+     */
+    private String verifyManager(String name, Object manager) {
+        if (manager != null) {
+            return ChatColor.GREEN + "✓ " + name + "\n";
         } else {
-            sender.sendMessage(ChatColor.RED + "Uso: /score birthday [set] <MM/dd/yyyy> [jugador]");
+            return ChatColor.YELLOW + "⚠ " + name + ": No disponible\n";
         }
+    }
+
+    /**
+     * Maneja comandos de debug del sistema
+     */
+    private void handleDebug(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("survivalcore.debug")) {
+            sender.sendMessage(ChatColor.RED + "No tienes permisos para usar comandos de debug.");
+            return;
+        }
+
+        if (args.length < 2) {
+            sender.sendMessage(ChatColor.YELLOW + "Debug disponibles:");
+            sender.sendMessage(ChatColor.WHITE + "  /score debug rankup - Estado del sistema de rankup");
+            sender.sendMessage(ChatColor.WHITE + "  /score debug placeholders - Verificar placeholders");
+            sender.sendMessage(ChatColor.WHITE + "  /score debug systems - Estado de todos los sistemas");
+            if (sender instanceof Player) {
+                sender.sendMessage(ChatColor.WHITE + "  /score debug player - Debug de tu información");
+            }
+            return;
+        }
+
+        String debugType = args[1].toLowerCase();
+
+        switch (debugType) {
+            case "rankup" -> debugRankupSystem(sender);
+            case "placeholders" -> debugPlaceholders(sender);
+            case "systems" -> debugAllSystems(sender);
+            case "player" -> {
+                if (sender instanceof Player) {
+                    debugPlayerInfo((Player) sender);
+                } else {
+                    sender.sendMessage(ChatColor.RED + "Solo los jugadores pueden usar este debug.");
+                }
+            }
+            default -> sender.sendMessage(ChatColor.RED + "Tipo de debug desconocido: " + debugType);
+        }
+    }
+
+    /**
+     * Debug del sistema de rankup
+     */
+    private void debugRankupSystem(CommandSender sender) {
+        sender.sendMessage(ChatColor.AQUA + "═══ DEBUG SISTEMA RANKUP ═══");
+
+        if (!plugin.isRankupSystemEnabled()) {
+            sender.sendMessage(ChatColor.RED + "❌ Sistema de rankup: DESHABILITADO");
+            sender.sendMessage(ChatColor.GRAY + "Motivo: LuckPerms no disponible o error en inicialización");
+
+            // Verificar específicamente LuckPerms
+            if (plugin.getServer().getPluginManager().getPlugin("LuckPerms") == null) {
+                sender.sendMessage(ChatColor.RED + "   • LuckPerms no está instalado");
+            } else if (!plugin.getServer().getPluginManager().isPluginEnabled("LuckPerms")) {
+                sender.sendMessage(ChatColor.RED + "   • LuckPerms está instalado pero deshabilitado");
+            } else {
+                sender.sendMessage(ChatColor.YELLOW + "   • LuckPerms disponible pero fallo en inicialización");
+            }
+            return;
+        }
+
+        try {
+            var rankupManager = plugin.getRankupManager();
+
+            sender.sendMessage(ChatColor.GREEN + "✅ Sistema de rankup: HABILITADO");
+            sender.sendMessage(ChatColor.WHITE + "Rangos cargados: " + ChatColor.YELLOW + rankupManager.getRankups().size());
+            sender.sendMessage(ChatColor.WHITE + "Prestiges cargados: " + ChatColor.YELLOW + rankupManager.getPrestiges().size());
+            sender.sendMessage(ChatColor.WHITE + "PlaceholderAPI: " +
+                    (rankupManager.isPlaceholderAPIEnabled() ? ChatColor.GREEN + "DISPONIBLE" : ChatColor.RED + "NO DISPONIBLE"));
+            sender.sendMessage(ChatColor.WHITE + "Cooldown: " + ChatColor.YELLOW + (rankupManager.getCooldownTime() / 1000) + "s");
+            sender.sendMessage(ChatColor.WHITE + "Efectos habilitados: " +
+                    (rankupManager.areEffectsEnabled() ? ChatColor.GREEN + "SÍ" : ChatColor.RED + "NO"));
+            sender.sendMessage(ChatColor.WHITE + "Broadcast habilitado: " +
+                    (rankupManager.isBroadcastEnabled() ? ChatColor.GREEN + "SÍ" : ChatColor.RED + "NO"));
+            sender.sendMessage(ChatColor.WHITE + "Prestige habilitado: " +
+                    (rankupManager.isPrestigeEnabled() ? ChatColor.GREEN + "SÍ" : ChatColor.RED + "NO"));
+
+            // Mostrar algunos rangos como ejemplo
+            if (!rankupManager.getRankups().isEmpty()) {
+                sender.sendMessage(ChatColor.YELLOW + "Primeros rangos:");
+                rankupManager.getRankups().values().stream()
+                        .sorted((a, b) -> Integer.compare(a.getOrder(), b.getOrder()))
+                        .limit(3)
+                        .forEach(rank -> sender.sendMessage(ChatColor.GRAY + "  • " + rank.getDisplayName() +
+                                " (orden: " + rank.getOrder() + ")"));
+            }
+
+        } catch (Exception e) {
+            sender.sendMessage(ChatColor.RED + "❌ Error obteniendo información: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Debug de placeholders
+     */
+    private void debugPlaceholders(CommandSender sender) {
+        sender.sendMessage(ChatColor.AQUA + "═══ DEBUG PLACEHOLDERS ═══");
+
+        // Verificar PlaceholderAPI
+        boolean papiAvailable = plugin.getServer().getPluginManager().getPlugin("PlaceholderAPI") != null;
+        sender.sendMessage(ChatColor.WHITE + "PlaceholderAPI: " +
+                (papiAvailable ? ChatColor.GREEN + "INSTALADO" : ChatColor.RED + "NO INSTALADO"));
+
+        if (!papiAvailable) {
+            sender.sendMessage(ChatColor.RED + "Los placeholders de SurvivalCore no funcionarán sin PlaceholderAPI");
+            return;
+        }
+
+        // Verificar si nuestros placeholders están registrados
+        try {
+            me.clip.placeholderapi.PlaceholderAPIPlugin papiPlugin =
+                    (me.clip.placeholderapi.PlaceholderAPIPlugin) plugin.getServer().getPluginManager().getPlugin("PlaceholderAPI");
+
+            boolean scoreRegistered = papiPlugin.getLocalExpansionManager().getExpansion("score") != null;
+
+            sender.sendMessage(ChatColor.WHITE + "Expansión 'score': " +
+                    (scoreRegistered ? ChatColor.GREEN + "REGISTRADA" : ChatColor.RED + "NO REGISTRADA"));
+
+            if (scoreRegistered) {
+                sender.sendMessage(ChatColor.GREEN + "✅ Placeholders disponibles:");
+                sender.sendMessage(ChatColor.YELLOW + "Sistema de Rankup:");
+                sender.sendMessage(ChatColor.WHITE + "  %score_rank% - Rango actual");
+                sender.sendMessage(ChatColor.WHITE + "  %score_rankup_next% - Siguiente rango");
+                sender.sendMessage(ChatColor.WHITE + "  %score_rankup_percentage% - Porcentaje de progreso");
+                sender.sendMessage(ChatColor.WHITE + "  %score_rankup_progress_bar% - Barra de progreso");
+                sender.sendMessage(ChatColor.WHITE + "  %score_rankup_is_max% - ¿Es rango máximo?");
+                sender.sendMessage(ChatColor.YELLOW + "Datos del jugador:");
+                sender.sendMessage(ChatColor.WHITE + "  %score_farming_level% - Nivel de farming");
+                sender.sendMessage(ChatColor.WHITE + "  %score_mining_level% - Nivel de minería");
+                sender.sendMessage(ChatColor.WHITE + "  %score_total_score% - Puntuación total");
+                sender.sendMessage(ChatColor.WHITE + "  %score_banked_xp% - XP en banco");
+
+                // Test de placeholder si es un jugador
+                if (sender instanceof Player) {
+                    Player player = (Player) sender;
+                    sender.sendMessage(ChatColor.YELLOW + "Test en vivo:");
+                    sender.sendMessage(ChatColor.WHITE + "  Tu rango: " +
+                            me.clip.placeholderapi.PlaceholderAPI.setPlaceholders(player, "%score_rank%"));
+                    sender.sendMessage(ChatColor.WHITE + "  Tu nivel farming: " +
+                            me.clip.placeholderapi.PlaceholderAPI.setPlaceholders(player, "%score_farming_level%"));
+                }
+            }
+
+        } catch (Exception e) {
+            sender.sendMessage(ChatColor.RED + "Error verificando placeholders: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Debug de todos los sistemas
+     */
+    private void debugAllSystems(CommandSender sender) {
+        sender.sendMessage(ChatColor.AQUA + "═══ DEBUG SISTEMAS GENERALES ═══");
+
+        // Base de datos
+        try {
+            plugin.getDatabaseManager().testConnection();
+            sender.sendMessage(ChatColor.GREEN + "✅ Base de datos: CONECTADA");
+        } catch (Exception e) {
+            sender.sendMessage(ChatColor.RED + "❌ Base de datos: ERROR - " + e.getMessage());
+        }
+
+        // Managers principales
+        sender.sendMessage(ChatColor.WHITE + "CooldownManager: " +
+                (plugin.getCooldownManager() != null ? ChatColor.GREEN + "OK" : ChatColor.RED + "NULL"));
+        sender.sendMessage(ChatColor.WHITE + "CropExperienceConfig: " +
+                (plugin.getCropExperienceConfig() != null ? ChatColor.GREEN + "OK" : ChatColor.RED + "NULL"));
+        sender.sendMessage(ChatColor.WHITE + "MiningConfig: " +
+                (plugin.getMiningConfig() != null ? ChatColor.GREEN + "OK" : ChatColor.RED + "NULL"));
+        sender.sendMessage(ChatColor.WHITE + "XpTransferManager: " +
+                (plugin.getXpTransferManager() != null ? ChatColor.GREEN + "OK" : ChatColor.RED + "NULL"));
+        sender.sendMessage(ChatColor.WHITE + "SellWandManager: " +
+                (plugin.getSellWandManager() != null ? ChatColor.GREEN + "OK" : ChatColor.RED + "NULL"));
+        sender.sendMessage(ChatColor.WHITE + "RankupManager: " +
+                (plugin.getRankupManager() != null ? ChatColor.GREEN + "OK" : ChatColor.RED + "NULL"));
+
+        // Plugins externos
+        sender.sendMessage(ChatColor.YELLOW + "Plugins externos:");
+        sender.sendMessage(ChatColor.WHITE + "  LuckPerms: " + getPluginStatus("LuckPerms"));
+        sender.sendMessage(ChatColor.WHITE + "  PlaceholderAPI: " + getPluginStatus("PlaceholderAPI"));
+        sender.sendMessage(ChatColor.WHITE + "  Vault: " + getPluginStatus("Vault"));
+
+        // Estadísticas del servidor
+        sender.sendMessage(ChatColor.YELLOW + "Servidor:");
+        sender.sendMessage(ChatColor.WHITE + "  Jugadores online: " + ChatColor.YELLOW +
+                plugin.getServer().getOnlinePlayers().size());
+        sender.sendMessage(ChatColor.WHITE + "  Versión del plugin: " + ChatColor.YELLOW +
+                plugin.getDescription().getVersion());
+    }
+
+    /**
+     * Debug de información del jugador
+     */
+    private void debugPlayerInfo(Player player) {
+        player.sendMessage(ChatColor.AQUA + "═══ DEBUG INFORMACIÓN DEL JUGADOR ═══");
+
+        try {
+            UserData userData = plugin.getDatabaseManager().getUserData(player.getUniqueId().toString());
+
+            if (userData == null) {
+                player.sendMessage(ChatColor.RED + "❌ No se pudieron cargar tus datos de la base de datos");
+                return;
+            }
+
+            player.sendMessage(ChatColor.GREEN + "✅ Datos cargados correctamente");
+            player.sendMessage(ChatColor.WHITE + "UUID: " + ChatColor.GRAY + userData.getUuid());
+            player.sendMessage(ChatColor.WHITE + "Nombre: " + ChatColor.YELLOW + userData.getNombre());
+            player.sendMessage(ChatColor.WHITE + "Farming: " + ChatColor.GREEN + "Nivel " + userData.getFarmingLevel() +
+                    " (" + userData.getFarmingXP() + " XP)");
+            player.sendMessage(ChatColor.WHITE + "Minería: " + ChatColor.AQUA + "Nivel " + userData.getMiningLevel() +
+                    " (" + userData.getMiningXP() + " XP)");
+            player.sendMessage(ChatColor.WHITE + "XP bankeada: " + ChatColor.GOLD + userData.getBankedXp());
+            player.sendMessage(ChatColor.WHITE + "Banco nivel: " + ChatColor.GOLD + userData.getBankLevel());
+            player.sendMessage(ChatColor.WHITE + "Capacidad banco: " + ChatColor.GOLD + userData.getBankCapacity());
+
+            // Información personal
+            player.sendMessage(ChatColor.YELLOW + "Información personal:");
+            player.sendMessage(ChatColor.WHITE + "  Cumpleaños: " +
+                    (userData.getCumpleaños() != null ? userData.getCumpleaños() : "No establecido"));
+            player.sendMessage(ChatColor.WHITE + "  Género: " +
+                    (userData.getGenero() != null ? userData.getGenero() : "No establecido"));
+            player.sendMessage(ChatColor.WHITE + "  País: " +
+                    (userData.getPais() != null ? userData.getPais() : "No establecido"));
+
+            // Información de rankup si está disponible
+            if (plugin.isRankupSystemEnabled()) {
+                try {
+                    String currentRank = plugin.getRankupManager().getCurrentRank(player);
+                    player.sendMessage(ChatColor.YELLOW + "Sistema de Rankup:");
+                    player.sendMessage(ChatColor.WHITE + "  Rango actual: " +
+                            (currentRank != null ? currentRank : "Sin detectar"));
+
+                    if (currentRank != null) {
+                        var rankData = plugin.getRankupManager().getRankups().get(currentRank);
+                        if (rankData != null) {
+                            player.sendMessage(ChatColor.WHITE + "  Display: " + rankData.getDisplayName());
+                            player.sendMessage(ChatColor.WHITE + "  Orden: " + rankData.getOrder());
+                            player.sendMessage(ChatColor.WHITE + "  Siguiente: " +
+                                    (rankData.getNextRank() != null ? rankData.getNextRank() : "Rango máximo"));
+                        }
+                    }
+                } catch (Exception e) {
+                    player.sendMessage(ChatColor.RED + "  Error obteniendo info de rankup: " + e.getMessage());
+                }
+            }
+
+        } catch (Exception e) {
+            player.sendMessage(ChatColor.RED + "❌ Error obteniendo información: " + e.getMessage());
+            plugin.getLogger().severe("Error en debug de jugador " + player.getName() + ": " + e.getMessage());
+        }
+    }
+
+    /**
+     * Obtiene el estado de un plugin
+     */
+    private String getPluginStatus(String pluginName) {
+        var pluginManager = plugin.getServer().getPluginManager();
+        var targetPlugin = pluginManager.getPlugin(pluginName);
+
+        if (targetPlugin == null) {
+            return ChatColor.RED + "NO INSTALADO";
+        } else if (targetPlugin.isEnabled()) {
+            return ChatColor.GREEN + "HABILITADO (" + targetPlugin.getDescription().getVersion() + ")";
+        } else {
+            return ChatColor.YELLOW + "DESHABILITADO";
+        }
+    }
+
+    /**
+     * Muestra la puntuación del jugador
+     */
+    private void showPlayerScore(Player player) {
+        try {
+            UserData userData = plugin.getDatabaseManager().getUserData(player.getUniqueId().toString());
+
+            if (userData == null) {
+                player.sendMessage(ChatColor.RED + "Error: No se pudieron cargar tus datos.");
+                return;
+            }
+
+            player.sendMessage("");
+            player.sendMessage(ChatColor.GOLD + "═══════ " + ChatColor.YELLOW + "TU PUNTUACIÓN" + ChatColor.GOLD + " ═══════");
+            player.sendMessage("");
+
+            // Información básica
+            player.sendMessage(ChatColor.WHITE + "👤 Jugador: " + ChatColor.YELLOW + player.getName());
+
+            // Información de rankup si está disponible
+            if (plugin.isRankupSystemEnabled()) {
+                try {
+                    String currentRank = plugin.getRankupManager().getCurrentRank(player);
+                    if (currentRank != null) {
+                        var rankData = plugin.getRankupManager().getRankups().get(currentRank);
+                        String displayName = rankData != null ? rankData.getDisplayName() : currentRank;
+                        player.sendMessage(ChatColor.WHITE + "🏆 Rango: " + displayName);
+
+                        if (rankData != null && rankData.hasNextRank()) {
+                            var nextRankData = plugin.getRankupManager().getRankups().get(rankData.getNextRank());
+                            String nextDisplay = nextRankData != null ? nextRankData.getDisplayName() : rankData.getNextRank();
+                            player.sendMessage(ChatColor.WHITE + "⬆️ Siguiente: " + nextDisplay);
+                        } else {
+                            player.sendMessage(ChatColor.LIGHT_PURPLE + "⭐ ¡Rango máximo alcanzado!");
+                        }
+                    }
+                } catch (Exception e) {
+                    player.sendMessage(ChatColor.RED + "Error obteniendo información de rango");
+                }
+            }
+
+            player.sendMessage("");
+
+            // Niveles y experiencia
+            player.sendMessage(ChatColor.WHITE + "🌾 Farming - Nivel " + ChatColor.GREEN + userData.getFarmingLevel() +
+                    ChatColor.WHITE + " (" + ChatColor.YELLOW + userData.getFarmingXP() + " XP" + ChatColor.WHITE + ")");
+            player.sendMessage(ChatColor.WHITE + "⛏️ Minería - Nivel " + ChatColor.AQUA + userData.getMiningLevel() +
+                    ChatColor.WHITE + " (" + ChatColor.YELLOW + userData.getMiningXP() + " XP" + ChatColor.WHITE + ")");
+
+            player.sendMessage("");
+
+            // Banco de XP
+            player.sendMessage(ChatColor.WHITE + "🏦 Banco XP: " + ChatColor.GOLD + userData.getBankedXp() +
+                    ChatColor.WHITE + "/" + ChatColor.GOLD + userData.getBankCapacity() +
+                    ChatColor.WHITE + " (Nivel " + ChatColor.GREEN + userData.getBankLevel() + ChatColor.WHITE + ")");
+
+            // Información personal
+            player.sendMessage("");
+            player.sendMessage(ChatColor.WHITE + "🎂 Cumpleaños: " + ChatColor.LIGHT_PURPLE +
+                    (userData.getCumpleaños() != null ? userData.getCumpleaños() : "No establecido"));
+            player.sendMessage(ChatColor.WHITE + "👫 Género: " + ChatColor.LIGHT_PURPLE +
+                    (userData.getGenero() != null ? userData.getGenero() : "No establecido"));
+            player.sendMessage(ChatColor.WHITE + "🌍 País: " + ChatColor.LIGHT_PURPLE +
+                    (userData.getPais() != null ? userData.getPais() : "Detectando..."));
+
+            // Cálculos adicionales
+            long totalXp = userData.getFarmingXP() + userData.getMiningXP();
+            player.sendMessage("");
+            player.sendMessage(ChatColor.WHITE + "📊 Puntuación total: " + ChatColor.GOLD + totalXp + " XP");
+
+            // Próximo cumpleaños
+            if (userData.getCumpleaños() != null) {
+                try {
+                    LocalDate birthday = LocalDate.parse(userData.getCumpleaños(), formatter);
+                    LocalDate today = LocalDate.now();
+                    LocalDate nextBirthday = birthday.withYear(today.getYear());
+                    if (nextBirthday.isBefore(today) || nextBirthday.isEqual(today)) {
+                        nextBirthday = nextBirthday.plusYears(1);
+                    }
+                    long daysUntil = ChronoUnit.DAYS.between(today, nextBirthday);
+
+                    if (daysUntil == 0) {
+                        player.sendMessage(ChatColor.GREEN + "🎉 ¡HOY ES TU CUMPLEAÑOS! 🎉");
+                    } else {
+                        player.sendMessage(ChatColor.WHITE + "⏰ Días hasta tu cumpleaños: " + ChatColor.YELLOW + daysUntil);
+                    }
+                } catch (Exception ignored) {
+                    // Ignorar errores de fecha
+                }
+            }
+
+            player.sendMessage("");
+            player.sendMessage(ChatColor.GOLD + "═══════════════════════════════════");
+
+        } catch (Exception e) {
+            player.sendMessage(ChatColor.RED + "Error cargando tu puntuación. Contacta a un administrador.");
+            plugin.getLogger().severe("Error mostrando puntuación para " + player.getName() + ": " + e.getMessage());
+        }
+    }
+
+    /**
+     * Muestra la versión del plugin
+     */
+    private void showVersion(CommandSender sender) {
+        sender.sendMessage("");
+        sender.sendMessage(ChatColor.AQUA + "═══════ " + ChatColor.WHITE + "SURVIVALCORE" + ChatColor.AQUA + " ═══════");
+        sender.sendMessage(ChatColor.WHITE + "Versión: " + ChatColor.YELLOW + plugin.getDescription().getVersion());
+        sender.sendMessage(ChatColor.WHITE + "Autor: " + ChatColor.GREEN + "Brocolitx");
+        sender.sendMessage(ChatColor.WHITE + "Descripción: " + ChatColor.GRAY + plugin.getDescription().getDescription());
+        sender.sendMessage("");
+        sender.sendMessage(ChatColor.WHITE + "Sistemas activos:");
+        sender.sendMessage(ChatColor.GREEN + "✓ " + ChatColor.WHITE + "Sistema de experiencia");
+        sender.sendMessage(ChatColor.GREEN + "✓ " + ChatColor.WHITE + "Banco de XP");
+        sender.sendMessage(ChatColor.GREEN + "✓ " + ChatColor.WHITE + "Transferencias de XP");
+        sender.sendMessage(ChatColor.GREEN + "✓ " + ChatColor.WHITE + "SellWands");
+        sender.sendMessage(ChatColor.GREEN + "✓ " + ChatColor.WHITE + "Cheques de XP");
+        sender.sendMessage((plugin.isRankupSystemEnabled() ? ChatColor.GREEN + "✓ " : ChatColor.RED + "✗ ") +
+                ChatColor.WHITE + "Sistema de Rankup");
+        sender.sendMessage("");
+        sender.sendMessage(ChatColor.AQUA + "═══════════════════════════════════");
+    }
+
+    /**
+     * Manejadores de comandos específicos (birthday, gender, country)
+     * Simplificados para que deleguen a sus comandos específicos
+     */
+
+    private void handleBirthday(CommandSender sender, String[] args) {
+        sender.sendMessage(ChatColor.YELLOW + "Usa " + ChatColor.WHITE + "/birthday" + ChatColor.YELLOW + " para gestionar tu cumpleaños.");
     }
 
     private void handleGender(CommandSender sender, String[] args) {
-        if (args.length == 1 && sender instanceof Player p) {
-            UserData d = plugin.getDatabaseManager().getUserData(p.getUniqueId().toString());
-            String g = d.getGenero();
-            sender.sendMessage((g == null)
-                    ? ChatColor.RED + "Género no asignado."
-                    : ChatColor.GREEN + "Tu género: " + ChatColor.WHITE + g);
-        } else if (args.length == 3 && args[1].equalsIgnoreCase("set") && sender instanceof Player p) {
-            String gen = args[2];
-            if (!isValidGender(gen)) {
-                sender.sendMessage(ChatColor.RED + "Opciones: Masculino|Femenino"); return;
-            }
-            String capital = gen.substring(0,1).toUpperCase() + gen.substring(1).toLowerCase();
-            UserData d = plugin.getDatabaseManager().getUserData(p.getUniqueId().toString());
-            d.setGenero(capital);
-            Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> plugin.getDatabaseManager().saveUserData(d));
-            sender.sendMessage(ChatColor.GREEN + "Género seteado: " + ChatColor.WHITE + capital);
-        } else if (args.length == 4 && args[1].equalsIgnoreCase("set") && sender.hasPermission("survivalcore.admin")) {
-            String target = args[2]; String gen = args[3];
-            if (!isValidGender(gen)) {
-                sender.sendMessage(ChatColor.RED + "Opciones: Masculino|Femenino"); return;
-            }
-            String capital = gen.substring(0,1).toUpperCase() + gen.substring(1).toLowerCase();
-            String uuid = Bukkit.getOfflinePlayer(target).getUniqueId().toString();
-            UserData d = plugin.getDatabaseManager().getUserData(uuid);
-            d.setGenero(capital);
-            Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> plugin.getDatabaseManager().saveUserData(d));
-            sender.sendMessage(ChatColor.GREEN + "Género de " + target + ": " + ChatColor.WHITE + capital);
-        } else {
-            sender.sendMessage(ChatColor.RED + "Uso: /score gender [set] <jugador?> <Masculino|Femenino>");
-        }
-    }
-
-    private boolean isValidGender(String gender) {
-        String g = gender.toLowerCase();
-        return g.equals("masculino") || g.equals("femenino");
+        sender.sendMessage(ChatColor.YELLOW + "Usa " + ChatColor.WHITE + "/genero" + ChatColor.YELLOW + " para gestionar tu género.");
     }
 
     private void handleCountry(CommandSender sender, String[] args) {
-        if (args.length == 1 && sender instanceof Player p) {
-            UserData d = plugin.getDatabaseManager().getUserData(p.getUniqueId().toString());
-            String c = d.getPais();
-            if (c == null || c.isEmpty()) {
-                c = autoDetectCountry(p); d.setPais(c);
-                Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> plugin.getDatabaseManager().saveUserData(d));
-                sender.sendMessage(ChatColor.GREEN + "País detectado: " + ChatColor.WHITE + c);
-            } else {
-                sender.sendMessage(ChatColor.GREEN + "Tu país: " + ChatColor.WHITE + c);
-            }
-        } else if (args.length == 2) {
-            String target = args[1];
-            String uuid = Bukkit.getOfflinePlayer(target).getUniqueId().toString();
-            UserData d = plugin.getDatabaseManager().getUserData(uuid);
-            String c = d.getPais();
-            sender.sendMessage((c == null || c.isEmpty())
-                    ? ChatColor.RED + "No definido para " + target
-                    : ChatColor.GREEN + "País de " + target + ": " + ChatColor.WHITE + c);
-        }
+        sender.sendMessage(ChatColor.YELLOW + "La detección de país es automática al unirse al servidor.");
     }
 
-    private String autoDetectCountry(Player player) {
-        return "PaísDetectado";
-    }
-
-    private boolean upgradeXpBank(Player p) {
-        String uuid = p.getUniqueId().toString();
-        var db = plugin.getDatabaseManager();
-
-        long currCapXp = db.getBankCapacity(uuid);        // capacidad en puntos XP
-        long currCapLv = currCapXp / 68L;                 // capacidad en niveles
-        int  bankLvl   = (int)(currCapLv / 2500);         // cada nivel = 2 500 niveles
-
-        if (bankLvl >= 20) {
-            p.sendMessage(ChatColor.GREEN + "¡Tu banco ya está al nivel máximo (20)!");
-            return true;
-        }
-
-        int  costLv   = 500 + 250 * bankLvl;              // coste progresivo
-        long costXp   = costLv * 68L;
-
-        if (p.getLevel() < costLv) {
-            p.sendMessage(ChatColor.RED + "Necesitas " + costLv + " niveles para mejorar tu banco.");
-            return true;
-        }
-
-        int  newBankLvl = bankLvl + 1;
-        long newCapLv   = newBankLvl * 2500L;
-        long newCapXp   = newCapLv * 68L;
-
-        p.setLevel(p.getLevel() - costLv);
-        boolean ok = db.upgradeBankCapacity(uuid, newCapXp);
-
-        if (!ok) {
-            p.sendMessage(ChatColor.RED + "Error al mejorar el banco. Inténtalo luego.");
-        } else {
-            p.sendMessage(ChatColor.GOLD + "¡Banco mejorado a nivel " + newBankLvl +
-                    " (" + newCapLv + " niveles)!  Coste: " + costLv + " lv (≈ " + costXp + " XP)");
-        }
-        return true;
-    }
-
-    private void sendHelp(CommandSender sender, int page) {
-        var msgs = new ArrayList<String>();
-        for (HelpEntry e : helpEntries) {
-            if (!(sender instanceof Player) || e.permission.isEmpty() || sender.hasPermission(e.permission)) {
-                msgs.add(e.message);
+    /**
+     * Muestra el menú de ayuda
+     */
+    private void showHelp(CommandSender sender, String[] args) {
+        int page = 1;
+        if (args.length > 1) {
+            try {
+                page = Integer.parseInt(args[1]);
+            } catch (NumberFormatException e) {
+                page = 1;
             }
         }
-        int total = msgs.size();
-        int pages = (int)Math.ceil((double)total / messagesPerPage);
-        page = Math.max(1, Math.min(page, pages == 0 ? 1 : pages));
-        sender.sendMessage(ChatColor.GREEN + "SurvivalCore Help " + ChatColor.WHITE + "(" + page + "/" + (pages == 0 ? 1 : pages) + ")");
-        int start = (page - 1) * messagesPerPage;
-        for (int i = start; i < Math.min(start + messagesPerPage, total); i++) {
-            sender.sendMessage(msgs.get(i));
+
+        ConfigurationSection helpSection = plugin.getConfig().getConfigurationSection("help.commands");
+        if (helpSection == null) {
+            sender.sendMessage(ChatColor.RED + "Ayuda no configurada.");
+            return;
         }
-        if (sender instanceof Player pl) {
-            TextComponent nav = new TextComponent();
-            if (page > 1) nav.addExtra(previousButton(page - 1)); else nav.addExtra(disabledPrev());
-            nav.addExtra(new TextComponent("   "));
-            if (page < pages) nav.addExtra(nextButton(page + 1)); else nav.addExtra(disabledNext());
-            pl.spigot().sendMessage(nav);
+
+        List<String> commands = new ArrayList<>();
+        for (String key : helpSection.getKeys(false)) {
+            String command = helpSection.getString(key + ".command");
+            String message = helpSection.getString(key + ".message");
+            String permission = helpSection.getString(key + ".permission", "");
+
+            if (permission.isEmpty() || sender.hasPermission(permission)) {
+                commands.add(ChatColor.translateAlternateColorCodes('&', message));
+            }
         }
-    }
 
-    private TextComponent previousButton(int page) {
-        TextComponent comp = new TextComponent(ChatColor.AQUA + "« Anterior");
-        comp.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/score help " + page));
-        comp.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ComponentBuilder(ChatColor.YELLOW + "Ir a la página " + page).create()));
-        return comp;
-    }
+        int commandsPerPage = 8;
+        int totalPages = (int) Math.ceil((double) commands.size() / commandsPerPage);
 
-    private TextComponent nextButton(int page) {
-        TextComponent comp = new TextComponent(ChatColor.AQUA + "Siguiente »");
-        comp.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/score help " + page));
-        comp.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ComponentBuilder(ChatColor.YELLOW + "Ir a la página " + page).create()));
-        return comp;
-    }
+        if (page < 1 || page > totalPages) {
+            page = 1;
+        }
 
-    private TextComponent disabledPrev() {
-        return new TextComponent(ChatColor.GRAY + "« Anterior");
-    }
+        sender.sendMessage("");
+        sender.sendMessage(ChatColor.GOLD + "═══════ " + ChatColor.WHITE + "AYUDA DE SCORE" + ChatColor.GOLD + " ═══════");
+        sender.sendMessage(ChatColor.YELLOW + "Página " + page + " de " + totalPages);
+        sender.sendMessage("");
 
-    private TextComponent disabledNext() {
-        return new TextComponent(ChatColor.GRAY + "Siguiente »");
+        int start = (page - 1) * commandsPerPage;
+        int end = Math.min(start + commandsPerPage, commands.size());
+
+        for (int i = start; i < end; i++) {
+            sender.sendMessage(commands.get(i));
+        }
+
+        sender.sendMessage("");
+        if (page < totalPages) {
+            sender.sendMessage(ChatColor.GRAY + "Usa " + ChatColor.WHITE + "/score help " + (page + 1) +
+                    ChatColor.GRAY + " para la siguiente página.");
+        }
+        sender.sendMessage(ChatColor.GOLD + "═══════════════════════════════════");
     }
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        List<String> completions = new ArrayList<>();
-
         if (args.length == 1) {
-            // Autocompletar para el primer argumento (/score <subcomando>)
-            for (String s : List.of("xpbank", "lectern", "version", "reload",
-                    "birthday", "gender", "country", "help", "admin")) {
-                if (s.startsWith(args[0].toLowerCase())) completions.add(s);
+            List<String> completions = new ArrayList<>(Arrays.asList(
+                    "version", "reload", "birthday", "gender", "country", "help"
+            ));
+
+            if (sender.hasPermission("survivalcore.debug")) {
+                completions.add("debug");
             }
-        }
-        else if (args.length == 2 && args[0].equalsIgnoreCase("xpbank")) {
-            // Autocompletar para /score xpbank <subcomando>
-            List<String> xpbankSubcommands = Arrays.asList("give", "transfer", "upgrade");
-            for (String sub : xpbankSubcommands) {
-                if (sub.startsWith(args[1].toLowerCase())) {
-                    completions.add(sub);
-                }
-            }
-        }
-        else if (args.length == 2) {String sub = args[0].toLowerCase();
-            if (sub.equals("xpbank")) {
-                if ("give".startsWith(args[1].toLowerCase())) completions.add("give");
-            } else if (List.of("birthday","gender","country").contains(sub)) {
-                for (Player p : Bukkit.getOnlinePlayers()) {
-                    if (p.getName().toLowerCase().startsWith(args[1].toLowerCase())) completions.add(p.getName());
-                }
-            } else if (sub.equals("help")) {
-                int pages = (int)Math.ceil((double)helpEntries.size()/messagesPerPage);
-                for (int i = 1; i <= pages; i++) completions.add(String.valueOf(i));
-            } else if (sub.equals("admin")) {
-                for (String o : List.of("profession","abilities")) {
-                    if (o.startsWith(args[1].toLowerCase())) completions.add(o);
-                }
-            }
-        }
-        else if (args.length == 3 && args[0].equalsIgnoreCase("xpbank")) {
-            // Autocompletar nombres de jugadores para los subcomandos que lo requieran
-            if (args[1].equalsIgnoreCase("give") || args[1].equalsIgnoreCase("transfer")) {
-                for (Player p : Bukkit.getOnlinePlayers()) {
-                    if (p.getName().toLowerCase().startsWith(args[2].toLowerCase())) {
-                        completions.add(p.getName());
-                    }
-                }
-            }
-        }
-        else if (args.length == 4 && args[0].equalsIgnoreCase("xpbank")
-                && args[1].equalsIgnoreCase("transfer")) {
-            // Autocompletar cantidad para transfer (opcional)
-            return Arrays.asList("100", "500", "1000");
+
+            return completions.stream()
+                    .filter(completion -> completion.startsWith(args[0].toLowerCase()))
+                    .sorted()
+                    .toList();
         }
 
-        else if (args.length == 3 && args[0].equalsIgnoreCase("admin")) {
-            if (List.of("profession","abilities").contains(args[1].toLowerCase())) completions.add("reset");
-        }
-        else if (args.length == 4 && args[0].equalsIgnoreCase("admin") && args[2].equalsIgnoreCase("reset")) {
-            for (Player p : Bukkit.getOnlinePlayers()) {
-                if (p.getName().toLowerCase().startsWith(args[3].toLowerCase())) completions.add(p.getName());
+        if (args.length == 2 && args[0].equalsIgnoreCase("debug")) {
+            List<String> debugCommands = new ArrayList<>(Arrays.asList("rankup", "placeholders", "systems"));
+            if (sender instanceof Player) {
+                debugCommands.add("player");
             }
-        }
-        else if (args.length == 2 && args[0].equalsIgnoreCase("xpbank")) {
-            for (String s : List.of("upgrade","give")) {
-                if (s.startsWith(args[1].toLowerCase())) completions.add(s);
-            }
-        }
-        else if (args.length == 2 && args[0].equalsIgnoreCase("lectern")) {
-            if ("give".startsWith(args[1].toLowerCase())) completions.add("give");
-        }
-        else if (args.length == 3 && args[0].equalsIgnoreCase("xpbank") && args[1].equalsIgnoreCase("transfer")) {
-            for (Player p : Bukkit.getOnlinePlayers()) {
-                if (p.getName().toLowerCase().startsWith(args[2].toLowerCase())) completions.add(p.getName());
-            }
-        }
-        else if (args.length == 3 &&
-                args[0].equalsIgnoreCase("lectern") &&
-                args[1].equalsIgnoreCase("give")) {
-
-            for (Player pl : Bukkit.getOnlinePlayers()) {
-                if (pl.getName().toLowerCase().startsWith(args[2].toLowerCase()))
-                    completions.add(pl.getName());
-            }
+            return debugCommands.stream()
+                    .filter(completion -> completion.startsWith(args[1].toLowerCase()))
+                    .toList();
         }
 
-        return completions;
+        return new ArrayList<>();
     }
 }

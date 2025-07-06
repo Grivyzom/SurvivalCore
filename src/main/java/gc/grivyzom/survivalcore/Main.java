@@ -27,6 +27,7 @@ import gc.grivyzom.survivalcore.listeners.RankupMenuListener;
 import gc.grivyzom.survivalcore.rankup.RankupManager;
 import gc.grivyzom.survivalcore.commands.RankupCommand;
 import gc.grivyzom.survivalcore.listeners.RankupMenuListener;
+import gc.grivyzom.survivalcore.commands.XpBankCommand;
 
 import java.time.LocalDate;
 import java.util.logging.Level;
@@ -211,6 +212,9 @@ public class Main extends JavaPlugin {
         // Comandos de Cheques de XP
         xpChequeCommand = new XpChequeCommand(this);
         registerCommand("cheque", xpChequeCommand);
+
+        // *** AGREGAR ESTA LÍNEA: ***
+        registerCommand("xpbank", new XpBankCommand(this));
 
         // COMANDOS DE RANKUP - Solo registrar si el sistema está disponible
         if (rankupManager != null) {

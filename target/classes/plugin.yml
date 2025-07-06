@@ -15,55 +15,44 @@ commands:
     description: Repara el item que tienes en la mano
     usage: /repair
     aliases: [reparar]
-
   birthday:
     description: Configura tu fecha de cumpleaños
     usage: /birthday [fecha]
-
   perfil:
     description: Ver el perfil de un jugador
     usage: /perfil [jugador]
-
   score:
     description: Ver tu puntuación
     usage: /score
-
   genero:
     description: Configura tu género
     usage: /genero
-
   lectern:
     description: Comandos del atril mágico
     usage: /lectern
-
   # Comandos de transferencia XP
   xpgive:
     description: Dar experiencia a un jugador
     usage: /xpgive <jugador> <cantidad>
     permission: survivalcore.xptransfer.give
-
   xptransfers:
     description: Ver historial de transferencias
     usage: /xptransfers
-
   xptransferlog:
     description: Ver log de transferencias
     usage: /xptransferlog
     permission: survivalcore.xptransfer.log
-
   # Comandos SellWand
   sellwand:
     description: Obtener vara de venta
     usage: /sellwand
     aliases: [sw]
     permission: survivalcore.sellwand.use
-
   # Comandos Cheques XP
   cheque:
     description: Crear cheques de experiencia
     usage: /cheque <cantidad>
     permission: survivalcore.cheque.create
-
   # ========== COMANDOS DE RANKUP ==========
   rankup:
     description: Comando principal del sistema de rankup
@@ -76,7 +65,6 @@ commands:
       /rankup reload - Recargar configuración (admin)
     aliases: [rangoup, ru]
     permission-message: "§cNo tienes permisos para usar este comando."
-
   prestige:
     description: Comando del sistema de prestige
     usage: |
@@ -86,7 +74,6 @@ commands:
       /prestige list - Ver lista de prestiges
     aliases: [prestigio, prest]
     permission-message: "§cNo tienes permisos para usar este comando."
-
   ranks:
     description: Menú de rangos y gestión del sistema
     usage: |
@@ -97,6 +84,14 @@ commands:
       /ranks history - Ver historial de rankups
     aliases: [rangos, ranking]
     permission-message: "§cNo tienes permisos para usar este comando."
+  xpbank:
+    description: Obtener ánforas de experiencia (banco de XP)
+    usage: |
+      /xpbank - Obtener 1 ánfora vacía
+      /xpbank <cantidad> - Obtener cantidad específica de ánforas vacías
+      /xpbank <cantidad> <xp> - Obtener ánforas con XP específica
+    permission: survivalcore.xpbank.give
+    aliases: [anfora, experiencepot]
 
 # Permisos del sistema
 permissions:
@@ -270,3 +265,13 @@ permissions:
       survivalcore.xptransfer.*: true
       survivalcore.cheque.*: true
       survivalcore.rankup.admin.*: true
+
+  survivalcore.xpbank.*:
+    description: Todos los permisos de XpBank
+    default: op
+    children:
+      survivalcore.xpbank.give: true
+
+  survivalcore.xpbank.give:
+    description: Permite obtener ánforas de experiencia
+    default: op

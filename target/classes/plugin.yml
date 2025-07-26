@@ -92,18 +92,37 @@ commands:
       /xpbank <cantidad> <xp> - Obtener ánforas con XP específica
     permission: survivalcore.xpbank.give
     aliases: [anfora, experiencepot]
+  # ========== 🆕 COMANDOS DE MACETAS MÁGICAS ==========
   flowerpot:
-    description: Gestión de Macetas Mágicas
+    description: Gestión de Macetas Mágicas y Flores Mágicas
     usage: |
+      === COMANDOS DE MACETAS ===
       /flowerpot give <jugador> [nivel] [cantidad] - Dar macetas mágicas
       /flowerpot info - Ver información de la maceta en tu mano
       /flowerpot stats - Ver estadísticas del sistema (admin)
       /flowerpot reload - Recargar configuración (admin)
-      /flowerpot help - Mostrar ayuda
-    aliases: [maceta, magicpot, mpot]
+      
+      === COMANDOS DE FLORES ===
+      /flowerpot giveflower <jugador> <tipo> [nivel] [cantidad] - Dar flores mágicas
+      /flowerpot list - Ver todas las flores disponibles
+      
+      === AYUDA ===
+      /flowerpot help - Mostrar ayuda completa
+      /flowerpot restrictions - Ver restricciones del sistema
+    aliases: [maceta, magicpot, mpot, magicflower]
     permission: survivalcore.flowerpot.use
     permission-message: "§cNo tienes permisos para usar este comando."
-
+  # ========== 🆕 COMANDOS DE FLORES MÁGICAS ==========
+  magicflower:
+    description: Gestión de Flores Mágicas
+    usage: |
+      /magicflower give <jugador> <tipo> <cantidad> <nivel> - Dar flores mágicas
+      /magicflower list - Ver todas las flores mágicas disponibles
+      /magicflower info - Ver información de la flor en tu mano
+      /magicflower help - Mostrar ayuda
+    aliases: [flor, flower, mflower]
+    permission: survivalcore.magicflower.use
+    permission-message: "§cNo tienes permisos para usar este comando."
 # Permisos del sistema
 permissions:
   # Permisos básicos existentes
@@ -342,3 +361,12 @@ permissions:
       survivalcore.flowerpot.admin: true
       survivalcore.flowerpot.unlimited: true
       survivalcore.flowerpot.bypass: true
+  survivalcore.magicflower.*:
+    description: Todos los permisos de flores mágicas
+    default: op
+    children:
+      survivalcore.magicflower.give: true
+
+  survivalcore.magicflower.give:
+    description: Permite dar flores mágicas a otros jugadores
+    default: op

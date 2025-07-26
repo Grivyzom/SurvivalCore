@@ -197,7 +197,6 @@ public class Main extends JavaPlugin {
         }
     }
 
-    // =================== COMANDOS ===================
     private void registerCommands() {
         birthdayCommand = new BirthdayCommand(this);
 
@@ -223,9 +222,10 @@ public class Main extends JavaPlugin {
 
         registerCommand("xpbank", new XpBankCommand(this));
 
-        // 🆕 COMANDOS DE MACETAS Y FLORES MÁGICAS
-        registerCommand("flowerpot", new MagicFlowerPotCommand(this));
-        registerCommand("magicflower", new MagicFlowerPotCommand(this));
+        // 🔧 CORREGIDO: COMANDOS DE MACETAS Y FLORES MÁGICAS
+        MagicFlowerPotCommand magicFlowerPotCommand = new MagicFlowerPotCommand(this);
+        registerCommand("flowerpot", magicFlowerPotCommand);
+        registerCommand("magicflower", magicFlowerPotCommand);  // ✅ Ahora apunta al comando correcto
 
         // COMANDOS DE RANKUP - Solo registrar si el sistema está disponible
         if (rankupManager != null) {

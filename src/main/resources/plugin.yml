@@ -92,6 +92,17 @@ commands:
       /xpbank <cantidad> <xp> - Obtener ánforas con XP específica
     permission: survivalcore.xpbank.give
     aliases: [anfora, experiencepot]
+  flowerpot:
+    description: Gestión de Macetas Mágicas
+    usage: |
+      /flowerpot give <jugador> [nivel] [cantidad] - Dar macetas mágicas
+      /flowerpot info - Ver información de la maceta en tu mano
+      /flowerpot stats - Ver estadísticas del sistema (admin)
+      /flowerpot reload - Recargar configuración (admin)
+      /flowerpot help - Mostrar ayuda
+    aliases: [maceta, magicpot, mpot]
+    permission: survivalcore.flowerpot.use
+    permission-message: "§cNo tienes permisos para usar este comando."
 
 # Permisos del sistema
 permissions:

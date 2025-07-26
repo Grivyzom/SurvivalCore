@@ -165,10 +165,19 @@ public class MagicFlowerPotManager {
         int level = data.getLevel();
         int range = calculateRange(level);
 
-        // Buscar jugadores en el área
-        Collection<Player> nearbyPlayers = potLocation.getWorld().getNearbyPlayers(
+        // CORRECCIÓN: Usar getNearbyEntities en lugar de getNearbyPlayers
+        Collection<Player> nearbyPlayers = new ArrayList<>();
+
+        // Obtener todas las entidades en el área y filtrar solo jugadores
+        Collection<org.bukkit.entity.Entity> entities = potLocation.getWorld().getNearbyEntities(
                 potLocation, range, range, range
         );
+
+        for (org.bukkit.entity.Entity entity : entities) {
+            if (entity instanceof Player) {
+                nearbyPlayers.add((Player) entity);
+            }
+        }
 
         for (Player player : nearbyPlayers) {
             // Verificar línea de vista (opcional, configurable)

@@ -30,6 +30,7 @@ import gc.grivyzom.survivalcore.listeners.RankupMenuListener;
 import gc.grivyzom.survivalcore.commands.XpBankCommand;
 import gc.grivyzom.survivalcore.flowerpot.MagicFlowerPotManager;
 import gc.grivyzom.survivalcore.commands.MagicFlowerPotCommand;
+import gc.grivyzom.survivalcore.commands.MagicFlowerPotCommand;
 import gc.grivyzom.survivalcore.listeners.MagicFlowerPotListener;
 
 
@@ -222,8 +223,9 @@ public class Main extends JavaPlugin {
 
         registerCommand("xpbank", new XpBankCommand(this));
 
-        // *** AGREGAR ESTA LÍNEA: ***
+        // 🆕 COMANDOS DE MACETAS Y FLORES MÁGICAS
         registerCommand("flowerpot", new MagicFlowerPotCommand(this));
+        registerCommand("magicflower", new MagicFlowerPotCommand(this));
 
         // COMANDOS DE RANKUP - Solo registrar si el sistema está disponible
         if (rankupManager != null) {
@@ -395,7 +397,7 @@ public class Main extends JavaPlugin {
             } else {
                 getLogger().info("ℹ Sistema de rankup no está disponible");
             }
-            
+
 
             getLogger().info("Configuración interna actualizada correctamente.");
 

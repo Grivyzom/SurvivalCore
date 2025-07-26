@@ -28,6 +28,10 @@ import gc.grivyzom.survivalcore.rankup.RankupManager;
 import gc.grivyzom.survivalcore.commands.RankupCommand;
 import gc.grivyzom.survivalcore.listeners.RankupMenuListener;
 import gc.grivyzom.survivalcore.commands.XpBankCommand;
+import gc.grivyzom.survivalcore.flowerpot.MagicFlowerPotManager;
+import gc.grivyzom.survivalcore.commands.MagicFlowerPotCommand;
+import gc.grivyzom.survivalcore.listeners.MagicFlowerPotListener;
+
 
 import java.time.LocalDate;
 import java.util.logging.Level;
@@ -58,6 +62,7 @@ public class Main extends JavaPlugin {
     private SellWandManager sellWandManager;
     private XpChequeCommand xpChequeCommand;
     private RankupManager rankupManager;
+    private MagicFlowerPotManager magicFlowerPotManager;
 
     /* =================== CICLO DE VIDA =================== */
     @Override
@@ -101,6 +106,8 @@ public class Main extends JavaPlugin {
     @Override
     public void onDisable() {
         if (databaseManager != null) databaseManager.close();
+        if (magicFlowerPotManager != null) magicFlowerPotManager.shutdown();
+
         getLogger().info("SurvivalCore deshabilitado.");
     }
 
@@ -139,8 +146,8 @@ public class Main extends JavaPlugin {
         cropConfig          = new CropExperienceConfig(this);
         miningConfig        = new MiningExperienceConfig(this);
         placedBlocksManager = new PlacedBlocksManager(this);
-
         lecternRecipeManager = new LecternRecipeManager(this);
+        magicFlowerPotManager = new MagicFlowerPotManager(this);
     }
 
     /**
@@ -213,8 +220,10 @@ public class Main extends JavaPlugin {
         xpChequeCommand = new XpChequeCommand(this);
         registerCommand("cheque", xpChequeCommand);
 
-        // *** AGREGAR ESTA LÍNEA: ***
         registerCommand("xpbank", new XpBankCommand(this));
+
+        // *** AGREGAR ESTA LÍNEA: ***
+        registerCommand("flowerpot", new MagicFlowerPotCommand(this));
 
         // COMANDOS DE RANKUP - Solo registrar si el sistema está disponible
         if (rankupManager != null) {
@@ -246,6 +255,7 @@ public class Main extends JavaPlugin {
         pm.registerEvents(new MiningBlockPlaceListener(this, miningConfig), this);
         pm.registerEvents(new XpChequeListener(this, xpChequeCommand.getChequeManager()), this);
         pm.registerEvents(new SellWandListener(this, sellWandManager), this);
+        pm.registerEvents(new MagicFlowerPotListener(this), this);
 
         // LISTENER DE RANKUP - Solo registrar si el sistema está disponible
         if (rankupManager != null) {
@@ -354,6 +364,15 @@ public class Main extends JavaPlugin {
                 }
             }
 
+            if (magicFlowerPotManager != null) {
+                try {
+                    magicFlowerPotManager.forceUpdate();
+                    getLogger().info("✓ Configuración de macetas mágicas actualizada");
+                } catch (Exception e) {
+                    getLogger().warning("Error recargando macetas mágicas: " + e.getMessage());
+                }
+            }
+
             // Recargar configuración de crops si existe
             if (cropConfig != null) {
                 try {
@@ -400,6 +419,10 @@ public class Main extends JavaPlugin {
             getDatabaseManager().withdrawBankedXp(player.getUniqueId().toString(), amount);
             player.sendMessage(ChatColor.RED + "Depósito cancelado por otro plugin.");
         }
+    }
+
+    public MagicFlowerPotManager getMagicFlowerPotManager() {
+        return magicFlowerPotManager;
     }
 
     /**

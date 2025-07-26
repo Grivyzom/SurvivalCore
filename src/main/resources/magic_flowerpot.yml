@@ -1,0 +1,343 @@
+# ===================================
+# CONFIGURACIÓN DE MACETAS MÁGICAS
+# ===================================
+# Plugin: SurvivalCore
+# Sistema escalable de macetas que aceptan flores mágicas
+# ===================================
+
+# Configuración general del sistema
+settings:
+  # Nivel máximo de macetas (1-5)
+  max_level: 5
+
+  # Máximo de macetas por jugador (0 = ilimitado)
+  max_pots_per_player: 10
+
+  # Habilitar efectos visuales y sonoros
+  enable_effects: true
+
+  # Habilitar partículas automáticas
+  enable_particles: true
+
+  # Intervalo de aplicación de efectos (en ticks, 60 = 3 segundos)
+  effect_interval: 60
+
+  # Intervalo de partículas (en ticks, 20 = 1 segundo)
+  particle_interval: 20
+
+  # Habilitar verificación de línea de vista para efectos
+  require_line_of_sight: false
+
+# ===================================
+# CONFIGURACIÓN POR NIVEL
+# ===================================
+
+levels:
+  1:
+    # Rango de efectos en bloques
+    range: 3
+    # Multiplicador de efectos (1.0 = normal)
+    effect_multiplier: 1.0
+    # Costo de crafting/upgrade
+    craft_cost:
+      experience: 10
+      materials:
+        clay: 4
+        bone_meal: 2
+        glowstone_dust: 1
+
+  2:
+    range: 5
+    effect_multiplier: 1.2
+    craft_cost:
+      experience: 25
+      materials:
+        clay: 8
+        bone_meal: 4
+        glowstone_dust: 2
+        redstone: 2
+
+  3:
+    range: 7
+    effect_multiplier: 1.4
+    craft_cost:
+      experience: 50
+      materials:
+        clay: 16
+        bone_meal: 8
+        glowstone_dust: 4
+        redstone: 4
+        ender_pearl: 1
+
+  4:
+    range: 9
+    effect_multiplier: 1.6
+    craft_cost:
+      experience: 100
+      materials:
+        clay: 32
+        bone_meal: 16
+        glowstone_dust: 8
+        redstone: 8
+        ender_pearl: 2
+        diamond: 1
+
+  5:
+    range: 11
+    effect_multiplier: 2.0
+    craft_cost:
+      experience: 200
+      materials:
+        clay: 64
+        bone_meal: 32
+        glowstone_dust: 16
+        redstone: 16
+        ender_pearl: 4
+        diamond: 2
+        nether_star: 1
+
+# ===================================
+# CONFIGURACIÓN DE EFECTOS
+# ===================================
+
+effects:
+  # Duración base de los efectos de poción (en ticks)
+  base_duration: 80
+
+  # Multiplicador de duración por nivel de maceta
+  duration_per_level: 1.2
+
+  # Configuración específica por tipo de flor
+  flowers:
+    love_flower:
+      # Tipo de efecto de poción
+      effect_type: "REGENERATION"
+      # Nivel base del efecto (0-based, 0 = nivel I)
+      base_amplifier: 0
+      # ¿El nivel del efecto aumenta con el nivel de la maceta?
+      scales_with_pot_level: true
+      # Duración especial (0 = usar base_duration)
+      custom_duration: 0
+      # Configuración de partículas
+      particles:
+        type: "HEART"
+        count: 5
+        spread: 0.3
+
+    healing_flower:
+      effect_type: "INSTANT_HEALTH"
+      base_amplifier: 0
+      scales_with_pot_level: false
+      custom_duration: 1  # Instantáneo
+      particles:
+        type: "VILLAGER_HAPPY"
+        count: 8
+        spread: 0.4
+
+    speed_flower:
+      effect_type: "SPEED"
+      base_amplifier: 0
+      scales_with_pot_level: true
+      custom_duration: 0
+      particles:
+        type: "CRIT"
+        count: 6
+        spread: 0.35
+
+    strength_flower:
+      effect_type: "INCREASE_DAMAGE"
+      base_amplifier: 0
+      scales_with_pot_level: true
+      custom_duration: 0
+      particles:
+        type: "CRIT_MAGIC"
+        count: 4
+        spread: 0.25
+
+    night_vision_flower:
+      effect_type: "NIGHT_VISION"
+      base_amplifier: 0
+      scales_with_pot_level: false
+      custom_duration: 240  # 12 segundos
+      particles:
+        type: "ENCHANTMENT_TABLE"
+        count: 10
+        spread: 0.5
+
+# ===================================
+# CONFIGURACIÓN DE PARTÍCULAS
+# ===================================
+
+particles:
+  # Partículas cuando la maceta está vacía
+  idle:
+    type: "VILLAGER_HAPPY"
+    count: 2
+    spread: 0.2
+    speed: 0.02
+
+  # Partículas de área de efecto (aparecen ocasionalmente)
+  area_effect:
+    enabled: true
+    # Probabilidad de aparecer cada ciclo (0.0-1.0)
+    chance: 0.3
+    # Número de partículas en el anillo
+    ring_particles: 8
+
+  # Partículas al colocar una flor
+  placement:
+    count: 20
+    spread: 0.4
+    speed: 0.1
+
+# ===================================
+# CONFIGURACIÓN DE SONIDOS
+# ===================================
+
+sounds:
+  # Sonidos al colocar la maceta
+  placement:
+    sound: "BLOCK_GRASS_PLACE"
+    volume: 1.0
+    pitch: 1.2
+
+  # Sonidos al romper la maceta
+  breaking:
+    sound: "BLOCK_GRASS_BREAK"
+    volume: 1.0
+    pitch: 0.9
+
+  # Sonidos al plantar una flor
+  flower_plant:
+    sound: "ENTITY_EXPERIENCE_ORB_PICKUP"
+    volume: 0.8
+    pitch: 1.2
+
+  # Sonidos específicos por flor al plantar
+  flower_specific:
+    love_flower: "ENTITY_EXPERIENCE_ORB_PICKUP"
+    healing_flower: "ENTITY_PLAYER_LEVELUP"
+    speed_flower: "ENTITY_HORSE_GALLOP"
+    strength_flower: "ENTITY_IRON_GOLEM_ATTACK"
+    night_vision_flower: "BLOCK_ENCHANTMENT_TABLE_USE"
+
+# ===================================
+# CONFIGURACIÓN DE SEGURIDAD
+# ===================================
+
+security:
+  # Prevenir duplicación de macetas
+  prevent_duplication: true
+
+  # Verificar integridad de metadatos
+  verify_metadata: true
+
+  # Registrar todas las acciones en console
+  log_actions: true
+
+  # Límite de macetas por chunk (0 = ilimitado)
+  max_pots_per_chunk: 16
+
+  # Mundos donde NO se pueden colocar macetas mágicas
+  disabled_worlds:
+    - "world_nether_disabled"
+    - "world_end_disabled"
+
+  # Requiere permisos específicos para usar
+  require_permissions: true
+
+# ===================================
+# CONFIGURACIÓN DE PERSISTENCIA
+# ===================================
+
+persistence:
+  # Guardar datos automáticamente
+  auto_save: true
+
+  # Intervalo de guardado automático (en ticks)
+  save_interval: 6000  # 5 minutos
+
+  # Archivo donde guardar las macetas activas
+  data_file: "magic_flowerpots.yml"
+
+  # Mantener backups de datos
+  keep_backups: true
+
+  # Número máximo de backups
+  max_backups: 3
+
+# ===================================
+# CONFIGURACIÓN DE RENDIMIENTO
+# ===================================
+
+performance:
+  # Máximo de macetas que pueden estar activas simultáneamente
+  max_active_pots: 1000
+
+  # Usar async para procesamiento de efectos
+  async_processing: true
+
+  # Batch size para procesamiento
+  batch_size: 50
+
+  # Tiempo máximo de procesamiento por tick (en nanosegundos)
+  max_processing_time: 2000000  # 2ms
+
+  # Optimizar partículas para mejor rendimiento
+  optimize_particles: true
+
+  # Reducir efectos cuando hay muchos jugadores cerca
+  reduce_effects_on_crowding: true
+
+  # Límite de jugadores para activar reducción
+  crowding_threshold: 5
+
+# ===================================
+# MENSAJES PERSONALIZABLES
+# ===================================
+
+messages:
+  pot_placed: "&a✓ Maceta Mágica colocada correctamente."
+  pot_info_level: "&7Nivel: &b%level% &7| Rango: &a%range% bloques"
+  pot_has_flower: "&d🌸 Contiene: %flower_name%"
+  pot_broken: "&e⚡ Maceta Mágica recogida correctamente."
+  flower_returned: "&d🌸 La flor también ha sido devuelta."
+  flower_planted: "&a✓ %flower_name% &aplantada correctamente!"
+  effect_range_info: "&bLa maceta ahora irradia efectos en %range% bloques de distancia."
+
+  # Errores
+  no_permission_place: "&cNo tienes permisos para colocar Macetas Mágicas."
+  no_permission_break: "&cNo tienes permisos para romper Macetas Mágicas."
+  no_permission_use: "&cNo tienes permisos para usar Macetas Mágicas."
+  invalid_location: "&cNo puedes colocar una Maceta Mágica aquí."
+  location_requirements: "&7Debe estar en una superficie sólida y tener espacio libre arriba."
+  pot_limit_reached: "&cHas alcanzado el límite de Macetas Mágicas que puedes colocar."
+  not_magic_flower: "&cEsta no es una flor mágica válida."
+
+  # Información
+  pot_empty_status: "&7Estado: &eESPERANDO FLOR"
+  pot_active_status: "&7Estado: &aACTIVA"
+  pot_active_time: "&7Activa desde: %time%"
+
+  # Ayuda
+  info_place_instruction: "&a▶ Coloca en el suelo para usar"
+  info_plant_instruction: "&a▶ Click con flor mágica para plantar"
+  info_level_benefit: "&e▶ Mayor nivel = mayor rango"
+  info_flower_restriction: "&7▶ Solo acepta flores mágicas especiales"
+
+# ===================================
+# CONFIGURACIÓN DEBUG
+# ===================================
+
+debug:
+  # Habilitar logs detallados
+  verbose_logging: false
+
+  # Mostrar información de rendimiento
+  show_performance_stats: false
+
+  # Intervalo de stats de rendimiento (en ticks)
+  performance_stats_interval: 1200  # 1 minuto
+
+  # Guardar logs de debug en archivo
+  save_debug_logs: false

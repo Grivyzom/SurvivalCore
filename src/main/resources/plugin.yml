@@ -265,6 +265,8 @@ permissions:
       survivalcore.xptransfer.*: true
       survivalcore.cheque.*: true
       survivalcore.rankup.admin.*: true
+      survivalcore.xpbank.*: true
+      survivalcore.flowerpot.admin.*: true
 
   survivalcore.xpbank.*:
     description: Todos los permisos de XpBank
@@ -275,3 +277,57 @@ permissions:
   survivalcore.xpbank.give:
     description: Permite obtener ánforas de experiencia
     default: op
+
+
+  survivalcore.flowerpot.use:
+    description: Permite usar comandos básicos de macetas mágicas
+    default: true
+
+  survivalcore.flowerpot.place:
+    description: Permite colocar macetas mágicas
+    default: true
+
+  survivalcore.flowerpot.break:
+    description: Permite romper macetas mágicas
+    default: true
+
+  survivalcore.flowerpot.interact:
+    description: Permite interactuar con macetas mágicas (plantar flores)
+    default: true
+
+  # Permisos administrativos
+  survivalcore.flowerpot.give:
+    description: Permite dar macetas mágicas a otros jugadores
+    default: op
+
+  survivalcore.flowerpot.admin:
+    description: Permisos administrativos del sistema de macetas
+    default: op
+
+  survivalcore.flowerpot.unlimited:
+    description: Sin límite de macetas por jugador
+    default: op
+
+  survivalcore.flowerpot.bypass:
+    description: Permite saltarse restricciones de colocación
+    default: op
+
+  # Permisos consolidados para facilitar gestión
+  survivalcore.flowerpot.*:
+    description: Todos los permisos básicos de macetas mágicas
+    default: true
+    children:
+      survivalcore.flowerpot.use: true
+      survivalcore.flowerpot.place: true
+      survivalcore.flowerpot.break: true
+      survivalcore.flowerpot.interact: true
+
+  survivalcore.flowerpot.admin.*:
+    description: Todos los permisos administrativos de macetas
+    default: op
+    children:
+      survivalcore.flowerpot.*: true
+      survivalcore.flowerpot.give: true
+      survivalcore.flowerpot.admin: true
+      survivalcore.flowerpot.unlimited: true
+      survivalcore.flowerpot.bypass: true

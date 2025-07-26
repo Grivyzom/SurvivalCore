@@ -3,6 +3,7 @@
 # ===================================
 # Plugin: SurvivalCore
 # Sistema escalable de macetas que aceptan flores mágicas
+# ACTUALIZADO v1.1 - Animaciones y restricciones mejoradas
 # ===================================
 
 # Configuración general del sistema
@@ -13,8 +14,17 @@ settings:
   # Máximo de macetas por jugador (0 = ilimitado)
   max_pots_per_player: 10
 
+  # 🆕 DISTANCIA MÍNIMA ENTRE MACETAS (en bloques)
+  min_distance_between_pots: 2
+
+  # 🆕 BLOQUEAR FLORES NORMALES (solo permiten flores mágicas)
+  block_normal_flowers: true
+
   # Habilitar efectos visuales y sonoros
   enable_effects: true
+
+  # 🆕 HABILITAR ANIMACIONES MEJORADAS DE COLOCACIÓN
+  enable_enhanced_placement_animations: true
 
   # Habilitar partículas automáticas
   enable_particles: true
@@ -29,6 +39,85 @@ settings:
   require_line_of_sight: false
 
 # ===================================
+# 🆕 CONFIGURACIÓN DE ANIMACIONES
+# ===================================
+
+animations:
+  # Configuración de la animación de colocación
+  placement:
+    # Duración de la animación en ticks (40 ticks = 2 segundos)
+    duration: 40
+
+    # Radio inicial de la espiral
+    initial_radius: 0.8
+
+    # Radio final de la espiral
+    final_radius: 0.5
+
+    # Altura máxima de la espiral
+    max_height: 1.5
+
+    # Grados por tick de rotación
+    rotation_speed: 15
+
+    # Partículas por tick durante la animación
+    particles_per_tick: 1
+
+  # Configuración del anillo final para niveles altos
+  final_ring:
+    # Nivel mínimo para mostrar el anillo
+    min_level: 3
+
+    # Radio base del anillo
+    base_radius: 1.5
+
+    # Radio adicional por nivel
+    radius_per_level: 0.3
+
+    # Número base de puntos en el anillo
+    base_points: 12
+
+    # Puntos adicionales por nivel
+    points_per_level: 2
+
+# ===================================
+# 🆕 CONFIGURACIÓN DE RESTRICCIONES
+# ===================================
+
+restrictions:
+  # Lista de flores normales bloqueadas (no se pueden usar)
+  blocked_flowers:
+    - POPPY
+    - DANDELION
+    - BLUE_ORCHID
+    - ALLIUM
+    - AZURE_BLUET
+    - RED_TULIP
+    - ORANGE_TULIP
+    - WHITE_TULIP
+    - PINK_TULIP
+    - OXEYE_DAISY
+    - CORNFLOWER
+    - LILY_OF_THE_VALLEY
+    - WITHER_ROSE
+    - SUNFLOWER
+    - LILAC
+    - ROSE_BUSH
+    - PEONY
+    - SWEET_BERRY_BUSH
+
+  # Verificación de distancia
+  distance_check:
+    # Habilitar verificación de distancia
+    enabled: true
+
+    # Modo de cálculo: "2D" (solo X,Z) o "3D" (X,Y,Z)
+    calculation_mode: "3D"
+
+    # Verificar solo en el mismo mundo
+    same_world_only: true
+
+# ===================================
 # CONFIGURACIÓN POR NIVEL
 # ===================================
 
@@ -38,6 +127,10 @@ levels:
     range: 3
     # Multiplicador de efectos (1.0 = normal)
     effect_multiplier: 1.0
+    # 🆕 Partículas en animación de colocación
+    placement_particles: "VILLAGER_HAPPY"
+    # 🆕 Intensidad de efectos especiales
+    special_effects_intensity: 1
     # Costo de crafting/upgrade
     craft_cost:
       experience: 10
@@ -49,6 +142,8 @@ levels:
   2:
     range: 5
     effect_multiplier: 1.2
+    placement_particles: "VILLAGER_HAPPY"
+    special_effects_intensity: 1
     craft_cost:
       experience: 25
       materials:
@@ -60,6 +155,8 @@ levels:
   3:
     range: 7
     effect_multiplier: 1.4
+    placement_particles: "ENCHANTMENT_TABLE"
+    special_effects_intensity: 2
     craft_cost:
       experience: 50
       materials:
@@ -72,6 +169,8 @@ levels:
   4:
     range: 9
     effect_multiplier: 1.6
+    placement_particles: "ENCHANTMENT_TABLE"
+    special_effects_intensity: 3
     craft_cost:
       experience: 100
       materials:
@@ -85,6 +184,8 @@ levels:
   5:
     range: 11
     effect_multiplier: 2.0
+    placement_particles: "ENCHANTMENT_TABLE"
+    special_effects_intensity: 4
     craft_cost:
       experience: 200
       materials:
@@ -184,22 +285,53 @@ particles:
     # Número de partículas en el anillo
     ring_particles: 8
 
-  # Partículas al colocar una flor
+  # 🆕 Partículas de colocación mejoradas
   placement:
     count: 20
     spread: 0.4
     speed: 0.1
+    # Partículas adicionales para niveles altos
+    enhanced_for_high_levels: true
+
+  # 🆕 Partículas de error
+  error:
+    type: "BLOCK_CRACK"
+    material: "REDSTONE_BLOCK"
+    count: 10
+    spread: 0.3
 
 # ===================================
 # CONFIGURACIÓN DE SONIDOS
 # ===================================
 
 sounds:
-  # Sonidos al colocar la maceta
+  # 🆕 Sonidos de colocación mejorados
   placement:
-    sound: "BLOCK_GRASS_PLACE"
+    initial:
+      sound: "BLOCK_GRASS_PLACE"
+      volume: 1.0
+      pitch: 1.2
+
+    # Sonido durante la animación (opcional)
+    animation:
+      enabled: false
+      sound: "BLOCK_NOTE_BLOCK_CHIME"
+      volume: 0.3
+      pitch: 1.5
+      interval: 10  # Cada X ticks
+
+    # Sonido final de colocación
+    final:
+      sound: "BLOCK_ENCHANTMENT_TABLE_USE"
+      volume: 0.8
+      pitch: 1.5
+      delay: 40  # Al final de la animación
+
+  # 🆕 Sonidos de error
+  error:
+    sound: "BLOCK_NOTE_BLOCK_BASS"
     volume: 1.0
-    pitch: 1.2
+    pitch: 0.8
 
   # Sonidos al romper la maceta
   breaking:
@@ -237,6 +369,17 @@ security:
 
   # Límite de macetas por chunk (0 = ilimitado)
   max_pots_per_chunk: 16
+
+  # 🆕 Verificaciones adicionales de seguridad
+  additional_checks:
+    # Verificar que la maceta sigue siendo válida antes de aplicar efectos
+    validate_before_effects: true
+
+    # Verificar que el bloque sigue siendo una maceta
+    validate_block_type: true
+
+    # Limpiar macetas inválidas automáticamente
+    auto_cleanup_invalid: true
 
   # Mundos donde NO se pueden colocar macetas mágicas
   disabled_worlds:
@@ -283,6 +426,17 @@ performance:
   # Tiempo máximo de procesamiento por tick (en nanosegundos)
   max_processing_time: 2000000  # 2ms
 
+  # 🆕 Optimizaciones para animaciones
+  animation_optimizations:
+    # Limitar animaciones simultáneas
+    max_concurrent_animations: 10
+
+    # Reducir partículas si hay lag
+    reduce_particles_on_lag: true
+
+    # TPS mínimo para mostrar animaciones completas
+    min_tps_for_full_animations: 18.0
+
   # Optimizar partículas para mejor rendimiento
   optimize_particles: true
 
@@ -314,16 +468,24 @@ messages:
   pot_limit_reached: "&cHas alcanzado el límite de Macetas Mágicas que puedes colocar."
   not_magic_flower: "&cEsta no es una flor mágica válida."
 
+  # 🆕 Nuevos mensajes de error
+  too_close_to_other_pot: "&cNo puedes colocar una Maceta Mágica tan cerca de otra."
+  min_distance_required: "&7Debe estar al menos a %distance% bloques de distancia de otras macetas mágicas."
+  normal_flowers_blocked: "&c❌ Esta maceta solo acepta flores mágicas especiales."
+  normal_flowers_explanation: "&7Las flores normales no tienen propiedades mágicas."
+
   # Información
   pot_empty_status: "&7Estado: &eESPERANDO FLOR"
   pot_active_status: "&7Estado: &aACTIVA"
   pot_active_time: "&7Activa desde: %time%"
 
-  # Ayuda
+  # Ayuda actualizada
   info_place_instruction: "&a▶ Coloca en el suelo para usar"
   info_plant_instruction: "&a▶ Click con flor mágica para plantar"
   info_level_benefit: "&e▶ Mayor nivel = mayor rango"
   info_flower_restriction: "&7▶ Solo acepta flores mágicas especiales"
+  info_distance_restriction: "&7▶ Mantén distancia entre macetas"
+  info_normal_flowers_blocked: "&c▶ Las flores normales no funcionan"
 
 # ===================================
 # CONFIGURACIÓN DEBUG
@@ -341,3 +503,14 @@ debug:
 
   # Guardar logs de debug en archivo
   save_debug_logs: false
+
+  # 🆕 Debug específico para nuevas funcionalidades
+  new_features_debug:
+    # Logs de verificación de distancia
+    log_distance_checks: false
+
+    # Logs de animaciones
+    log_animations: false
+
+    # Logs de bloqueo de flores normales
+    log_flower_blocks: false

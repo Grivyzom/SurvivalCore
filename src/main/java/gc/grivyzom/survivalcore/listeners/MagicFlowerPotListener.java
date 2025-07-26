@@ -20,12 +20,14 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.scheduler.BukkitRunnable;
 
 /**
  * Listener que maneja todos los eventos relacionados con las Macetas Mágicas
+ * ACTUALIZADO con animaciones, restricción de flores y distancia mínima entre macetas
  *
  * @author Brocolitx
- * @version 1.0
+ * @version 1.1
  */
 public class MagicFlowerPotListener implements Listener {
 
@@ -40,6 +42,9 @@ public class MagicFlowerPotListener implements Listener {
     private static final String PERM_PLACE = "survivalcore.flowerpot.place";
     private static final String PERM_BREAK = "survivalcore.flowerpot.break";
 
+    // Configuración de distancia mínima
+    private static final int MIN_DISTANCE_BETWEEN_POTS = 2;
+
     public MagicFlowerPotListener(Main plugin) {
         this.plugin = plugin;
         this.potFactory = new MagicFlowerPot(plugin);
@@ -50,6 +55,7 @@ public class MagicFlowerPotListener implements Listener {
 
     /**
      * Maneja la colocación de macetas mágicas
+     * ACTUALIZADO: Animaciones y verificación de distancia
      */
     @EventHandler(priority = EventPriority.HIGH)
     public void onMagicFlowerPotPlace(BlockPlaceEvent event) {
@@ -77,6 +83,16 @@ public class MagicFlowerPotListener implements Listener {
             event.setCancelled(true);
             player.sendMessage(ChatColor.RED + "No puedes colocar una Maceta Mágica aquí.");
             player.sendMessage(ChatColor.GRAY + "Debe estar en una superficie sólida y tener espacio libre arriba.");
+            playErrorEffects(location);
+            return;
+        }
+
+        // 🆕 NUEVA VERIFICACIÓN: Distancia mínima entre macetas
+        if (!isValidDistance(location)) {
+            event.setCancelled(true);
+            player.sendMessage(ChatColor.RED + "No puedes colocar una Maceta Mágica tan cerca de otra.");
+            player.sendMessage(ChatColor.GRAY + "Debe estar al menos a " + MIN_DISTANCE_BETWEEN_POTS + " bloques de distancia de otras macetas mágicas.");
+            playErrorEffects(location);
             return;
         }
 
@@ -84,6 +100,7 @@ public class MagicFlowerPotListener implements Listener {
         if (hasReachedPotLimit(player)) {
             event.setCancelled(true);
             player.sendMessage(ChatColor.RED + "Has alcanzado el límite de Macetas Mágicas que puedes colocar.");
+            playErrorEffects(location);
             return;
         }
 
@@ -102,8 +119,8 @@ public class MagicFlowerPotListener implements Listener {
         // Registrar en el manager
         potManager.registerPot(location, potId, level, flowerId);
 
-        // Efectos de colocación
-        playPlacementEffects(location, level);
+        // 🆕 NUEVOS EFECTOS DE COLOCACIÓN MEJORADOS
+        playEnhancedPlacementEffects(location, level, player);
 
         // Mensaje de confirmación
         player.sendMessage(ChatColor.GREEN + "✓ Maceta Mágica colocada correctamente.");
@@ -185,6 +202,7 @@ public class MagicFlowerPotListener implements Listener {
 
     /**
      * Maneja la interacción con macetas mágicas (plantar/quitar flores)
+     * ACTUALIZADO: Solo acepta flores mágicas
      */
     @EventHandler(priority = EventPriority.HIGH)
     public void onMagicFlowerPotInteract(PlayerInteractEvent event) {
@@ -223,14 +241,192 @@ public class MagicFlowerPotListener implements Listener {
             return;
         }
 
-        // Si tiene una flor mágica en la mano
+        // 🆕 VERIFICACIÓN ESTRICTA: Solo flores mágicas
         if (isMagicFlower(itemInHand)) {
             handleFlowerPlanting(player, location, potData, itemInHand);
             return;
         }
 
+        // 🆕 BLOQUEAR FLORES NORMALES
+        if (isNormalFlower(itemInHand)) {
+            player.sendMessage(ChatColor.RED + "❌ Esta maceta solo acepta flores mágicas especiales.");
+            player.sendMessage(ChatColor.GRAY + "Las flores normales no tienen propiedades mágicas.");
+            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 1.0f, 0.8f);
+            return;
+        }
+
         // Si hace clic con otros ítems, mostrar información
         showPotInfo(player, potData);
+    }
+
+    /**
+     * 🆕 NUEVO MÉTODO: Verificar distancia mínima entre macetas
+     */
+    private boolean isValidDistance(Location newLocation) {
+        for (MagicFlowerPotData existingPot : potManager.getAllActivePots()) {
+            Location existingLocation = existingPot.getLocation();
+
+            // Solo verificar en el mismo mundo
+            if (!newLocation.getWorld().equals(existingLocation.getWorld())) {
+                continue;
+            }
+
+            // Calcular distancia 3D
+            double distance = newLocation.distance(existingLocation);
+
+            if (distance < MIN_DISTANCE_BETWEEN_POTS) {
+                return false; // Muy cerca de otra maceta
+            }
+        }
+        return true; // Distancia válida
+    }
+
+    /**
+     * 🆕 NUEVO MÉTODO: Verificar si es una flor normal (prohibida)
+     */
+    private boolean isNormalFlower(ItemStack item) {
+        if (item == null || item.getType() == Material.AIR) return false;
+
+        // Lista de flores normales que NO se pueden usar
+        Material[] normalFlowers = {
+                Material.POPPY,
+                Material.DANDELION,
+                Material.BLUE_ORCHID,
+                Material.ALLIUM,
+                Material.AZURE_BLUET,
+                Material.RED_TULIP,
+                Material.ORANGE_TULIP,
+                Material.WHITE_TULIP,
+                Material.PINK_TULIP,
+                Material.OXEYE_DAISY,
+                Material.CORNFLOWER,
+                Material.LILY_OF_THE_VALLEY,
+                Material.WITHER_ROSE,
+                Material.SUNFLOWER,
+                Material.LILAC,
+                Material.ROSE_BUSH,
+                Material.PEONY,
+                Material.SWEET_BERRY_BUSH
+        };
+
+        for (Material flower : normalFlowers) {
+            if (item.getType() == flower) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * 🆕 NUEVOS EFECTOS DE COLOCACIÓN MEJORADOS
+     */
+    private void playEnhancedPlacementEffects(Location location, int level, Player player) {
+        World world = location.getWorld();
+        if (world == null) return;
+
+        Location effectLocation = location.clone().add(0.5, 0.8, 0.5);
+
+        // Sonidos iniciales
+        world.playSound(effectLocation, Sound.BLOCK_GRASS_PLACE, 1.0f, 1.2f);
+
+        // Animación de partículas en espiral ascendente
+        new BukkitRunnable() {
+            private int ticks = 0;
+            private final int maxTicks = 40; // 2 segundos
+
+            @Override
+            public void run() {
+                if (ticks >= maxTicks) {
+                    // Efectos finales
+                    playFinalPlacementEffects(effectLocation, level);
+                    cancel();
+                    return;
+                }
+
+                // Espiral de partículas
+                double angle = (ticks * 15) % 360; // Rotación
+                double height = (double) ticks / maxTicks; // Altura progresiva
+                double radius = 0.8 - (height * 0.3); // Radio decreciente
+
+                double x = effectLocation.getX() + Math.cos(Math.toRadians(angle)) * radius;
+                double y = effectLocation.getY() + height * 1.5;
+                double z = effectLocation.getZ() + Math.sin(Math.toRadians(angle)) * radius;
+
+                Location particleLocation = new Location(world, x, y, z);
+
+                // Partículas según el nivel
+                Particle particle = level >= 3 ? Particle.ENCHANTMENT_TABLE : Particle.VILLAGER_HAPPY;
+                world.spawnParticle(particle, particleLocation, 1, 0, 0, 0, 0.02);
+
+                // Partículas adicionales para niveles altos
+                if (level >= 4 && ticks % 3 == 0) {
+                    world.spawnParticle(Particle.CRIT_MAGIC, particleLocation, 1, 0.1, 0.1, 0.1, 0.05);
+                }
+
+                ticks++;
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
+    }
+
+    /**
+     * 🆕 EFECTOS FINALES DE COLOCACIÓN
+     */
+    private void playFinalPlacementEffects(Location location, int level) {
+        World world = location.getWorld();
+        if (world == null) return;
+
+        // Sonido de finalización
+        world.playSound(location, Sound.BLOCK_ENCHANTMENT_TABLE_USE, 0.8f, 1.5f);
+        world.playSound(location, Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.2f);
+
+        // Explosión de partículas según el nivel
+        int particleCount = 15 + (level * 5);
+        Particle finalParticle = level >= 3 ? Particle.ENCHANTMENT_TABLE : Particle.VILLAGER_HAPPY;
+
+        world.spawnParticle(finalParticle, location, particleCount, 0.6, 0.4, 0.6, 0.1);
+
+        // Anillo de partículas en el suelo para niveles altos
+        if (level >= 3) {
+            createParticleRing(location.clone().subtract(0, 0.2, 0), level);
+        }
+    }
+
+    /**
+     * 🆕 CREAR ANILLO DE PARTÍCULAS
+     */
+    private void createParticleRing(Location center, int level) {
+        World world = center.getWorld();
+        if (world == null) return;
+
+        double radius = 1.5 + (level * 0.3);
+        int points = 12 + (level * 2);
+
+        for (int i = 0; i < points; i++) {
+            double angle = (i / (double) points) * 2 * Math.PI;
+            double x = center.getX() + Math.cos(angle) * radius;
+            double z = center.getZ() + Math.sin(angle) * radius;
+            double y = center.getY();
+
+            Location particleLocation = new Location(world, x, y, z);
+            world.spawnParticle(Particle.CRIT_MAGIC, particleLocation, 1, 0, 0, 0, 0);
+        }
+    }
+
+    /**
+     * 🆕 EFECTOS DE ERROR
+     */
+    private void playErrorEffects(Location location) {
+        World world = location.getWorld();
+        if (world == null) return;
+
+        Location effectLocation = location.clone().add(0.5, 0.5, 0.5);
+
+        // Sonido de error
+        world.playSound(effectLocation, Sound.BLOCK_NOTE_BLOCK_BASS, 1.0f, 0.8f);
+
+        // Partículas rojas de error
+        world.spawnParticle(Particle.BLOCK_CRACK, effectLocation, 10, 0.3, 0.3, 0.3, 0.1,
+                Material.REDSTONE_BLOCK.createBlockData());
     }
 
     /**
@@ -287,12 +483,13 @@ public class MagicFlowerPotListener implements Listener {
                     getFlowerDisplayName(potData.getFlowerId()));
             player.sendMessage(ChatColor.WHITE + "  ⚡ Estado: " + ChatColor.GREEN + "ACTIVA");
             player.sendMessage("");
-            player.sendMessage(ChatColor.YELLOW + "▶ Click derecho con otra flor para cambiar");
+            player.sendMessage(ChatColor.YELLOW + "▶ Click derecho con otra flor mágica para cambiar");
         } else {
             player.sendMessage(ChatColor.WHITE + "  🌸 Flor: " + ChatColor.GRAY + "Vacía");
             player.sendMessage(ChatColor.WHITE + "  ⚡ Estado: " + ChatColor.YELLOW + "ESPERANDO FLOR");
             player.sendMessage("");
             player.sendMessage(ChatColor.GREEN + "▶ Click derecho con una flor mágica para plantar");
+            player.sendMessage(ChatColor.RED + "▶ Las flores normales no funcionan");
         }
 
         player.sendMessage(ChatColor.WHITE + "  🕐 Activa desde: " + ChatColor.GRAY +
@@ -425,23 +622,6 @@ public class MagicFlowerPotListener implements Listener {
             default:
                 return "Flor Desconocida";
         }
-    }
-
-    /**
-     * Efectos al colocar la maceta
-     */
-    private void playPlacementEffects(Location location, int level) {
-        World world = location.getWorld();
-        if (world == null) return;
-
-        Location effectLocation = location.clone().add(0.5, 0.8, 0.5);
-
-        // Sonido
-        world.playSound(effectLocation, Sound.BLOCK_GRASS_PLACE, 1.0f, 1.2f);
-
-        // Partículas según el nivel
-        Particle particle = level >= 3 ? Particle.ENCHANTMENT_TABLE : Particle.VILLAGER_HAPPY;
-        world.spawnParticle(particle, effectLocation, 10 + (level * 3), 0.3, 0.2, 0.3, 0.05);
     }
 
     /**

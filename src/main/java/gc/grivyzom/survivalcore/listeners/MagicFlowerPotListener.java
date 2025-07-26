@@ -25,10 +25,10 @@ import org.bukkit.scheduler.BukkitRunnable;
 
 /**
  * Listener que maneja todos los eventos relacionados con las Macetas Mágicas
- * CORREGIDO v1.2 - Preservación de metadatos de flores mágicas
+ * CORREGIDO v1.3 - Solucionados bugs de duplicación y conservación de metadatos
  *
  * @author Brocolitx
- * @version 1.2
+ * @version 1.3
  */
 public class MagicFlowerPotListener implements Listener {
 
@@ -58,7 +58,6 @@ public class MagicFlowerPotListener implements Listener {
 
     /**
      * Maneja la colocación de macetas mágicas
-     * ACTUALIZADO: Animaciones y verificación de distancia
      */
     @EventHandler(priority = EventPriority.HIGH)
     public void onMagicFlowerPotPlace(BlockPlaceEvent event) {
@@ -90,7 +89,7 @@ public class MagicFlowerPotListener implements Listener {
             return;
         }
 
-        // 🆕 NUEVA VERIFICACIÓN: Distancia mínima entre macetas
+        // Verificación: Distancia mínima entre macetas
         if (!isValidDistance(location)) {
             event.setCancelled(true);
             player.sendMessage(ChatColor.RED + "No puedes colocar una Maceta Mágica tan cerca de otra.");
@@ -122,7 +121,7 @@ public class MagicFlowerPotListener implements Listener {
         // Registrar en el manager
         potManager.registerPot(location, potId, level, flowerId);
 
-        // 🆕 NUEVOS EFECTOS DE COLOCACIÓN MEJORADOS
+        // Efectos de colocación mejorados
         playEnhancedPlacementEffects(location, level, player);
 
         // Mensaje de confirmación
@@ -136,7 +135,7 @@ public class MagicFlowerPotListener implements Listener {
     }
 
     /**
-     * 🔧 CORREGIDO: Maneja la rotura de macetas mágicas conservando metadatos de flores
+     * 🔧 CORREGIDO: Maneja la rotura de macetas mágicas - SIN conservar metadatos
      */
     @EventHandler(priority = EventPriority.HIGH)
     public void onMagicFlowerPotBreak(BlockBreakEvent event) {
@@ -171,20 +170,16 @@ public class MagicFlowerPotListener implements Listener {
         // Cancelar drops vanilla
         event.setDropItems(false);
 
-        // Crear ítem de maceta mágica con sus metadatos originales
+        // 🔧 CORRECCIÓN CRÍTICA: Crear maceta VACÍA, sin metadatos de flor
         ItemStack magicPot = potFactory.createMagicFlowerPot(potData.getLevel());
+        // ❌ NO establecer la flor en la maceta: magicPot = potFactory.setContainedFlower(magicPot, potData.getFlowerId());
 
-        // Si tenía una flor, mantenerla en la maceta
-        if (potData.hasFlower()) {
-            magicPot = potFactory.setContainedFlower(magicPot, potData.getFlowerId());
-        }
-
-        // Dropear la maceta mágica
+        // Dropear la maceta mágica VACÍA
         block.getWorld().dropItemNaturally(location.add(0.5, 0.5, 0.5), magicPot);
 
-        // 🔧 CORRECCIÓN CRÍTICA: Si tenía flor, dropear la flor MÁGICA con metadatos
+        // 🔧 CORRECCIÓN: Si tenía flor, dropear la flor MÁGICA por separado
         if (potData.hasFlower()) {
-            ItemStack magicFlowerItem = createMagicFlowerFromId(potData.getFlowerId(), 1); // Nivel por defecto 1
+            ItemStack magicFlowerItem = createMagicFlowerFromId(potData.getFlowerId(), getStoredFlowerLevel(potData));
             if (magicFlowerItem != null) {
                 block.getWorld().dropItemNaturally(location, magicFlowerItem);
             }
@@ -196,15 +191,19 @@ public class MagicFlowerPotListener implements Listener {
         // Efectos de rotura
         playBreakEffects(location, potData.hasFlower());
 
-        // Mensaje al jugador
+        // Mensajes al jugador
         player.sendMessage(ChatColor.YELLOW + "⚡ Maceta Mágica recogida correctamente.");
         if (potData.hasFlower()) {
-            player.sendMessage(ChatColor.LIGHT_PURPLE + "🌸 La flor mágica también ha sido devuelta.");
+            player.sendMessage(ChatColor.LIGHT_PURPLE + "🌸 La flor mágica también ha sido devuelta por separado.");
         }
+
+        plugin.getLogger().info(String.format("Maceta rota: %s (nivel %d) - ID: %s - %s",
+                player.getName(), potData.getLevel(), potData.getPotId(),
+                potData.hasFlower() ? "con " + potData.getFlowerId() : "vacía"));
     }
 
     /**
-     * 🔧 CORREGIDO: Maneja la interacción con macetas mágicas conservando metadatos
+     * 🔧 CORREGIDO: Maneja la interacción - sin duplicación de flores
      */
     @EventHandler(priority = EventPriority.HIGH)
     public void onMagicFlowerPotInteract(PlayerInteractEvent event) {
@@ -243,13 +242,13 @@ public class MagicFlowerPotListener implements Listener {
             return;
         }
 
-        // 🆕 VERIFICACIÓN ESTRICTA: Solo flores mágicas
+        // Verificación estricta: Solo flores mágicas
         if (isMagicFlower(itemInHand)) {
             handleFlowerPlanting(player, location, potData, itemInHand);
             return;
         }
 
-        // 🆕 BLOQUEAR FLORES NORMALES
+        // Bloquear flores normales
         if (isNormalFlower(itemInHand)) {
             player.sendMessage(ChatColor.RED + "❌ Esta maceta solo acepta flores mágicas especiales.");
             player.sendMessage(ChatColor.GRAY + "Las flores normales no tienen propiedades mágicas.");
@@ -262,49 +261,78 @@ public class MagicFlowerPotListener implements Listener {
     }
 
     /**
-     * 🔧 CORREGIDO: Maneja el plantado de flores mágicas conservando metadatos
+     * 🔧 CORREGIDO: Maneja el plantado sin duplicación
      */
     private void handleFlowerPlanting(Player player, Location location, MagicFlowerPotData potData, ItemStack flower) {
-        String flowerId = getMagicFlowerId(flower);
-        int flowerLevel = getMagicFlowerLevel(flower);
+        String newFlowerId = getMagicFlowerId(flower);
+        int newFlowerLevel = getMagicFlowerLevel(flower);
 
-        if (flowerId == null) {
+        if (newFlowerId == null) {
             player.sendMessage(ChatColor.RED + "Esta no es una flor mágica válida.");
             return;
         }
 
-        // 🔧 CORRECCIÓN CRÍTICA: Si ya tiene una flor, devolver la flor MÁGICA original
-        if (potData.hasFlower()) {
-            // Crear flor mágica con metadatos completos basada en el ID y nivel almacenado
-            ItemStack oldMagicFlower = createMagicFlowerFromId(potData.getFlowerId(), getStoredFlowerLevel(potData));
-            if (oldMagicFlower != null) {
-                // Intentar añadir al inventario, si no cabe, dropear
-                if (player.getInventory().addItem(oldMagicFlower).isEmpty()) {
-                    player.sendMessage(ChatColor.YELLOW + "La flor mágica anterior ha sido devuelta a tu inventario.");
-                } else {
-                    player.getWorld().dropItemNaturally(player.getLocation(), oldMagicFlower);
-                    player.sendMessage(ChatColor.YELLOW + "La flor mágica anterior ha sido dropeada (inventario lleno).");
+        boolean hadFlower = potData.hasFlower();
+        String oldFlowerId = hadFlower ? potData.getFlowerId() : null;
+        int oldFlowerLevel = hadFlower ? getStoredFlowerLevel(potData) : 1;
+
+        // 🔧 CORRECCIÓN CRÍTICA: Verificar si es la misma flor antes de devolver
+        if (hadFlower) {
+            // Solo devolver la flor anterior si es DIFERENTE a la nueva
+            boolean isDifferentFlower = !newFlowerId.equals(oldFlowerId) || newFlowerLevel != oldFlowerLevel;
+
+            if (isDifferentFlower) {
+                // Crear flor mágica con metadatos completos basada en el ID y nivel almacenado
+                ItemStack oldMagicFlower = createMagicFlowerFromId(oldFlowerId, oldFlowerLevel);
+                if (oldMagicFlower != null) {
+                    // Intentar añadir al inventario, si no cabe, dropear
+                    if (player.getInventory().addItem(oldMagicFlower).isEmpty()) {
+                        player.sendMessage(ChatColor.YELLOW + "La " + getFlowerDisplayName(oldFlowerId) +
+                                " anterior ha sido devuelta a tu inventario.");
+                    } else {
+                        player.getWorld().dropItemNaturally(player.getLocation(), oldMagicFlower);
+                        player.sendMessage(ChatColor.YELLOW + "La " + getFlowerDisplayName(oldFlowerId) +
+                                " anterior ha sido dropeada (inventario lleno).");
+                    }
                 }
+            } else {
+                // Es la misma flor - no devolver ni consumir
+                player.sendMessage(ChatColor.YELLOW + "Esta maceta ya contiene la misma flor.");
+                player.sendMessage(ChatColor.GRAY + "No es necesario reemplazarla.");
+                return;
             }
         }
 
         // Plantar la nueva flor
-        if (potManager.updateFlowerInPot(location, flowerId)) {
-            // 🆕 NUEVO: Almacenar también el nivel de la flor para preservarla
-            storeFlowerLevel(potData, flowerLevel);
+        if (potManager.updateFlowerInPot(location, newFlowerId, newFlowerLevel)) {
+            // Almacenar el nivel de la flor
+            storeFlowerLevel(potData, newFlowerLevel);
 
             // Consumir la flor del inventario (si no está en creativo)
             if (player.getGameMode() != GameMode.CREATIVE) {
                 flower.setAmount(flower.getAmount() - 1);
             }
 
-            player.sendMessage(ChatColor.GREEN + "✓ " + getFlowerDisplayName(flowerId) +
-                    ChatColor.GREEN + " plantada correctamente!");
+            // Mensajes diferenciados
+            if (hadFlower && !newFlowerId.equals(oldFlowerId)) {
+                player.sendMessage(ChatColor.GREEN + "✓ " + getFlowerDisplayName(newFlowerId) +
+                        ChatColor.GREEN + " plantada, reemplazando " + getFlowerDisplayName(oldFlowerId) + "!");
+            } else if (hadFlower) {
+                player.sendMessage(ChatColor.GREEN + "✓ " + getFlowerDisplayName(newFlowerId) +
+                        ChatColor.GREEN + " mejorada de nivel " + oldFlowerLevel + " a " + newFlowerLevel + "!");
+            } else {
+                player.sendMessage(ChatColor.GREEN + "✓ " + getFlowerDisplayName(newFlowerId) +
+                        ChatColor.GREEN + " plantada correctamente!");
+            }
+
             player.sendMessage(ChatColor.AQUA + "La maceta ahora irradia efectos en " +
                     potData.getEffectRange() + " bloques de distancia.");
 
             // Efectos de plantado
-            playFlowerPlantEffects(location, flowerId);
+            playFlowerPlantEffects(location, newFlowerId, newFlowerLevel);
+
+            plugin.getLogger().info(String.format("Flor plantada: %s -> %s (nivel %d) en maceta ID: %s",
+                    player.getName(), newFlowerId, newFlowerLevel, potData.getPotId()));
         } else {
             player.sendMessage(ChatColor.RED + "Error al plantar la flor. Inténtalo de nuevo.");
         }
@@ -326,7 +354,7 @@ public class MagicFlowerPotListener implements Listener {
     }
 
     /**
-     * 🆕 NUEVO: Obtiene el tipo de flor a partir de su ID
+     * Obtiene el tipo de flor a partir de su ID
      */
     private MagicFlowerFactory.FlowerType getFlowerTypeFromId(String flowerId) {
         switch (flowerId.toLowerCase()) {
@@ -346,7 +374,7 @@ public class MagicFlowerPotListener implements Listener {
     }
 
     /**
-     * 🆕 NUEVO: Obtiene el nivel de una flor mágica
+     * Obtiene el nivel de una flor mágica
      */
     private int getMagicFlowerLevel(ItemStack flower) {
         if (!isMagicFlower(flower)) return 1;
@@ -360,28 +388,26 @@ public class MagicFlowerPotListener implements Listener {
     }
 
     /**
-     * 🆕 NUEVO: Almacena el nivel de la flor en los datos de la maceta
-     * NOTA: Esto requeriría modificar MagicFlowerPotData para incluir el nivel de la flor
-     * Por ahora, usaremos un nivel por defecto de 1
+     * 🔧 MEJORADO: Almacena el nivel de la flor en los datos de la maceta
      */
     private void storeFlowerLevel(MagicFlowerPotData potData, int level) {
-        // TODO: Implementar almacenamiento del nivel en MagicFlowerPotData
-        // Por ahora, el nivel se mantendrá como 1 por defecto
-        // En una versión futura, se podría extender MagicFlowerPotData para incluir:
-        // private int flowerLevel;
+        // NOTA: Esto requiere que MagicFlowerPotData soporte nivel de flor
+        // En la implementación actual, MagicFlowerPotData ya tiene soporte para flowerLevel
+        if (potData != null) {
+            potData.setFlowerLevel(level);
+        }
     }
 
     /**
-     * 🆕 NUEVO: Obtiene el nivel almacenado de la flor (por ahora devuelve 1)
+     * Obtiene el nivel almacenado de la flor
      */
     private int getStoredFlowerLevel(MagicFlowerPotData potData) {
-        // TODO: Implementar obtención del nivel almacenado
-        // Por ahora, retornamos nivel 1 por defecto
-        return 1;
+        // Usando el método ya existente en MagicFlowerPotData
+        return potData != null ? potData.getFlowerLevel() : 1;
     }
 
     /**
-     * 🆕 NUEVO MÉTODO: Verificar distancia mínima entre macetas
+     * Verificar distancia mínima entre macetas
      */
     private boolean isValidDistance(Location newLocation) {
         for (MagicFlowerPotData existingPot : potManager.getAllActivePots()) {
@@ -403,7 +429,7 @@ public class MagicFlowerPotListener implements Listener {
     }
 
     /**
-     * 🆕 NUEVO MÉTODO: Verificar si es una flor normal (prohibida)
+     * Verificar si es una flor normal (prohibida)
      */
     private boolean isNormalFlower(ItemStack item) {
         if (item == null || item.getType() == Material.AIR) return false;
@@ -439,7 +465,7 @@ public class MagicFlowerPotListener implements Listener {
     }
 
     /**
-     * 🆕 NUEVOS EFECTOS DE COLOCACIÓN MEJORADOS
+     * Efectos de colocación mejorados
      */
     private void playEnhancedPlacementEffects(Location location, int level, Player player) {
         World world = location.getWorld();
@@ -490,7 +516,7 @@ public class MagicFlowerPotListener implements Listener {
     }
 
     /**
-     * 🆕 EFECTOS FINALES DE COLOCACIÓN
+     * Efectos finales de colocación
      */
     private void playFinalPlacementEffects(Location location, int level) {
         World world = location.getWorld();
@@ -513,7 +539,7 @@ public class MagicFlowerPotListener implements Listener {
     }
 
     /**
-     * 🆕 CREAR ANILLO DE PARTÍCULAS
+     * Crear anillo de partículas
      */
     private void createParticleRing(Location center, int level) {
         World world = center.getWorld();
@@ -534,7 +560,7 @@ public class MagicFlowerPotListener implements Listener {
     }
 
     /**
-     * 🆕 EFECTOS DE ERROR
+     * Efectos de error
      */
     private void playErrorEffects(Location location) {
         World world = location.getWorld();
@@ -560,11 +586,12 @@ public class MagicFlowerPotListener implements Listener {
         player.sendMessage(ChatColor.WHITE + "  📏 Rango: " + ChatColor.GREEN + potData.getEffectRange() + " bloques");
 
         if (potData.hasFlower()) {
-            player.sendMessage(ChatColor.WHITE + "  🌸 Flor: " + ChatColor.LIGHT_PURPLE +
-                    getFlowerDisplayName(potData.getFlowerId()));
+            String flowerDesc = potData.getFlowerDescription(); // Incluye nivel de flor
+            player.sendMessage(ChatColor.WHITE + "  🌸 Flor: " + ChatColor.LIGHT_PURPLE + flowerDesc);
             player.sendMessage(ChatColor.WHITE + "  ⚡ Estado: " + ChatColor.GREEN + "ACTIVA");
             player.sendMessage("");
             player.sendMessage(ChatColor.YELLOW + "▶ Click derecho con otra flor mágica para cambiar");
+            player.sendMessage(ChatColor.GRAY + "▶ Plantar la misma flor no la duplicará");
         } else {
             player.sendMessage(ChatColor.WHITE + "  🌸 Flor: " + ChatColor.GRAY + "Vacía");
             player.sendMessage(ChatColor.WHITE + "  ⚡ Estado: " + ChatColor.YELLOW + "ESPERANDO FLOR");
@@ -575,6 +602,7 @@ public class MagicFlowerPotListener implements Listener {
 
         player.sendMessage(ChatColor.WHITE + "  🕐 Activa desde: " + ChatColor.GRAY +
                 formatTime(potData.getActiveTime()));
+        player.sendMessage(ChatColor.WHITE + "  🆔 ID: " + ChatColor.GRAY + "#" + potData.getPotId());
         player.sendMessage(ChatColor.LIGHT_PURPLE + "✿ ═══════════════════════════════ ✿");
 
         // Sonido de información
@@ -705,21 +733,59 @@ public class MagicFlowerPotListener implements Listener {
     }
 
     /**
-     * Efectos al plantar una flor
+     * 🔧 MEJORADO: Efectos al plantar una flor con nivel
      */
-    private void playFlowerPlantEffects(Location location, String flowerId) {
+    private void playFlowerPlantEffects(Location location, String flowerId, int flowerLevel) {
         World world = location.getWorld();
         if (world == null) return;
 
         Location effectLocation = location.clone().add(0.5, 0.8, 0.5);
 
-        // Sonido
+        // Sonido base
         world.playSound(effectLocation, Sound.BLOCK_GRASS_PLACE, 1.0f, 1.4f);
         world.playSound(effectLocation, Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.8f, 1.2f);
 
+        // Sonido específico por flor con pitch modificado por nivel
+        Sound flowerSound = getFlowerSound(flowerId);
+        if (flowerSound != null) {
+            float pitch = 1.0f + (flowerLevel - 1) * 0.2f; // Pitch más alto para flores de mayor nivel
+            world.playSound(effectLocation, flowerSound, 0.8f, pitch);
+        }
+
+        // 🆕 MEJORADO: Más partículas para flores de mayor nivel
+        int particleCount = 20 + (flowerLevel - 1) * 10;
+        double spread = 0.4 + (flowerLevel - 1) * 0.1;
+
         // Partículas específicas por flor
         Particle particle = getFlowerParticle(flowerId);
-        world.spawnParticle(particle, effectLocation, 20, 0.4, 0.3, 0.4, 0.1);
+        world.spawnParticle(particle, effectLocation, particleCount, spread, 0.3, spread, 0.1);
+
+        // 🆕 NUEVO: Efectos especiales para flores de alto nivel
+        if (flowerLevel >= 4) {
+            // Anillo de partículas especiales para flores de nivel 4+
+            createSpecialFlowerRing(effectLocation, flowerLevel, particle);
+        }
+    }
+
+    /**
+     * 🆕 NUEVO: Crea un anillo especial para flores de alto nivel
+     */
+    private void createSpecialFlowerRing(Location center, int flowerLevel, Particle particle) {
+        World world = center.getWorld();
+        if (world == null) return;
+
+        double radius = 1.0 + (flowerLevel - 4) * 0.5;
+        int points = 12 + (flowerLevel - 4) * 4;
+
+        for (int i = 0; i < points; i++) {
+            double angle = (i / (double) points) * 2 * Math.PI;
+            double x = center.getX() + Math.cos(angle) * radius;
+            double z = center.getZ() + Math.sin(angle) * radius;
+            double y = center.getY();
+
+            Location particleLocation = new Location(world, x, y, z);
+            world.spawnParticle(particle, particleLocation, 1, 0.1, 0.1, 0.1, 0.02);
+        }
     }
 
     /**
@@ -739,6 +805,26 @@ public class MagicFlowerPotListener implements Listener {
                 return Particle.ENCHANTMENT_TABLE;
             default:
                 return Particle.VILLAGER_HAPPY;
+        }
+    }
+
+    /**
+     * Obtiene el sonido específico para una flor
+     */
+    private Sound getFlowerSound(String flowerId) {
+        switch (flowerId.toLowerCase()) {
+            case "love_flower":
+                return Sound.ENTITY_EXPERIENCE_ORB_PICKUP;
+            case "healing_flower":
+                return Sound.ENTITY_PLAYER_LEVELUP;
+            case "speed_flower":
+                return Sound.ENTITY_HORSE_GALLOP;
+            case "strength_flower":
+                return Sound.ENTITY_IRON_GOLEM_ATTACK;
+            case "night_vision_flower":
+                return Sound.BLOCK_ENCHANTMENT_TABLE_USE;
+            default:
+                return Sound.BLOCK_GRASS_PLACE;
         }
     }
 

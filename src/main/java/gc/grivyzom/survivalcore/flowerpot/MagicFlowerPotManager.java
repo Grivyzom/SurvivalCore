@@ -15,9 +15,10 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Manager que controla todas las macetas mágicas colocadas en el mundo
  * Maneja efectos, partículas y persistencia de datos
+ * MEJORADO v1.1 - Soporte para niveles de flores mágicas
  *
  * @author Brocolitx
- * @version 1.0
+ * @version 1.1
  */
 public class MagicFlowerPotManager {
 
@@ -41,10 +42,18 @@ public class MagicFlowerPotManager {
      * Registra una maceta mágica colocada en el mundo
      */
     public void registerPot(Location location, String potId, int level, String flowerId) {
+        registerPot(location, potId, level, flowerId, 1); // Nivel por defecto de flor
+    }
+
+    /**
+     * 🆕 NUEVO: Registra una maceta mágica con nivel de flor específico
+     */
+    public void registerPot(Location location, String potId, int level, String flowerId, int flowerLevel) {
         MagicFlowerPotData data = new MagicFlowerPotData(
                 potId,
                 level,
                 flowerId,
+                flowerLevel,
                 System.currentTimeMillis(),
                 location.clone()
         );
@@ -55,7 +64,8 @@ public class MagicFlowerPotManager {
                 location.getWorld().getName() + " (" +
                 location.getBlockX() + ", " +
                 location.getBlockY() + ", " +
-                location.getBlockZ() + ") - ID: " + potId);
+                location.getBlockZ() + ") - ID: " + potId +
+                (!"none".equals(flowerId) ? " con " + flowerId + " Lv." + flowerLevel : ""));
     }
 
     /**
@@ -86,14 +96,20 @@ public class MagicFlowerPotManager {
      * Actualiza la flor en una maceta existente
      */
     public boolean updateFlowerInPot(Location location, String newFlowerId) {
+        return updateFlowerInPot(location, newFlowerId, 1); // Nivel por defecto
+    }
+
+    /**
+     * 🆕 NUEVO: Actualiza la flor en una maceta existente con nivel específico
+     */
+    public boolean updateFlowerInPot(Location location, String newFlowerId, int flowerLevel) {
         MagicFlowerPotData data = activePots.get(location);
         if (data == null) return false;
 
-        data.setFlowerId(newFlowerId);
-        data.setLastUpdate(System.currentTimeMillis());
+        data.updateFlower(newFlowerId, flowerLevel);
 
         // Reproducir efectos de actualización
-        playFlowerPlacementEffects(location, newFlowerId);
+        playFlowerPlacementEffects(location, newFlowerId, flowerLevel);
 
         return true;
     }
@@ -142,7 +158,7 @@ public class MagicFlowerPotManager {
             MagicFlowerPotData data = entry.getValue();
 
             // Solo aplicar efectos si tiene flor
-            if (data.getFlowerId().equals("none")) continue;
+            if (!data.hasFlower()) continue;
 
             // Verificar que el bloque siga siendo una maceta
             Block block = potLocation.getBlock();
@@ -158,17 +174,16 @@ public class MagicFlowerPotManager {
     }
 
     /**
-     * Aplica el efecto específico de una flor
+     * 🔧 MEJORADO: Aplica el efecto específico de una flor considerando su nivel
      */
     private void applyFlowerEffect(Location potLocation, MagicFlowerPotData data) {
         String flowerId = data.getFlowerId();
-        int level = data.getLevel();
-        int range = calculateRange(level);
-
-        // CORRECCIÓN: Usar getNearbyEntities en lugar de getNearbyPlayers
-        Collection<Player> nearbyPlayers = new ArrayList<>();
+        int potLevel = data.getLevel();
+        int flowerLevel = data.getFlowerLevel();
+        int range = data.getEffectRange();
 
         // Obtener todas las entidades en el área y filtrar solo jugadores
+        Collection<Player> nearbyPlayers = new ArrayList<>();
         Collection<org.bukkit.entity.Entity> entities = potLocation.getWorld().getNearbyEntities(
                 potLocation, range, range, range
         );
@@ -185,8 +200,8 @@ public class MagicFlowerPotManager {
                 continue;
             }
 
-            // Aplicar efecto según el tipo de flor
-            PotionEffect effect = getFlowerEffect(flowerId, level);
+            // 🆕 MEJORADO: Aplicar efecto considerando el nivel de la flor
+            PotionEffect effect = getFlowerEffect(flowerId, potLevel, flowerLevel);
             if (effect != null) {
                 player.addPotionEffect(effect);
             }
@@ -194,32 +209,36 @@ public class MagicFlowerPotManager {
     }
 
     /**
-     * Obtiene el efecto de poción para una flor específica
+     * 🔧 MEJORADO: Obtiene el efecto de poción considerando nivel de maceta Y flor
      */
-    private PotionEffect getFlowerEffect(String flowerId, int potLevel) {
-        // Duración base: 4 segundos (80 ticks)
-        int duration = 80;
+    private PotionEffect getFlowerEffect(String flowerId, int potLevel, int flowerLevel) {
+        // Duración base: 4 segundos (80 ticks), modificada por nivel de maceta
+        int duration = 80 + (potLevel - 1) * 20; // +1 segundo por nivel de maceta
+
+        // Amplificador basado en el nivel de la flor (0-based)
+        int amplifier = Math.max(0, flowerLevel - 1);
 
         switch (flowerId.toLowerCase()) {
             case "love_flower":
-                // Regeneración (nivel basado en nivel de maceta)
-                return new PotionEffect(PotionEffectType.ABSORPTION, duration, potLevel - 1);
+                // Regeneración - nivel aumenta con la flor
+                return new PotionEffect(PotionEffectType.REGENERATION, duration, amplifier);
 
             case "healing_flower":
-                // Curación instantánea
-                return new PotionEffect(PotionEffectType.REGENERATION, 1, 0);
+                // Curación instantánea - amplificador basado en nivel de flor
+                return new PotionEffect(PotionEffectType.ABSORPTION, 4, amplifier);
 
             case "speed_flower":
-                // Velocidad
-                return new PotionEffect(PotionEffectType.SPEED, duration, potLevel - 1);
+                // Velocidad - amplificador basado en nivel de flor
+                return new PotionEffect(PotionEffectType.SPEED, duration, amplifier);
 
             case "strength_flower":
-                // Fuerza
-                return new PotionEffect(PotionEffectType.INCREASE_DAMAGE, duration, potLevel - 1);
+                // Fuerza - amplificador basado en nivel de flor
+                return new PotionEffect(PotionEffectType.INCREASE_DAMAGE, duration, amplifier);
 
             case "night_vision_flower":
-                // Visión nocturna (duración extendida)
-                return new PotionEffect(PotionEffectType.NIGHT_VISION, duration * 3, 0);
+                // Visión nocturna - duración extendida basada en nivel de flor
+                int nightVisionDuration = duration * (2 + flowerLevel); // Más duración con mejor flor
+                return new PotionEffect(PotionEffectType.NIGHT_VISION, nightVisionDuration, 0);
 
             default:
                 return null;
@@ -227,7 +246,7 @@ public class MagicFlowerPotManager {
     }
 
     /**
-     * Genera partículas para las macetas
+     * 🔧 MEJORADO: Genera partículas considerando el nivel de la flor
      */
     private void spawnParticles() {
         for (Map.Entry<Location, MagicFlowerPotData> entry : activePots.entrySet()) {
@@ -238,7 +257,7 @@ public class MagicFlowerPotManager {
             if (!potLocation.getChunk().isLoaded()) continue;
 
             // Partículas diferentes según si tiene flor o no
-            if (data.getFlowerId().equals("none")) {
+            if (!data.hasFlower()) {
                 spawnIdleParticles(potLocation);
             } else {
                 spawnActiveParticles(potLocation, data);
@@ -266,7 +285,7 @@ public class MagicFlowerPotManager {
     }
 
     /**
-     * Partículas cuando la maceta tiene una flor activa
+     * 🔧 MEJORADO: Partículas cuando la maceta tiene una flor activa (considera nivel de flor)
      */
     private void spawnActiveParticles(Location location, MagicFlowerPotData data) {
         World world = location.getWorld();
@@ -274,22 +293,31 @@ public class MagicFlowerPotManager {
 
         Location particleLocation = location.clone().add(0.5, 0.8, 0.5);
         String flowerId = data.getFlowerId();
-        int level = data.getLevel();
+        int potLevel = data.getLevel();
+        int flowerLevel = data.getFlowerLevel();
 
         // Partículas específicas por tipo de flor
         Particle particleType = getFlowerParticle(flowerId);
-        int particleCount = 3 + level; // Más partículas para niveles superiores
+
+        // 🆕 MEJORADO: Más partículas para niveles superiores de flor
+        int baseCount = 3 + potLevel; // Partículas base por nivel de maceta
+        int flowerBonus = (flowerLevel - 1) * 2; // Bonus por nivel de flor
+        int particleCount = baseCount + flowerBonus;
+
+        // 🆕 MEJORADO: Área de partículas más grande para flores de alto nivel
+        double spread = 0.3 + (flowerLevel - 1) * 0.1;
 
         world.spawnParticle(
                 particleType,
                 particleLocation,
                 particleCount,
-                0.3, 0.2, 0.3,
+                spread, 0.2, spread,
                 0.05
         );
 
         // Partículas adicionales en área de efecto (menos frecuentes)
-        if (Math.random() < 0.3) { // 30% de probabilidad
+        double areaChance = 0.3 + (flowerLevel - 1) * 0.1; // Mayor chance con mejores flores
+        if (Math.random() < areaChance) {
             spawnAreaEffectParticles(location, data);
         }
     }
@@ -315,18 +343,22 @@ public class MagicFlowerPotManager {
     }
 
     /**
-     * Partículas de efecto en el área
+     * 🔧 MEJORADO: Partículas de efecto en el área considerando nivel de flor
      */
     private void spawnAreaEffectParticles(Location center, MagicFlowerPotData data) {
         World world = center.getWorld();
         if (world == null) return;
 
-        int range = calculateRange(data.getLevel());
+        int range = data.getEffectRange();
+        int flowerLevel = data.getFlowerLevel();
         Particle particle = getFlowerParticle(data.getFlowerId());
 
+        // 🆕 MEJORADO: Más puntos en el anillo para flores de mayor nivel
+        int ringPoints = 8 + (flowerLevel - 1) * 2;
+
         // Crear un anillo de partículas en el suelo
-        for (int i = 0; i < 8; i++) {
-            double angle = (i / 8.0) * 2 * Math.PI;
+        for (int i = 0; i < ringPoints; i++) {
+            double angle = (i / (double) ringPoints) * 2 * Math.PI;
             double x = center.getX() + 0.5 + Math.cos(angle) * range;
             double z = center.getZ() + 0.5 + Math.sin(angle) * range;
             double y = center.getY() + 0.1;
@@ -337,9 +369,9 @@ public class MagicFlowerPotManager {
     }
 
     /**
-     * Reproduce efectos cuando se coloca una flor
+     * 🔧 MEJORADO: Reproduce efectos cuando se coloca una flor considerando su nivel
      */
-    private void playFlowerPlacementEffects(Location location, String flowerId) {
+    private void playFlowerPlacementEffects(Location location, String flowerId, int flowerLevel) {
         World world = location.getWorld();
         if (world == null) return;
 
@@ -348,14 +380,46 @@ public class MagicFlowerPotManager {
         // Sonido de colocación
         world.playSound(effectLocation, Sound.BLOCK_GRASS_PLACE, 1.0f, 1.2f);
 
+        // 🆕 MEJORADO: Más partículas para flores de mayor nivel
+        int particleCount = 20 + (flowerLevel - 1) * 10;
+        double spread = 0.4 + (flowerLevel - 1) * 0.1;
+
         // Partículas de confirmación
         Particle particle = getFlowerParticle(flowerId);
-        world.spawnParticle(particle, effectLocation, 20, 0.4, 0.3, 0.4, 0.1);
+        world.spawnParticle(particle, effectLocation, particleCount, spread, 0.3, spread, 0.1);
 
         // Sonido específico por flor
         Sound flowerSound = getFlowerSound(flowerId);
         if (flowerSound != null) {
-            world.playSound(effectLocation, flowerSound, 0.8f, 1.0f);
+            float pitch = 1.0f + (flowerLevel - 1) * 0.2f; // Pitch más alto para flores de mayor nivel
+            world.playSound(effectLocation, flowerSound, 0.8f, pitch);
+        }
+
+        // 🆕 NUEVO: Efectos especiales para flores de alto nivel
+        if (flowerLevel >= 4) {
+            // Anillo de partículas especiales para flores de nivel 4+
+            createSpecialFlowerRing(effectLocation, flowerLevel, particle);
+        }
+    }
+
+    /**
+     * 🆕 NUEVO: Crea un anillo especial para flores de alto nivel
+     */
+    private void createSpecialFlowerRing(Location center, int flowerLevel, Particle particle) {
+        World world = center.getWorld();
+        if (world == null) return;
+
+        double radius = 1.0 + (flowerLevel - 4) * 0.5;
+        int points = 12 + (flowerLevel - 4) * 4;
+
+        for (int i = 0; i < points; i++) {
+            double angle = (i / (double) points) * 2 * Math.PI;
+            double x = center.getX() + Math.cos(angle) * radius;
+            double z = center.getZ() + Math.sin(angle) * radius;
+            double y = center.getY();
+
+            Location particleLocation = new Location(world, x, y, z);
+            world.spawnParticle(particle, particleLocation, 1, 0.1, 0.1, 0.1, 0.02);
         }
     }
 
@@ -413,18 +477,36 @@ public class MagicFlowerPotManager {
     }
 
     /**
-     * Obtiene estadísticas del manager
+     * 🔧 MEJORADO: Obtiene estadísticas del manager incluyendo niveles de flores
      */
     public String getStatistics() {
         long activeFlowers = activePots.values().stream()
-                .filter(data -> !data.getFlowerId().equals("none"))
+                .filter(MagicFlowerPotData::hasFlower)
                 .count();
 
-        return String.format("Macetas activas: %d | Con flores: %d | Vacías: %d",
-                activePots.size(),
-                activeFlowers,
-                activePots.size() - activeFlowers
-        );
+        // 🆕 NUEVO: Estadísticas por nivel de flor
+        Map<Integer, Long> flowerLevelCounts = new HashMap<>();
+        for (int i = 1; i <= 5; i++) {
+            flowerLevelCounts.put(i, 0L);
+        }
+
+        activePots.values().stream()
+                .filter(MagicFlowerPotData::hasFlower)
+                .forEach(data -> {
+                    int level = data.getFlowerLevel();
+                    flowerLevelCounts.put(level, flowerLevelCounts.get(level) + 1);
+                });
+
+        StringBuilder stats = new StringBuilder();
+        stats.append(String.format("Macetas activas: %d | Con flores: %d | Vacías: %d\n",
+                activePots.size(), activeFlowers, activePots.size() - activeFlowers));
+
+        stats.append("Distribución por nivel de flor:\n");
+        for (int i = 1; i <= 5; i++) {
+            stats.append(String.format("  Nivel %d: %d flores\n", i, flowerLevelCounts.get(i)));
+        }
+
+        return stats.toString();
     }
 
     /**
@@ -433,5 +515,99 @@ public class MagicFlowerPotManager {
     public void forceUpdate() {
         applyFlowerEffects();
         spawnParticles();
+    }
+
+    // =================== MÉTODOS AUXILIARES PARA EL LISTENER ===================
+
+    /**
+     * 🆕 NUEVO: Obtiene el nivel de una flor en una maceta específica
+     */
+    public int getFlowerLevel(Location location) {
+        MagicFlowerPotData data = activePots.get(location);
+        return data != null ? data.getFlowerLevel() : 1;
+    }
+
+    /**
+     * 🆕 NUEVO: Actualiza solo el nivel de la flor en una maceta
+     */
+    public boolean updateFlowerLevel(Location location, int newLevel) {
+        MagicFlowerPotData data = activePots.get(location);
+        if (data == null || !data.hasFlower()) return false;
+
+        data.setFlowerLevel(newLevel);
+        return true;
+    }
+
+    /**
+     * 🆕 NUEVO: Obtiene todas las macetas con un tipo específico de flor
+     */
+    public List<MagicFlowerPotData> getPotsWithFlower(String flowerId) {
+        return activePots.values().stream()
+                .filter(data -> data.hasFlower() && data.getFlowerId().equals(flowerId))
+                .collect(java.util.stream.Collectors.toList());
+    }
+
+    /**
+     * 🆕 NUEVO: Obtiene todas las macetas con flores de un nivel mínimo
+     */
+    public List<MagicFlowerPotData> getPotsWithMinFlowerLevel(int minLevel) {
+        return activePots.values().stream()
+                .filter(data -> data.hasFlower() && data.getFlowerLevel() >= minLevel)
+                .collect(java.util.stream.Collectors.toList());
+    }
+
+    /**
+     * 🆕 NUEVO: Cuenta cuántas macetas tienen flores de nivel máximo
+     */
+    public long getMaxLevelFlowerCount() {
+        return activePots.values().stream()
+                .filter(MagicFlowerPotData::isMaxLevelFlower)
+                .count();
+    }
+
+    /**
+     * 🆕 NUEVO: Obtiene estadísticas detalladas para administradores
+     */
+    public String getDetailedStatistics() {
+        StringBuilder stats = new StringBuilder();
+
+        stats.append("=== ESTADÍSTICAS DETALLADAS DE MACETAS MÁGICAS ===\n");
+        stats.append(getStatistics());
+
+        stats.append("\nTipos de flores activas:\n");
+        Map<String, Long> flowerTypeCounts = activePots.values().stream()
+                .filter(MagicFlowerPotData::hasFlower)
+                .collect(java.util.stream.Collectors.groupingBy(
+                        MagicFlowerPotData::getFlowerId,
+                        java.util.stream.Collectors.counting()
+                ));
+
+        flowerTypeCounts.forEach((type, count) ->
+                stats.append(String.format("  %s: %d macetas\n", getFlowerDisplayName(type), count))
+        );
+
+        stats.append(String.format("\nMacetas con flores de nivel máximo: %d\n", getMaxLevelFlowerCount()));
+
+        return stats.toString();
+    }
+
+    /**
+     * Obtiene el nombre de display de una flor
+     */
+    private String getFlowerDisplayName(String flowerId) {
+        switch (flowerId.toLowerCase()) {
+            case "love_flower":
+                return "Flor del Amor";
+            case "healing_flower":
+                return "Flor Sanadora";
+            case "speed_flower":
+                return "Flor de Velocidad";
+            case "strength_flower":
+                return "Flor de Fuerza";
+            case "night_vision_flower":
+                return "Flor Nocturna";
+            default:
+                return "Flor Desconocida";
+        }
     }
 }

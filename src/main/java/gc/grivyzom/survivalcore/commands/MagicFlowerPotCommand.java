@@ -4,6 +4,8 @@ import gc.grivyzom.survivalcore.Main;
 import gc.grivyzom.survivalcore.flowerpot.MagicFlowerPot;
 import gc.grivyzom.survivalcore.flowerpot.MagicFlowerPotManager;
 import gc.grivyzom.survivalcore.flowers.MagicFlowerFactory;
+import gc.grivyzom.survivalcore.flowers.config.FlowerConfigManager;
+import gc.grivyzom.survivalcore.flowers.config.ConfigurableFlowerFactory;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -18,11 +20,11 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * Comando para gestionar las Macetas Mágicas
- * CORREGIDO v1.2 - Comando give funcional
+ * Comando para gestionar las Macetas Mágicas - CORREGIDO v2.1
+ * Errores de compilación solucionados
  *
  * @author Brocolitx
- * @version 1.2
+ * @version 2.1
  */
 public class MagicFlowerPotCommand implements CommandExecutor, TabCompleter {
 
@@ -65,17 +67,11 @@ public class MagicFlowerPotCommand implements CommandExecutor, TabCompleter {
             case "reload":
                 return handleReload(sender);
             case "giveflower":
-                return plugin.getFlowerIntegration().handleGiveConfigurableFlower(sender, args);
-            case "listconfig":
-                return plugin.getFlowerIntegration().handleListConfigurable(sender);
-            case "infoconfig":
-                return plugin.getFlowerIntegration().handleInfoConfigurable(sender);
-            case "reloadconfig":
-                return plugin.getFlowerIntegration().handleReloadConfig(sender);
-            case "statsconfig":
-                return plugin.getFlowerIntegration().handleStatsConfig(sender);
-            case "migrate":
-                return plugin.getFlowerIntegration().handleMigrateFlowers(sender);
+                return handleGiveFlower(sender, args); // 🔧 CORREGIDO: Tipo correcto
+            case "listflowers":
+                return handleListFlowers(sender);
+            case "reloadflowers":
+                return handleReloadFlowers(sender);
             default:
                 sender.sendMessage(ChatColor.RED + "Subcomando desconocido. Usa /flowerpot help para ver la ayuda.");
                 return true;
@@ -83,7 +79,7 @@ public class MagicFlowerPotCommand implements CommandExecutor, TabCompleter {
     }
 
     /**
-     * 🔧 CORREGIDO: Maneja el subcomando 'give' para MACETAS MÁGICAS
+     * Maneja el subcomando 'give' para MACETAS MÁGICAS
      */
     private boolean handleGive(CommandSender sender, String[] args) {
         if (!sender.hasPermission("survivalcore.flowerpot.give")) {
@@ -134,7 +130,7 @@ public class MagicFlowerPotCommand implements CommandExecutor, TabCompleter {
             }
         }
 
-        // 🔧 CORRECCIÓN: Usar potFactory en lugar de flowerFactory para crear macetas
+        // Crear macetas mágicas
         for (int i = 0; i < amount; i++) {
             ItemStack magicPot = potFactory.createMagicFlowerPot(level);
             target.getInventory().addItem(magicPot);
@@ -151,9 +147,9 @@ public class MagicFlowerPotCommand implements CommandExecutor, TabCompleter {
     }
 
     /**
-     * 🆕 NUEVO: Maneja el subcomando 'giveflower' para FLORES MÁGICAS
+     * 🔧 CORREGIDO: Maneja el subcomando 'giveflower' para FLORES CONFIGURABLES
      */
-    private boolean handleGiveFlower(CommandSender sender, String[] args) {
+    private boolean handleGiveFlower(CommandSender sender, String[] args) { // 🔧 CORREGIDO: CommandSender, no SendSender
         if (!sender.hasPermission("survivalcore.magicflower.give")) {
             sender.sendMessage(ChatColor.RED + "No tienes permisos para dar Flores Mágicas.");
             return true;
@@ -161,7 +157,7 @@ public class MagicFlowerPotCommand implements CommandExecutor, TabCompleter {
 
         if (args.length < 3) {
             sender.sendMessage(ChatColor.RED + "Uso: /flowerpot giveflower <jugador> <tipo> [nivel] [cantidad]");
-            sender.sendMessage(ChatColor.GRAY + "Tipos disponibles: love, healing, speed, strength, night_vision");
+            sender.sendMessage(ChatColor.GRAY + "Usa '/flowerpot listflowers' para ver tipos disponibles");
             return true;
         }
 
@@ -171,14 +167,7 @@ public class MagicFlowerPotCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        // Obtener tipo de flor
-        MagicFlowerFactory.FlowerType flowerType = getFlowerTypeFromString(args[2]);
-        if (flowerType == null) {
-            sender.sendMessage(ChatColor.RED + "Tipo de flor inválido: " + args[2]);
-            sender.sendMessage(ChatColor.GRAY + "Tipos disponibles: love, healing, speed, strength, night_vision");
-            return true;
-        }
-
+        String flowerId = args[2].toLowerCase();
         int level = 1;
         int amount = 1;
 
@@ -186,8 +175,8 @@ public class MagicFlowerPotCommand implements CommandExecutor, TabCompleter {
         if (args.length >= 4) {
             try {
                 level = Integer.parseInt(args[3]);
-                if (level < 1 || level > 5) {
-                    sender.sendMessage(ChatColor.RED + "El nivel debe estar entre 1 y 5.");
+                if (level < 1 || level > 15) { // Máximo 15 para flores míticas
+                    sender.sendMessage(ChatColor.RED + "El nivel debe estar entre 1 y 15.");
                     return true;
                 }
             } catch (NumberFormatException e) {
@@ -210,42 +199,155 @@ public class MagicFlowerPotCommand implements CommandExecutor, TabCompleter {
             }
         }
 
-        // Crear y dar las flores
-        for (int i = 0; i < amount; i++) {
-            ItemStack magicFlower = flowerFactory.createMagicFlower(flowerType, level);
-            target.getInventory().addItem(magicFlower);
-        }
+        // 🔧 CORRECCIÓN PRINCIPAL: Usar el sistema configurable
+        if (plugin.getFlowerIntegration() != null) {
+            ConfigurableFlowerFactory configurableFactory = plugin.getFlowerIntegration().getFlowerFactory();
+            FlowerConfigManager configManager = plugin.getFlowerIntegration().getConfigManager();
 
-        // Mensajes de confirmación
-        String flowerText = amount == 1 ? "Flor Mágica" : "Flores Mágicas";
-        target.sendMessage(ChatColor.GREEN + "Has recibido " + amount + " " + flowerText +
-                " de " + flowerType.getDisplayName() + " nivel " + level + ".");
-        sender.sendMessage(ChatColor.GREEN + "Has dado " + amount + " " + flowerText +
-                " de " + flowerType.getDisplayName() + " nivel " + level + " a " + target.getName() + ".");
+            // Verificar si la flor existe en la configuración
+            if (!configManager.hasFlower(flowerId)) {
+                sender.sendMessage(ChatColor.RED + "Tipo de flor no encontrado: " + flowerId);
+                sender.sendMessage(ChatColor.GRAY + "Usa '/flowerpot listflowers' para ver flores disponibles");
+                return true;
+            }
+
+            // 🔧 CORREGIDO: Verificar nivel máximo correctamente
+            var flowerDef = configManager.getFlower(flowerId);
+            int maxLevel = flowerDef.getConfig().getMaxLevel();
+            if (level > maxLevel) {
+                sender.sendMessage(ChatColor.RED + "El nivel máximo para " + flowerId + " es " + maxLevel);
+                return true;
+            }
+
+            // Crear las flores configurables
+            for (int i = 0; i < amount; i++) {
+                ItemStack configurableFlower = configurableFactory.createConfigurableFlower(flowerId, level);
+                if (configurableFlower != null) {
+                    target.getInventory().addItem(configurableFlower);
+                } else {
+                    sender.sendMessage(ChatColor.RED + "Error al crear la flor: " + flowerId);
+                    return true;
+                }
+            }
+
+            // Obtener información de la flor para el mensaje
+            String flowerDisplayName = ChatColor.stripColor(ChatColor.translateAlternateColorCodes('&',
+                    flowerDef.getDisplay().getName()));
+            String tierName = flowerDef.getTier().getName(); // 🔧 CORREGIDO: getName() en lugar de name()
+            String tierColor = configManager.getTierColor(tierName);
+
+            // Mensajes de confirmación
+            String flowerText = amount == 1 ? "Flor Mágica" : "Flores Mágicas";
+            target.sendMessage(ChatColor.GREEN + "Has recibido " + amount + " " + flowerText + ":");
+            target.sendMessage(ChatColor.WHITE + "  🌸 " + ChatColor.translateAlternateColorCodes('&', tierColor + flowerDisplayName));
+            target.sendMessage(ChatColor.WHITE + "  📊 Nivel: " + ChatColor.AQUA + level);
+            target.sendMessage(ChatColor.WHITE + "  🏆 Tier: " + ChatColor.translateAlternateColorCodes('&', tierColor + tierName));
+
+            sender.sendMessage(ChatColor.GREEN + "Has dado " + amount + " " + flowerText + " de " +
+                    flowerDisplayName + " (Lv." + level + ") a " + target.getName() + ".");
+
+        } else {
+            // Fallback al sistema tradicional si el configurable no está disponible
+            sender.sendMessage(ChatColor.RED + "Sistema de flores configurables no disponible.");
+            sender.sendMessage(ChatColor.GRAY + "Contacta a un administrador.");
+            plugin.getLogger().warning("FlowerIntegration es null - Sistema configurable no inicializado");
+            return true;
+        }
 
         return true;
     }
 
     /**
-     * Maneja el subcomando 'list'
+     * 🆕 NUEVO: Lista todas las flores disponibles del sistema configurable
+     */
+    private boolean handleListFlowers(CommandSender sender) {
+        if (plugin.getFlowerIntegration() == null) {
+            sender.sendMessage(ChatColor.RED + "Sistema de flores configurables no disponible.");
+            return true;
+        }
+
+        FlowerConfigManager configManager = plugin.getFlowerIntegration().getConfigManager();
+
+        sender.sendMessage("");
+        sender.sendMessage(ChatColor.LIGHT_PURPLE + "🌸 ═══════ FLORES CONFIGURABLES ═══════ 🌸");
+        sender.sendMessage("");
+
+        for (String flowerId : configManager.getAllFlowerIds()) {
+            var flowerDef = configManager.getFlower(flowerId);
+            if (flowerDef == null) continue;
+
+            String displayName = ChatColor.stripColor(ChatColor.translateAlternateColorCodes('&',
+                    flowerDef.getDisplay().getName()));
+            String tierName = flowerDef.getTier().getName(); // 🔧 CORREGIDO: getName() en lugar de name()
+            String tierColor = configManager.getTierColor(tierName);
+            int maxLevel = flowerDef.getConfig().getMaxLevel();
+
+            sender.sendMessage(ChatColor.AQUA + "• " + flowerId);
+            sender.sendMessage(ChatColor.WHITE + "  Nombre: " + ChatColor.translateAlternateColorCodes('&', tierColor + displayName));
+            sender.sendMessage(ChatColor.WHITE + "  Tier: " + ChatColor.translateAlternateColorCodes('&', tierColor + tierName));
+            sender.sendMessage(ChatColor.WHITE + "  Nivel máximo: " + ChatColor.YELLOW + maxLevel);
+            sender.sendMessage(ChatColor.WHITE + "  Material: " + ChatColor.GRAY + flowerDef.getConfig().getType().name());
+            sender.sendMessage("");
+        }
+
+        sender.sendMessage(ChatColor.YELLOW + "💡 Usa: /flowerpot giveflower <jugador> <id_flor> [nivel] [cantidad]");
+        sender.sendMessage(ChatColor.LIGHT_PURPLE + "🌸 ═══════════════════════════════════ 🌸");
+
+        return true;
+    }
+
+    /**
+     * 🆕 NUEVO: Recarga el sistema de flores configurables
+     */
+    private boolean handleReloadFlowers(CommandSender sender) {
+        if (!sender.hasPermission("survivalcore.flowerpot.admin")) {
+            sender.sendMessage(ChatColor.RED + "No tienes permisos para recargar la configuración.");
+            return true;
+        }
+
+        if (plugin.getFlowerIntegration() == null) {
+            sender.sendMessage(ChatColor.RED + "Sistema de flores configurables no disponible.");
+            return true;
+        }
+
+        try {
+            // Recargar configuración de flores
+            plugin.getFlowerIntegration().reloadFlowerConfig();
+
+            sender.sendMessage(ChatColor.GREEN + "✓ Configuración de flores recargada correctamente.");
+
+            FlowerConfigManager configManager = plugin.getFlowerIntegration().getConfigManager();
+            int flowerCount = configManager.getAllFlowerIds().size();
+            sender.sendMessage(ChatColor.GRAY + "Flores cargadas: " + flowerCount);
+
+        } catch (Exception e) {
+            sender.sendMessage(ChatColor.RED + "Error al recargar flores: " + e.getMessage());
+            plugin.getLogger().severe("Error recargando configuración de flores: " + e.getMessage());
+            e.printStackTrace();
+        }
+
+        return true;
+    }
+
+    /**
+     * Maneja el subcomando 'list' - Solo para flores tradicionales
      */
     private boolean handleList(CommandSender sender) {
         sender.sendMessage("");
-        sender.sendMessage(ChatColor.LIGHT_PURPLE + "🌸 ════════ FLORES MÁGICAS DISPONIBLES ════════ 🌸");
+        sender.sendMessage(ChatColor.LIGHT_PURPLE + "🌸 ═══════ FLORES TRADICIONALES ═══════ 🌸");
+        sender.sendMessage(ChatColor.YELLOW + "⚠ Estas son las flores del sistema anterior");
         sender.sendMessage("");
 
         for (MagicFlowerFactory.FlowerType type : MagicFlowerFactory.FlowerType.values()) {
             sender.sendMessage(ChatColor.AQUA + "• " + type.getDisplayName());
             sender.sendMessage(ChatColor.WHITE + "  ID: " + ChatColor.GRAY + type.getId());
             sender.sendMessage(ChatColor.WHITE + "  Efecto: " + ChatColor.GREEN + type.getEffectDescription());
-            sender.sendMessage(ChatColor.WHITE + "  Material base: " + ChatColor.YELLOW + type.getMaterial().name());
+            sender.sendMessage(ChatColor.WHITE + "  Material: " + ChatColor.YELLOW + type.getMaterial().name());
             sender.sendMessage("");
         }
 
-        sender.sendMessage(ChatColor.YELLOW + "💡 Consejo: Usa estas flores en Macetas Mágicas para");
-        sender.sendMessage(ChatColor.YELLOW + "    activar efectos de área continuos.");
-        sender.sendMessage("");
-        sender.sendMessage(ChatColor.LIGHT_PURPLE + "🌸 ══════════════════════════════════════════ 🌸");
+        sender.sendMessage(ChatColor.YELLOW + "💡 Usa '/flowerpot listflowers' para ver las flores configurables");
+        sender.sendMessage(ChatColor.LIGHT_PURPLE + "🌸 ═══════════════════════════════════ 🌸");
 
         return true;
     }
@@ -268,9 +370,15 @@ public class MagicFlowerPotCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        // Verificar si es una flor mágica
+        // Verificar si es una flor mágica (configurable o tradicional)
+        if (plugin.getFlowerIntegration() != null &&
+                plugin.getFlowerIntegration().getFlowerFactory().isMagicFlower(itemInHand)) {
+            showConfigurableFlowerInfo(player, itemInHand);
+            return true;
+        }
+
         if (flowerFactory.isMagicFlower(itemInHand)) {
-            showFlowerInfo(player, itemInHand);
+            showTraditionalFlowerInfo(player, itemInHand);
             return true;
         }
 
@@ -279,7 +387,81 @@ public class MagicFlowerPotCommand implements CommandExecutor, TabCompleter {
     }
 
     /**
-     * 🆕 Muestra información de una maceta mágica
+     * 🆕 NUEVO: Muestra información de flores configurables
+     */
+    private void showConfigurableFlowerInfo(Player player, ItemStack flower) {
+        ConfigurableFlowerFactory factory = plugin.getFlowerIntegration().getFlowerFactory();
+        FlowerConfigManager configManager = plugin.getFlowerIntegration().getConfigManager();
+
+        String flowerId = factory.getFlowerId(flower);
+        int level = factory.getFlowerLevel(flower);
+        var flowerDef = configManager.getFlower(flowerId);
+
+        if (flowerDef == null) {
+            player.sendMessage(ChatColor.RED + "Error: Flor configurable no reconocida.");
+            return;
+        }
+
+        String displayName = ChatColor.translateAlternateColorCodes('&', flowerDef.getDisplay().getName());
+        String tierName = flowerDef.getTier().getName(); // 🔧 CORREGIDO: getName() en lugar de name()
+        String tierColor = configManager.getTierColor(tierName);
+
+        player.sendMessage("");
+        player.sendMessage(ChatColor.LIGHT_PURPLE + "🌸 ══════ FLOR CONFIGURABLE ══════ 🌸");
+        player.sendMessage(ChatColor.WHITE + "  🌸 Nombre: " + displayName);
+        player.sendMessage(ChatColor.WHITE + "  📊 Nivel: " + ChatColor.AQUA + level + "/" + flowerDef.getConfig().getMaxLevel());
+        player.sendMessage(ChatColor.WHITE + "  🆔 ID: " + ChatColor.GRAY + flowerId);
+        player.sendMessage(ChatColor.WHITE + "  🏆 Tier: " + ChatColor.translateAlternateColorCodes('&', tierColor + tierName));
+        player.sendMessage(ChatColor.WHITE + "  🧱 Material: " + ChatColor.YELLOW + flowerDef.getConfig().getType().name());
+        player.sendMessage("");
+
+        // Mostrar efectos
+        player.sendMessage(ChatColor.YELLOW + "⚡ Efectos:");
+        for (var effect : flowerDef.getEffects()) {
+            int effectLevel = effect.calculateLevel(level);
+            int duration = effect.calculateDuration(level);
+            player.sendMessage(ChatColor.WHITE + "  • " + ChatColor.GREEN + effect.getType().getName() +
+                    " " + (effectLevel + 1) + " (" + duration + "s)");
+        }
+
+        player.sendMessage("");
+        player.sendMessage(ChatColor.YELLOW + "🎯 Uso:");
+        player.sendMessage(ChatColor.WHITE + "  • Coloca una Maceta Mágica en el suelo");
+        player.sendMessage(ChatColor.WHITE + "  • Haz click derecho en la maceta con esta flor");
+        player.sendMessage(ChatColor.WHITE + "  • ¡La maceta irradiará efectos configurables!");
+        player.sendMessage("");
+        player.sendMessage(ChatColor.LIGHT_PURPLE + "🌸 ═══════════════════════════════════ 🌸");
+    }
+
+    /**
+     * Muestra información de flores tradicionales
+     */
+    private void showTraditionalFlowerInfo(Player player, ItemStack flower) {
+        String flowerId = flowerFactory.getFlowerId(flower);
+        int level = flowerFactory.getFlowerLevel(flower);
+        MagicFlowerFactory.FlowerType type = MagicFlowerFactory.FlowerType.getById(flowerId);
+
+        if (type == null) {
+            player.sendMessage(ChatColor.RED + "Error: Flor tradicional no reconocida.");
+            return;
+        }
+
+        player.sendMessage("");
+        player.sendMessage(ChatColor.LIGHT_PURPLE + "🌸 ══════ FLOR TRADICIONAL ══════ 🌸");
+        player.sendMessage(ChatColor.WHITE + "  🌸 Nombre: " + ChatColor.LIGHT_PURPLE + type.getDisplayName());
+        player.sendMessage(ChatColor.WHITE + "  📊 Nivel: " + ChatColor.AQUA + level + "/5");
+        player.sendMessage(ChatColor.WHITE + "  🆔 ID: " + ChatColor.GRAY + type.getId());
+        player.sendMessage(ChatColor.WHITE + "  ⚡ Efecto: " + ChatColor.GREEN + type.getEffectDescription());
+        player.sendMessage(ChatColor.WHITE + "  🧱 Material: " + ChatColor.YELLOW + type.getMaterial().name());
+        player.sendMessage("");
+        player.sendMessage(ChatColor.YELLOW + "⚠ Esta es una flor del sistema anterior");
+        player.sendMessage(ChatColor.GRAY + "Se recomienda usar flores configurables");
+        player.sendMessage("");
+        player.sendMessage(ChatColor.LIGHT_PURPLE + "🌸 ═══════════════════════════════════ 🌸");
+    }
+
+    /**
+     * Muestra información de macetas
      */
     private void showPotInfo(Player player, ItemStack pot) {
         int level = potFactory.getPotLevel(pot);
@@ -288,7 +470,7 @@ public class MagicFlowerPotCommand implements CommandExecutor, TabCompleter {
         String potId = potFactory.getPotId(pot);
 
         player.sendMessage("");
-        player.sendMessage(ChatColor.LIGHT_PURPLE + "🏺 ══════ INFORMACIÓN DE MACETA MÁGICA ══════ 🏺");
+        player.sendMessage(ChatColor.LIGHT_PURPLE + "🏺 ══════ MACETA MÁGICA ══════ 🏺");
         player.sendMessage(ChatColor.WHITE + "  🏺 Tipo: " + ChatColor.LIGHT_PURPLE + "Maceta Mágica");
         player.sendMessage(ChatColor.WHITE + "  📊 Nivel: " + ChatColor.AQUA + level + "/5");
         player.sendMessage(ChatColor.WHITE + "  📏 Rango: " + ChatColor.GREEN + range + " bloques");
@@ -304,49 +486,201 @@ public class MagicFlowerPotCommand implements CommandExecutor, TabCompleter {
         }
 
         player.sendMessage("");
-        player.sendMessage(ChatColor.YELLOW + "🎯 Uso:");
-        player.sendMessage(ChatColor.WHITE + "  • Coloca la maceta en el suelo");
-        player.sendMessage(ChatColor.WHITE + "  • Haz click derecho con una flor mágica");
-        player.sendMessage(ChatColor.WHITE + "  • ¡Disfruta de los efectos de área!");
-        player.sendMessage("");
-        player.sendMessage(ChatColor.LIGHT_PURPLE + "🏺 ═══════════════════════════════════════ 🏺");
+        player.sendMessage(ChatColor.LIGHT_PURPLE + "🏺 ═══════════════════════════════════ 🏺");
     }
 
     /**
-     * 🆕 Muestra información de una flor mágica
+     * Obtiene el nombre de display de una flor
      */
-    private void showFlowerInfo(Player player, ItemStack flower) {
-        String flowerId = flowerFactory.getFlowerId(flower);
-        int level = flowerFactory.getFlowerLevel(flower);
-        MagicFlowerFactory.FlowerType type = MagicFlowerFactory.FlowerType.getById(flowerId);
-
-        if (type == null) {
-            player.sendMessage(ChatColor.RED + "Error: Flor mágica no reconocida.");
-            return;
+    private String getFlowerDisplayName(String flowerId) {
+        // Intentar obtener de configuración primero
+        if (plugin.getFlowerIntegration() != null) {
+            FlowerConfigManager configManager = plugin.getFlowerIntegration().getConfigManager();
+            if (configManager.hasFlower(flowerId)) {
+                var flowerDef = configManager.getFlower(flowerId);
+                if (flowerDef != null) {
+                    return ChatColor.stripColor(ChatColor.translateAlternateColorCodes('&',
+                            flowerDef.getDisplay().getName()));
+                }
+            }
         }
 
-        player.sendMessage("");
-        player.sendMessage(ChatColor.LIGHT_PURPLE + "🌸 ══════ INFORMACIÓN DE FLOR MÁGICA ══════ 🌸");
-        player.sendMessage(ChatColor.WHITE + "  🌸 Nombre: " + ChatColor.LIGHT_PURPLE + type.getDisplayName());
-        player.sendMessage(ChatColor.WHITE + "  📊 Nivel: " + ChatColor.AQUA + level + "/5");
-        player.sendMessage(ChatColor.WHITE + "  🆔 ID: " + ChatColor.GRAY + type.getId());
-        player.sendMessage(ChatColor.WHITE + "  ⚡ Efecto: " + ChatColor.GREEN + type.getEffectDescription());
-        player.sendMessage(ChatColor.WHITE + "  🧱 Material: " + ChatColor.YELLOW + type.getMaterial().name());
-        player.sendMessage("");
-        player.sendMessage(ChatColor.YELLOW + "🎯 Uso:");
-        player.sendMessage(ChatColor.WHITE + "  • Coloca una Maceta Mágica en el suelo");
-        player.sendMessage(ChatColor.WHITE + "  • Haz click derecho en la maceta con esta flor");
-        player.sendMessage(ChatColor.WHITE + "  • ¡La maceta irradiará efectos mágicos!");
-        player.sendMessage("");
+        // Fallback a nombres tradicionales
+        switch (flowerId.toLowerCase()) {
+            case "love_flower":
+                return "Flor del Amor";
+            case "healing_flower":
+                return "Flor Sanadora";
+            case "speed_flower":
+                return "Flor de Velocidad";
+            case "strength_flower":
+                return "Flor de Fuerza";
+            case "night_vision_flower":
+                return "Flor Nocturna";
+            default:
+                return "Flor Desconocida";
+        }
+    }
 
-        if (level < 5) {
-            player.sendMessage(ChatColor.GRAY + "💡 Consejo: Las flores de mayor nivel son más potentes");
-        } else {
-            player.sendMessage(ChatColor.GOLD + "⭐ ¡Esta flor tiene el nivel máximo!");
+    /**
+     * 🔧 ACTUALIZADA: Muestra la ayuda con los nuevos comandos
+     */
+    private void showHelp(CommandSender sender) {
+        sender.sendMessage("");
+        sender.sendMessage(ChatColor.LIGHT_PURPLE + "🏺 ═══════ COMANDOS DE MACETAS MÁGICAS ═══════ 🏺");
+        sender.sendMessage("");
+
+        if (sender.hasPermission("survivalcore.flowerpot.give")) {
+            sender.sendMessage(ChatColor.AQUA + "/flowerpot give <jugador> [nivel] [cantidad]");
+            sender.sendMessage(ChatColor.GRAY + "  • Da macetas mágicas a un jugador (niveles 1-5)");
         }
 
-        player.sendMessage("");
-        player.sendMessage(ChatColor.LIGHT_PURPLE + "🌸 ═══════════════════════════════════════ 🌸");
+        if (sender.hasPermission("survivalcore.magicflower.give")) {
+            sender.sendMessage(ChatColor.AQUA + "/flowerpot giveflower <jugador> <id_flor> [nivel] [cantidad]");
+            sender.sendMessage(ChatColor.GRAY + "  • Da flores configurables a un jugador");
+        }
+
+        sender.sendMessage(ChatColor.AQUA + "/flowerpot listflowers");
+        sender.sendMessage(ChatColor.GRAY + "  • Muestra todas las flores configurables disponibles");
+
+        sender.sendMessage(ChatColor.AQUA + "/flowerpot list");
+        sender.sendMessage(ChatColor.GRAY + "  • Muestra las flores tradicionales (sistema anterior)");
+
+        sender.sendMessage(ChatColor.AQUA + "/flowerpot info");
+        sender.sendMessage(ChatColor.GRAY + "  • Muestra información del ítem en tu mano");
+
+        sender.sendMessage(ChatColor.AQUA + "/flowerpot restrictions");
+        sender.sendMessage(ChatColor.GRAY + "  • Muestra las restricciones del sistema");
+
+        if (sender.hasPermission("survivalcore.flowerpot.admin")) {
+            sender.sendMessage(ChatColor.AQUA + "/flowerpot stats");
+            sender.sendMessage(ChatColor.GRAY + "  • Muestra estadísticas del sistema (admin)");
+
+            sender.sendMessage(ChatColor.AQUA + "/flowerpot reload");
+            sender.sendMessage(ChatColor.GRAY + "  • Recarga configuración de macetas (admin)");
+
+            sender.sendMessage(ChatColor.AQUA + "/flowerpot reloadflowers");
+            sender.sendMessage(ChatColor.GRAY + "  • Recarga configuración de flores (admin)");
+        }
+
+        sender.sendMessage("");
+        sender.sendMessage(ChatColor.YELLOW + "🎮 Cómo usar macetas mágicas:");
+        sender.sendMessage(ChatColor.WHITE + "1. Obtén macetas con " + ChatColor.AQUA + "/flowerpot give");
+        sender.sendMessage(ChatColor.WHITE + "2. Obtén flores con " + ChatColor.AQUA + "/flowerpot giveflower");
+        sender.sendMessage(ChatColor.WHITE + "3. Coloca la maceta en el suelo");
+        sender.sendMessage(ChatColor.WHITE + "4. Click derecho en la maceta con la flor");
+        sender.sendMessage(ChatColor.WHITE + "5. ¡Disfruta de los efectos mágicos configurables!");
+        sender.sendMessage("");
+        sender.sendMessage(ChatColor.RED + "⚠ Notas importantes:");
+        sender.sendMessage(ChatColor.GRAY + "  • Las flores configurables están en flowers.yml");
+        sender.sendMessage(ChatColor.GRAY + "  • Las macetas deben estar separadas al menos 2 bloques");
+        sender.sendMessage(ChatColor.GRAY + "  • Mayor nivel = efectos más potentes");
+        sender.sendMessage("");
+        sender.sendMessage(ChatColor.LIGHT_PURPLE + "🏺 ═══════════════════════════════════════ 🏺");
+    }
+
+    // =================== RESTO DE MÉTODOS ===================
+
+    @Override
+    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        List<String> completions = new ArrayList<>();
+
+        if (args.length == 1) {
+            // Subcomandos principales
+            List<String> subcommands = Arrays.asList("list", "listflowers", "info", "help", "restrictions");
+
+            if (sender.hasPermission("survivalcore.flowerpot.give")) {
+                subcommands = new ArrayList<>(subcommands);
+                subcommands.add("give");
+            }
+
+            if (sender.hasPermission("survivalcore.magicflower.give")) {
+                subcommands = new ArrayList<>(subcommands);
+                subcommands.add("giveflower");
+            }
+
+            if (sender.hasPermission("survivalcore.flowerpot.admin")) {
+                subcommands = new ArrayList<>(subcommands);
+                subcommands.addAll(Arrays.asList("stats", "reload", "reloadflowers"));
+            }
+
+            return subcommands.stream()
+                    .filter(sub -> sub.startsWith(args[0].toLowerCase()))
+                    .collect(Collectors.toList());
+
+        } else if (args.length == 2 && (args[0].equalsIgnoreCase("give") || args[0].equalsIgnoreCase("giveflower"))) {
+            // Autocompletar jugadores
+            return plugin.getServer().getOnlinePlayers().stream()
+                    .map(Player::getName)
+                    .filter(name -> name.toLowerCase().startsWith(args[1].toLowerCase()))
+                    .collect(Collectors.toList());
+
+        } else if (args.length == 3) {
+            if (args[0].equalsIgnoreCase("give")) {
+                // Autocompletar niveles de macetas (1-5)
+                List<String> levels = Arrays.asList("1", "2", "3", "4", "5");
+                return levels.stream()
+                        .filter(level -> level.startsWith(args[2]))
+                        .collect(Collectors.toList());
+
+            } else if (args[0].equalsIgnoreCase("giveflower")) {
+                // 🔧 CORREGIDO: Autocompletar IDs de flores configurables
+                if (plugin.getFlowerIntegration() != null) {
+                    FlowerConfigManager configManager = plugin.getFlowerIntegration().getConfigManager();
+                    return configManager.getAllFlowerIds().stream()
+                            .filter(flowerId -> flowerId.toLowerCase().startsWith(args[2].toLowerCase()))
+                            .collect(Collectors.toList());
+                } else {
+                    // Fallback a flores tradicionales
+                    List<String> traditionalFlowers = Arrays.asList("love_flower", "healing_flower", "speed_flower", "strength_flower", "night_vision_flower");
+                    return traditionalFlowers.stream()
+                            .filter(type -> type.startsWith(args[2].toLowerCase()))
+                            .collect(Collectors.toList());
+                }
+            }
+
+        } else if (args.length == 4) {
+            if (args[0].equalsIgnoreCase("give")) {
+                // Autocompletar cantidades para macetas
+                List<String> amounts = Arrays.asList("1", "2", "4", "8", "16", "32", "64");
+                return amounts.stream()
+                        .filter(amount -> amount.startsWith(args[3]))
+                        .collect(Collectors.toList());
+
+            } else if (args[0].equalsIgnoreCase("giveflower")) {
+                // 🔧 CORREGIDO: Autocompletar niveles basado en la flor específica
+                if (plugin.getFlowerIntegration() != null) {
+                    FlowerConfigManager configManager = plugin.getFlowerIntegration().getConfigManager();
+                    String flowerId = args[2].toLowerCase();
+
+                    if (configManager.hasFlower(flowerId)) {
+                        int maxLevel = configManager.getFlower(flowerId).getConfig().getMaxLevel();
+                        List<String> levels = new ArrayList<>();
+                        for (int i = 1; i <= maxLevel; i++) {
+                            levels.add(String.valueOf(i));
+                        }
+                        return levels.stream()
+                                .filter(level -> level.startsWith(args[3]))
+                                .collect(Collectors.toList());
+                    }
+                }
+
+                // Fallback genérico
+                List<String> levels = Arrays.asList("1", "2", "3", "4", "5", "6", "7", "8", "9", "10");
+                return levels.stream()
+                        .filter(level -> level.startsWith(args[3]))
+                        .collect(Collectors.toList());
+            }
+
+        } else if (args.length == 5 && args[0].equalsIgnoreCase("giveflower")) {
+            // Autocompletar cantidades para flores
+            List<String> amounts = Arrays.asList("1", "2", "4", "8", "16", "32", "64");
+            return amounts.stream()
+                    .filter(amount -> amount.startsWith(args[4]))
+                    .collect(Collectors.toList());
+        }
+
+        return completions;
     }
 
     /**
@@ -374,22 +708,15 @@ public class MagicFlowerPotCommand implements CommandExecutor, TabCompleter {
         if (blockFlowers) {
             sender.sendMessage(ChatColor.RED + "  ❌ Flores normales BLOQUEADAS");
             sender.sendMessage(ChatColor.WHITE + "  • Solo se aceptan flores mágicas especiales");
-            sender.sendMessage(ChatColor.GRAY + "  • Flores bloqueadas: Amapola, Diente de León,");
-            sender.sendMessage(ChatColor.GRAY + "    Orquídea Azul, Tulipanes, Margaritas, etc.");
+            sender.sendMessage(ChatColor.GRAY + "  • Sistema configurable en flowers.yml");
         } else {
             sender.sendMessage(ChatColor.GREEN + "  ✓ Todas las flores permitidas");
         }
 
         sender.sendMessage("");
 
-        // Ubicación
-        sender.sendMessage(ChatColor.YELLOW + "📍 Restricciones de ubicación:");
-        sender.sendMessage(ChatColor.WHITE + "  • Superficie sólida requerida debajo");
-        sender.sendMessage(ChatColor.WHITE + "  • Espacio libre requerido arriba");
-
         // Límites
         int maxPots = plugin.getConfig().getInt("magic_flowerpot.settings.max_pots_per_player", 10);
-        sender.sendMessage("");
         sender.sendMessage(ChatColor.YELLOW + "🔢 Límites por jugador:");
         if (maxPots > 0) {
             sender.sendMessage(ChatColor.WHITE + "  • Máximo " + ChatColor.AQUA + maxPots + " macetas" +
@@ -420,36 +747,14 @@ public class MagicFlowerPotCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(ChatColor.AQUA + "═══════ ESTADÍSTICAS DE MACETAS MÁGICAS ═══════");
         sender.sendMessage(ChatColor.WHITE + stats);
 
-        // Mostrar distribución por nivel
-        var activePots = potManager.getAllActivePots();
-        int[] levelCounts = new int[6]; // Índice 0 no se usa, 1-5 para niveles
-
-        for (var pot : activePots) {
-            if (pot.getLevel() >= 1 && pot.getLevel() <= 5) {
-                levelCounts[pot.getLevel()]++;
-            }
+        // Estadísticas del sistema configurable
+        if (plugin.getFlowerIntegration() != null) {
+            FlowerConfigManager configManager = plugin.getFlowerIntegration().getConfigManager();
+            sender.sendMessage("");
+            sender.sendMessage(ChatColor.YELLOW + "Sistema de flores configurables:");
+            sender.sendMessage(ChatColor.WHITE + "  Flores disponibles: " + ChatColor.AQUA + configManager.getAllFlowerIds().size());
+            sender.sendMessage(ChatColor.WHITE + "  Tiers definidos: " + ChatColor.AQUA + configManager.getAllTierNames().size());
         }
-
-        sender.sendMessage("");
-        sender.sendMessage(ChatColor.YELLOW + "Distribución por nivel:");
-        for (int i = 1; i <= 5; i++) {
-            sender.sendMessage(ChatColor.WHITE + "  Nivel " + i + ": " +
-                    ChatColor.AQUA + levelCounts[i] + " macetas");
-        }
-
-        // Estadísticas adicionales de las nuevas funcionalidades
-        sender.sendMessage("");
-        sender.sendMessage(ChatColor.YELLOW + "Configuración activa:");
-
-        int minDistance = plugin.getConfig().getInt("magic_flowerpot.settings.min_distance_between_pots", 2);
-        boolean blockFlowers = plugin.getConfig().getBoolean("magic_flowerpot.settings.block_normal_flowers", true);
-        boolean animations = plugin.getConfig().getBoolean("magic_flowerpot.settings.enable_enhanced_placement_animations", true);
-
-        sender.sendMessage(ChatColor.WHITE + "  Distancia mínima: " + ChatColor.AQUA + minDistance + " bloques");
-        sender.sendMessage(ChatColor.WHITE + "  Flores normales bloqueadas: " +
-                (blockFlowers ? ChatColor.GREEN + "SÍ" : ChatColor.RED + "NO"));
-        sender.sendMessage(ChatColor.WHITE + "  Animaciones mejoradas: " +
-                (animations ? ChatColor.GREEN + "SÍ" : ChatColor.RED + "NO"));
 
         sender.sendMessage(ChatColor.AQUA + "═════════════════════════════════════════════");
 
@@ -475,205 +780,11 @@ public class MagicFlowerPotCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage(ChatColor.GREEN + "✓ Configuración de Macetas Mágicas recargada correctamente.");
             sender.sendMessage(ChatColor.GRAY + "Macetas activas: " + potManager.getActivePotCount());
 
-            // Mostrar configuración recargada
-            sender.sendMessage("");
-            sender.sendMessage(ChatColor.YELLOW + "Configuración actualizada:");
-
-            int minDistance = plugin.getConfig().getInt("magic_flowerpot.settings.min_distance_between_pots", 2);
-            boolean blockFlowers = plugin.getConfig().getBoolean("magic_flowerpot.settings.block_normal_flowers", true);
-            boolean animations = plugin.getConfig().getBoolean("magic_flowerpot.settings.enable_enhanced_placement_animations", true);
-
-            sender.sendMessage(ChatColor.WHITE + "  • Distancia mínima: " + ChatColor.AQUA + minDistance + " bloques");
-            sender.sendMessage(ChatColor.WHITE + "  • Flores normales bloqueadas: " +
-                    (blockFlowers ? ChatColor.GREEN + "SÍ" : ChatColor.RED + "NO"));
-            sender.sendMessage(ChatColor.WHITE + "  • Animaciones mejoradas: " +
-                    (animations ? ChatColor.GREEN + "SÍ" : ChatColor.RED + "NO"));
-
         } catch (Exception e) {
             sender.sendMessage(ChatColor.RED + "Error al recargar la configuración: " + e.getMessage());
             plugin.getLogger().severe("Error recargando configuración de macetas: " + e.getMessage());
         }
 
         return true;
-    }
-
-    /**
-     * 🔧 MEJORADA: Muestra la ayuda del comando con comandos actualizados
-     */
-    private void showHelp(CommandSender sender) {
-        sender.sendMessage("");
-        sender.sendMessage(ChatColor.LIGHT_PURPLE + "🏺 ════════ COMANDOS DE MACETAS MÁGICAS ════════ 🏺");
-        sender.sendMessage("");
-
-        if (sender.hasPermission("survivalcore.flowerpot.give")) {
-            sender.sendMessage(ChatColor.AQUA + "/flowerpot give <jugador> [nivel] [cantidad]");
-            sender.sendMessage(ChatColor.GRAY + "  • Da macetas mágicas a un jugador (niveles 1-5)");
-        }
-
-        if (sender.hasPermission("survivalcore.magicflower.give")) {
-            sender.sendMessage(ChatColor.AQUA + "/flowerpot giveflower <jugador> <tipo> [nivel] [cantidad]");
-            sender.sendMessage(ChatColor.GRAY + "  • Da flores mágicas a un jugador");
-            sender.sendMessage(ChatColor.GRAY + "  • Tipos: love, healing, speed, strength, night_vision");
-        }
-
-        sender.sendMessage(ChatColor.AQUA + "/flowerpot list");
-        sender.sendMessage(ChatColor.GRAY + "  • Muestra todas las flores mágicas disponibles");
-
-        sender.sendMessage(ChatColor.AQUA + "/flowerpot info");
-        sender.sendMessage(ChatColor.GRAY + "  • Muestra información del ítem en tu mano");
-
-        sender.sendMessage(ChatColor.AQUA + "/flowerpot restrictions");
-        sender.sendMessage(ChatColor.GRAY + "  • Muestra las restricciones del sistema");
-
-        if (sender.hasPermission("survivalcore.flowerpot.admin")) {
-            sender.sendMessage(ChatColor.AQUA + "/flowerpot stats");
-            sender.sendMessage(ChatColor.GRAY + "  • Muestra estadísticas del sistema (admin)");
-
-            sender.sendMessage(ChatColor.AQUA + "/flowerpot reload");
-            sender.sendMessage(ChatColor.GRAY + "  • Recarga la configuración (admin)");
-        }
-
-        sender.sendMessage(ChatColor.AQUA + "/flowerpot help");
-        sender.sendMessage(ChatColor.GRAY + "  • Muestra esta ayuda");
-
-        sender.sendMessage("");
-        sender.sendMessage(ChatColor.YELLOW + "🎮 Cómo usar macetas mágicas:");
-        sender.sendMessage(ChatColor.WHITE + "1. Obtén macetas con " + ChatColor.AQUA + "/flowerpot give");
-        sender.sendMessage(ChatColor.WHITE + "2. Obtén flores con " + ChatColor.AQUA + "/flowerpot giveflower");
-        sender.sendMessage(ChatColor.WHITE + "3. Coloca la maceta en el suelo");
-        sender.sendMessage(ChatColor.WHITE + "4. Click derecho en la maceta con la flor");
-        sender.sendMessage(ChatColor.WHITE + "5. ¡Disfruta de los efectos mágicos continuos!");
-        sender.sendMessage("");
-        sender.sendMessage(ChatColor.RED + "⚠ Importante:");
-        sender.sendMessage(ChatColor.GRAY + "  • Las macetas deben estar separadas al menos 2 bloques");
-        sender.sendMessage(ChatColor.GRAY + "  • Solo funcionan con flores mágicas especiales");
-        sender.sendMessage(ChatColor.GRAY + "  • Mayor nivel = mayor rango de efectos");
-        sender.sendMessage("");
-        sender.sendMessage(ChatColor.LIGHT_PURPLE + "🏺 ══════════════════════════════════════════ 🏺");
-    }
-
-    /**
-     * Obtiene el nombre de display de una flor
-     */
-    private String getFlowerDisplayName(String flowerId) {
-        switch (flowerId.toLowerCase()) {
-            case "love_flower":
-                return "Flor del Amor";
-            case "healing_flower":
-                return "Flor Sanadora";
-            case "speed_flower":
-                return "Flor de Velocidad";
-            case "strength_flower":
-                return "Flor de Fuerza";
-            case "night_vision_flower":
-                return "Flor Nocturna";
-            default:
-                return "Flor Desconocida";
-        }
-    }
-
-    /**
-     * Convierte un string a tipo de flor
-     */
-    private MagicFlowerFactory.FlowerType getFlowerTypeFromString(String input) {
-        switch (input.toLowerCase()) {
-            case "love":
-            case "amor":
-                return MagicFlowerFactory.FlowerType.LOVE_FLOWER;
-            case "healing":
-            case "heal":
-            case "sanacion":
-                return MagicFlowerFactory.FlowerType.HEALING_FLOWER;
-            case "speed":
-            case "velocidad":
-                return MagicFlowerFactory.FlowerType.SPEED_FLOWER;
-            case "strength":
-            case "fuerza":
-                return MagicFlowerFactory.FlowerType.STRENGTH_FLOWER;
-            case "night_vision":
-            case "night":
-            case "vision":
-            case "nocturna":
-                return MagicFlowerFactory.FlowerType.NIGHT_VISION_FLOWER;
-            default:
-                return null;
-        }
-    }
-
-    @Override
-    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        List<String> completions = new ArrayList<>();
-
-        if (args.length == 1) {
-            // Subcomandos principales
-            List<String> subcommands = Arrays.asList("list", "info", "help", "restrictions");
-
-            if (sender.hasPermission("survivalcore.flowerpot.give")) {
-                subcommands = new ArrayList<>(subcommands);
-                subcommands.add("give");
-            }
-
-            if (sender.hasPermission("survivalcore.magicflower.give")) {
-                subcommands = new ArrayList<>(subcommands);
-                subcommands.add("giveflower");
-            }
-
-            if (sender.hasPermission("survivalcore.flowerpot.admin")) {
-                subcommands = new ArrayList<>(subcommands);
-                subcommands.addAll(Arrays.asList("stats", "reload"));
-            }
-
-            return subcommands.stream()
-                    .filter(sub -> sub.startsWith(args[0].toLowerCase()))
-                    .collect(Collectors.toList());
-
-        } else if (args.length == 2 && (args[0].equalsIgnoreCase("give") || args[0].equalsIgnoreCase("giveflower"))) {
-            // Autocompletar jugadores
-            return plugin.getServer().getOnlinePlayers().stream()
-                    .map(Player::getName)
-                    .filter(name -> name.toLowerCase().startsWith(args[1].toLowerCase()))
-                    .collect(Collectors.toList());
-
-        } else if (args.length == 3) {
-            if (args[0].equalsIgnoreCase("give")) {
-                // Autocompletar niveles de macetas (1-5)
-                List<String> levels = Arrays.asList("1", "2", "3", "4", "5");
-                return levels.stream()
-                        .filter(level -> level.startsWith(args[2]))
-                        .collect(Collectors.toList());
-
-            } else if (args[0].equalsIgnoreCase("giveflower")) {
-                // Autocompletar tipos de flores
-                List<String> flowerTypes = Arrays.asList("love", "healing", "speed", "strength", "night_vision");
-                return flowerTypes.stream()
-                        .filter(type -> type.startsWith(args[2].toLowerCase()))
-                        .collect(Collectors.toList());
-            }
-
-        } else if (args.length == 4) {
-            if (args[0].equalsIgnoreCase("give")) {
-                // Autocompletar cantidades para macetas
-                List<String> amounts = Arrays.asList("1", "2", "4", "8", "16", "32", "64");
-                return amounts.stream()
-                        .filter(amount -> amount.startsWith(args[3]))
-                        .collect(Collectors.toList());
-
-            } else if (args[0].equalsIgnoreCase("giveflower")) {
-                // Autocompletar niveles de flores (1-5)
-                List<String> levels = Arrays.asList("1", "2", "3", "4", "5");
-                return levels.stream()
-                        .filter(level -> level.startsWith(args[3]))
-                        .collect(Collectors.toList());
-            }
-
-        } else if (args.length == 5 && args[0].equalsIgnoreCase("giveflower")) {
-            // Autocompletar cantidades para flores
-            List<String> amounts = Arrays.asList("1", "2", "4", "8", "16", "32", "64");
-            return amounts.stream()
-                    .filter(amount -> amount.startsWith(args[4]))
-                    .collect(Collectors.toList());
-        }
-
-        return completions;
     }
 }

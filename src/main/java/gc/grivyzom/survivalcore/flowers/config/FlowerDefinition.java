@@ -3,247 +3,150 @@ package gc.grivyzom.survivalcore.flowers.config;
 import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
-import org.bukkit.ChatColor;
 import org.bukkit.potion.PotionEffectType;
 
-import java.util.*;
+import java.util.List;
+import java.util.Map;
 
 /**
- * Representa la definición completa de una flor mágica configurable
+ * Definición completa de una flor mágica configurable
  *
  * @author Brocolitx
  * @version 1.0
  */
 public class FlowerDefinition {
 
-    // =================== DATOS BÁSICOS ===================
     private final String id;
-    private final Material material;
-    private final TierDefinition tier;
-    private final int maxLevel;
-    private final boolean enchantEffect;
-
-    // =================== CONFIGURACIÓN VISUAL ===================
+    private final FlowerConfig config;
+    private final DisplayConfig display;
+    private final List<FlowerEffect> effects;
     private final ParticleConfig particles;
     private final SoundConfig sounds;
-    private final DisplayConfig display;
-
-    // =================== EFECTOS Y MECÁNICAS ===================
-    private final List<FlowerEffect> effects;
     private final SpecialConditions specialConditions;
     private final Map<String, SpecialMechanic> specialMechanics;
 
-    public FlowerDefinition(String id, Material material, TierDefinition tier, int maxLevel,
-                            boolean enchantEffect, ParticleConfig particles, SoundConfig sounds,
-                            DisplayConfig display, List<FlowerEffect> effects,
-                            SpecialConditions specialConditions,
+    public FlowerDefinition(String id, FlowerConfig config, DisplayConfig display,
+                            List<FlowerEffect> effects, ParticleConfig particles,
+                            SoundConfig sounds, SpecialConditions specialConditions,
                             Map<String, SpecialMechanic> specialMechanics) {
         this.id = id;
-        this.material = material;
-        this.tier = tier;
-        this.maxLevel = maxLevel > 0 ? maxLevel : tier.getMaxLevel(); // Override del tier si se especifica
-        this.enchantEffect = enchantEffect;
+        this.config = config;
+        this.display = display;
+        this.effects = effects;
         this.particles = particles;
         this.sounds = sounds;
-        this.display = display;
-        this.effects = new ArrayList<>(effects);
         this.specialConditions = specialConditions;
-        this.specialMechanics = new HashMap<>(specialMechanics);
+        this.specialMechanics = specialMechanics;
     }
 
-    // =================== GETTERS BÁSICOS ===================
+    // =================== GETTERS ===================
 
-    public String getId() {
-        return id;
-    }
+    public String getId() { return id; }
+    public FlowerConfig getConfig() { return config; }
+    public DisplayConfig getDisplay() { return display; }
+    public List<FlowerEffect> getEffects() { return effects; }
+    public ParticleConfig getParticles() { return particles; }
+    public SoundConfig getSounds() { return sounds; }
+    public SpecialConditions getSpecialConditions() { return specialConditions; }
+    public Map<String, SpecialMechanic> getSpecialMechanics() { return specialMechanics; }
 
-    public Material getMaterial() {
-        return material;
-    }
-
-    public TierDefinition getTier() {
-        return tier;
-    }
-
-    public int getMaxLevel() {
-        return maxLevel;
-    }
-
-    public boolean hasEnchantEffect() {
-        return enchantEffect;
-    }
-
-    public ParticleConfig getParticles() {
-        return particles;
-    }
-
-    public SoundConfig getSounds() {
-        return sounds;
-    }
-
-    public DisplayConfig getDisplay() {
-        return display;
-    }
-
-    public List<FlowerEffect> getEffects() {
-        return new ArrayList<>(effects);
-    }
-
-    public SpecialConditions getSpecialConditions() {
-        return specialConditions;
-    }
-
-    public Map<String, SpecialMechanic> getSpecialMechanics() {
-        return new HashMap<>(specialMechanics);
-    }
-
-    // =================== MÉTODOS DE UTILIDAD ===================
-
-    /**
-     * Verifica si la flor tiene un efecto específico
-     */
-    public boolean hasEffect(PotionEffectType effectType) {
-        return effects.stream().anyMatch(effect -> effect.getType().equals(effectType));
-    }
-
-    /**
-     * Obtiene el efecto de un tipo específico
-     */
-    public Optional<FlowerEffect> getEffect(PotionEffectType effectType) {
-        return effects.stream()
-                .filter(effect -> effect.getType().equals(effectType))
-                .findFirst();
-    }
-
-    /**
-     * Verifica si la flor tiene una mecánica especial
-     */
-    public boolean hasSpecialMechanic(String mechanicName) {
-        return specialMechanics.containsKey(mechanicName);
-    }
-
-    /**
-     * Obtiene una mecánica especial
-     */
-    public Optional<SpecialMechanic> getSpecialMechanic(String mechanicName) {
-        return Optional.ofNullable(specialMechanics.get(mechanicName));
-    }
-
-    /**
-     * Verifica si la flor es válida para un nivel específico
-     */
-    public boolean isValidLevel(int level) {
-        return level > 0 && level <= maxLevel;
-    }
-
-    /**
-     * Obtiene el nombre formateado para un nivel específico
-     */
-    public String getFormattedName(int level) {
-        String baseName = ChatColor.translateAlternateColorCodes('&', display.getName());
-        String tierColor = tier.getColorCode();
-
-        if (level > 1) {
-            return baseName + " " + tierColor + "[Nivel " + level + "]";
-        }
-        return baseName;
-    }
-
-    /**
-     * Obtiene el lore formateado para un nivel específico
-     */
-    public List<String> getFormattedLore(int level) {
-        List<String> formattedLore = new ArrayList<>();
-
-        for (String line : display.getLore()) {
-            String formatted = ChatColor.translateAlternateColorCodes('&', line);
-
-            // Reemplazar placeholders
-            formatted = formatted.replace("{level}", String.valueOf(level));
-            formatted = formatted.replace("{tier_color}", tier.getColor());
-            formatted = formatted.replace("{tier_name}", tier.getName());
-            formatted = formatted.replace("{max_level}", String.valueOf(maxLevel));
-
-            // Reemplazar información de efectos
-            for (FlowerEffect effect : effects) {
-                int effectLevel = effect.calculateLevel(level);
-                int duration = effect.calculateDuration(level);
-
-                formatted = formatted.replace("{" + effect.getType().getName().toLowerCase() + "_level}",
-                        String.valueOf(effectLevel));
-                formatted = formatted.replace("{duration}", String.valueOf(duration));
-            }
-
-            formattedLore.add(formatted);
-        }
-
-        return formattedLore;
-    }
-
-    // =================== VALIDACIÓN ===================
-
-    /**
-     * Valida que la definición de la flor sea correcta
-     */
-    public boolean isValid() {
-        List<String> errors = getValidationErrors();
-        return errors.isEmpty();
-    }
-
-    /**
-     * Obtiene una lista de errores de validación
-     */
-    public List<String> getValidationErrors() {
-        List<String> errors = new ArrayList<>();
-
-        // Validaciones básicas
-        if (id == null || id.trim().isEmpty()) {
-            errors.add("ID de flor no puede estar vacío");
-        }
-
-        if (material == null) {
-            errors.add("Material no puede ser nulo");
-        }
-
-        if (tier == null) {
-            errors.add("Tier no puede ser nulo");
-        } else if (!tier.isValid()) {
-            errors.add("Tier inválido: " + tier.getValidationErrors());
-        }
-
-        if (maxLevel <= 0) {
-            errors.add("Nivel máximo debe ser mayor a 0");
-        }
-
-        // Validar configuraciones
-        if (particles != null && !particles.isValid()) {
-            errors.addAll(particles.getValidationErrors());
-        }
-
-        if (sounds != null && !sounds.isValid()) {
-            errors.addAll(sounds.getValidationErrors());
-        }
-
-        if (display != null && !display.isValid()) {
-            errors.addAll(display.getValidationErrors());
-        }
-
-        // Validar efectos
-        if (effects.isEmpty()) {
-            errors.add("La flor debe tener al menos un efecto");
-        } else {
-            for (int i = 0; i < effects.size(); i++) {
-                FlowerEffect effect = effects.get(i);
-                if (!effect.isValid()) {
-                    errors.add("Efecto " + i + " inválido: " + effect.getValidationErrors());
-                }
-            }
-        }
-
-        return errors;
-    }
+    // Métodos de conveniencia
+    public TierDefinition getTier() { return config.getTier(); }
+    public Material getMaterial() { return config.getType(); }
+    public int getMaxLevel() { return config.getMaxLevel(); }
 
     // =================== CLASES INTERNAS ===================
+
+    /**
+     * Configuración básica de la flor
+     */
+    public static class FlowerConfig {
+        private final Material type;
+        private final TierDefinition tier;
+        private final int maxLevel;
+        private final boolean enchantEffect;
+
+        public FlowerConfig(Material type, TierDefinition tier, int maxLevel, boolean enchantEffect) {
+            this.type = type;
+            this.tier = tier;
+            this.maxLevel = maxLevel;
+            this.enchantEffect = enchantEffect;
+        }
+
+        public Material getType() { return type; }
+        public TierDefinition getTier() { return tier; }
+        public int getMaxLevel() { return maxLevel; }
+        public boolean hasEnchantEffect() { return enchantEffect; }
+    }
+
+    /**
+     * Configuración de display (nombre, lore, etc.)
+     */
+    public static class DisplayConfig {
+        private final String name;
+        private final List<String> lore;
+
+        public DisplayConfig(String name, List<String> lore) {
+            this.name = name;
+            this.lore = lore;
+        }
+
+        public String getName() { return name; }
+        public List<String> getLore() { return lore; }
+    }
+
+    /**
+     * Definición de un efecto de la flor
+     */
+    public static class FlowerEffect {
+        private final PotionEffectType type;
+        private final String levelFormula;
+        private final String durationFormula;
+        private final List<EffectCondition> conditions;
+
+        public FlowerEffect(PotionEffectType type, String levelFormula,
+                            String durationFormula, List<EffectCondition> conditions) {
+            this.type = type;
+            this.levelFormula = levelFormula;
+            this.durationFormula = durationFormula;
+            this.conditions = conditions;
+        }
+
+        public PotionEffectType getType() { return type; }
+        public String getLevelFormula() { return levelFormula; }
+        public String getDurationFormula() { return durationFormula; }
+        public List<EffectCondition> getConditions() { return conditions; }
+
+        /**
+         * Calcula el nivel del efecto basado en el nivel de la flor
+         */
+        public int calculateLevel(int flowerLevel) {
+            return FormulaCalculator.evaluateFormula(levelFormula, flowerLevel, 1, 1);
+        }
+
+        /**
+         * Calcula la duración del efecto basado en el nivel de la flor
+         */
+        public int calculateDuration(int flowerLevel) {
+            return FormulaCalculator.evaluateFormula(durationFormula, flowerLevel, 1, 1);
+        }
+    }
+
+    /**
+     * Condición para activar un efecto
+     */
+    public static class EffectCondition {
+        private final String type;
+        private final String value;
+
+        public EffectCondition(String type, String value) {
+            this.type = type;
+            this.value = value;
+        }
+
+        public String getType() { return type; }
+        public String getValue() { return value; }
+    }
 
     /**
      * Configuración de partículas
@@ -254,7 +157,8 @@ public class FlowerDefinition {
         private final Particle ambient;
         private final int amount;
 
-        public ParticleConfig(Particle areaEffect, Particle placement, Particle ambient, int amount) {
+        public ParticleConfig(Particle areaEffect, Particle placement,
+                              Particle ambient, int amount) {
             this.areaEffect = areaEffect;
             this.placement = placement;
             this.ambient = ambient;
@@ -265,19 +169,6 @@ public class FlowerDefinition {
         public Particle getPlacement() { return placement; }
         public Particle getAmbient() { return ambient; }
         public int getAmount() { return amount; }
-
-        public boolean isValid() {
-            return areaEffect != null && placement != null && ambient != null && amount > 0;
-        }
-
-        public List<String> getValidationErrors() {
-            List<String> errors = new ArrayList<>();
-            if (areaEffect == null) errors.add("Partícula de área no puede ser nula");
-            if (placement == null) errors.add("Partícula de colocación no puede ser nula");
-            if (ambient == null) errors.add("Partícula ambiental no puede ser nula");
-            if (amount <= 0) errors.add("Cantidad de partículas debe ser mayor a 0");
-            return errors;
-        }
     }
 
     /**
@@ -297,99 +188,10 @@ public class FlowerDefinition {
         public Sound getPlacement() { return placement; }
         public Sound getActivation() { return activation; }
         public Sound getAmbient() { return ambient; }
-
-        public boolean isValid() {
-            return placement != null && activation != null && ambient != null;
-        }
-
-        public List<String> getValidationErrors() {
-            List<String> errors = new ArrayList<>();
-            if (placement == null) errors.add("Sonido de colocación no puede ser nulo");
-            if (activation == null) errors.add("Sonido de activación no puede ser nulo");
-            if (ambient == null) errors.add("Sonido ambiental no puede ser nulo");
-            return errors;
-        }
     }
 
     /**
-     * Configuración de display (nombre y lore)
-     */
-    public static class DisplayConfig {
-        private final String name;
-        private final List<String> lore;
-
-        public DisplayConfig(String name, List<String> lore) {
-            this.name = name;
-            this.lore = new ArrayList<>(lore);
-        }
-
-        public String getName() { return name; }
-        public List<String> getLore() { return new ArrayList<>(lore); }
-
-        public boolean isValid() {
-            return name != null && !name.trim().isEmpty();
-        }
-
-        public List<String> getValidationErrors() {
-            List<String> errors = new ArrayList<>();
-            if (name == null || name.trim().isEmpty()) {
-                errors.add("Nombre de display no puede estar vacío");
-            }
-            return errors;
-        }
-    }
-
-    /**
-     * Efecto de flor mágica
-     */
-    public static class FlowerEffect {
-        private final PotionEffectType type;
-        private final String levelFormula;
-        private final String durationFormula;
-        private final List<EffectCondition> conditions;
-
-        public FlowerEffect(PotionEffectType type, String levelFormula, String durationFormula,
-                            List<EffectCondition> conditions) {
-            this.type = type;
-            this.levelFormula = levelFormula;
-            this.durationFormula = durationFormula;
-            this.conditions = new ArrayList<>(conditions);
-        }
-
-        public PotionEffectType getType() { return type; }
-        public String getLevelFormula() { return levelFormula; }
-        public String getDurationFormula() { return durationFormula; }
-        public List<EffectCondition> getConditions() { return new ArrayList<>(conditions); }
-
-        /**
-         * Calcula el nivel del efecto para un nivel de flor específico
-         */
-        public int calculateLevel(int flowerLevel) {
-            return FormulaCalculator.calculate(levelFormula, flowerLevel);
-        }
-
-        /**
-         * Calcula la duración del efecto para un nivel de flor específico
-         */
-        public int calculateDuration(int flowerLevel) {
-            return FormulaCalculator.calculate(durationFormula, flowerLevel);
-        }
-
-        public boolean isValid() {
-            return type != null && levelFormula != null && durationFormula != null;
-        }
-
-        public List<String> getValidationErrors() {
-            List<String> errors = new ArrayList<>();
-            if (type == null) errors.add("Tipo de efecto no puede ser nulo");
-            if (levelFormula == null) errors.add("Fórmula de nivel no puede ser nula");
-            if (durationFormula == null) errors.add("Fórmula de duración no puede ser nula");
-            return errors;
-        }
-    }
-
-    /**
-     * Condiciones especiales para el funcionamiento de la flor
+     * Condiciones especiales para la flor
      */
     public static class SpecialConditions {
         private final boolean requiresMoonlight;
@@ -398,6 +200,10 @@ public class FlowerDefinition {
         private final boolean disabledInEnd;
         private final int minYLevel;
         private final int maxYLevel;
+
+        public SpecialConditions() {
+            this(false, false, false, false, -64, 320);
+        }
 
         public SpecialConditions(boolean requiresMoonlight, boolean requiresSunlight,
                                  boolean disabledInNether, boolean disabledInEnd,
@@ -410,7 +216,6 @@ public class FlowerDefinition {
             this.maxYLevel = maxYLevel;
         }
 
-        // Getters
         public boolean requiresMoonlight() { return requiresMoonlight; }
         public boolean requiresSunlight() { return requiresSunlight; }
         public boolean isDisabledInNether() { return disabledInNether; }
@@ -420,23 +225,7 @@ public class FlowerDefinition {
     }
 
     /**
-     * Condición específica para efectos
-     */
-    public static class EffectCondition {
-        private final String type;
-        private final String value;
-
-        public EffectCondition(String type, String value) {
-            this.type = type;
-            this.value = value;
-        }
-
-        public String getType() { return type; }
-        public String getValue() { return value; }
-    }
-
-    /**
-     * Mecánica especial personalizada
+     * Mecánica especial de la flor
      */
     public static class SpecialMechanic {
         private final String name;
@@ -446,26 +235,45 @@ public class FlowerDefinition {
         public SpecialMechanic(String name, boolean enabled, Map<String, Object> properties) {
             this.name = name;
             this.enabled = enabled;
-            this.properties = new HashMap<>(properties);
+            this.properties = properties;
         }
 
         public String getName() { return name; }
         public boolean isEnabled() { return enabled; }
-        public Map<String, Object> getProperties() { return new HashMap<>(properties); }
+        public Map<String, Object> getProperties() { return properties; }
 
+        /**
+         * Obtiene una propiedad específica con tipo seguro
+         */
         @SuppressWarnings("unchecked")
         public <T> T getProperty(String key, Class<T> type, T defaultValue) {
             Object value = properties.get(key);
-            if (type.isInstance(value)) {
+            if (value != null && type.isInstance(value)) {
                 return (T) value;
             }
             return defaultValue;
+        }
+
+        /**
+         * Verifica si tiene una propiedad específica
+         */
+        public boolean hasProperty(String key) {
+            return properties.containsKey(key);
         }
     }
 
     @Override
     public String toString() {
-        return String.format("FlowerDefinition{id='%s', material=%s, tier=%s, maxLevel=%d}",
-                id, material, tier.getName(), maxLevel);
+        return String.format("FlowerDefinition{id='%s', tier='%s', maxLevel=%d, effects=%d}",
+                id, config.getTier().getName(), config.getMaxLevel(), effects.size()); // 🔧 CORREGIDO: getName() en lugar de name()
     }
 }
+
+// ═══════════════════════════════════════════════════════════════════
+
+/**
+ * Definición de un tier (calidad) de flor
+ *
+ * @author Brocolitx
+ * @version 1.0
+ */

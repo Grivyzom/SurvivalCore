@@ -76,17 +76,33 @@ public class Main extends JavaPlugin {
         loadSettings();
         if (!initDatabase()) return;
         initManagers();
-        flowerIntegration = new ConfigurableFlowerIntegration(this);
+
+        // 🔧 CORRECCIÓN: Inicializar ConfigurableFlowerIntegration DESPUÉS de managers
+        try {
+            flowerIntegration = new ConfigurableFlowerIntegration(this);
+            getLogger().info("✓ Sistema de flores configurables inicializado correctamente");
+
+            // Verificar que se cargó flowers.yml
+            int flowerCount = flowerIntegration.getConfigManager().getAllFlowerIds().size();
+            getLogger().info("✓ Cargadas " + flowerCount + " flores configurables desde flowers.yml");
+
+        } catch (Exception e) {
+            getLogger().severe("❌ Error inicializando sistema de flores configurables:");
+            getLogger().severe("Tipo: " + e.getClass().getSimpleName());
+            getLogger().severe("Mensaje: " + e.getMessage());
+            e.printStackTrace();
+
+            // No deshabilitar el plugin, solo registrar el error
+            flowerIntegration = null;
+            getLogger().warning("⚠ Sistema de flores configurables deshabilitado");
+        }
+
         RecipeUnlockManager.load();
 
-        // Inicializar SellWand
         initSellWand();
-
-        // Inicializar managers de transferencia ANTES de registrar comandos
         xpTransferManager = new XpTransferManager(this);
         xpTransferCommand = new XpTransferCommand(this);
 
-        // Inicializar RankupManager con validación
         if (!initRankupSystem()) {
             getLogger().warning("Sistema de Rankup no pudo inicializarse - comandos relacionados estarán deshabilitados");
         }
@@ -96,7 +112,6 @@ public class Main extends JavaPlugin {
         hookPlaceholderAPI();
         scheduleBackups();
 
-        // Registrar el listener del Atril Mágico
         getServer().getPluginManager().registerEvents(
                 new LecternRecipeUseListener(this),
                 this

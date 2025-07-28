@@ -51,8 +51,6 @@ public class MagicFlowerPotCommand implements CommandExecutor, TabCompleter {
         switch (subcommand) {
             case "give":
                 return handleGive(sender, args);
-            case "giveflower":  // 🆕 Nuevo subcomando para dar flores
-                return handleGiveFlower(sender, args);
             case "list":
                 return handleList(sender);
             case "info":
@@ -66,6 +64,18 @@ public class MagicFlowerPotCommand implements CommandExecutor, TabCompleter {
                 return handleStats(sender);
             case "reload":
                 return handleReload(sender);
+            case "giveflower":
+                return plugin.getFlowerIntegration().handleGiveConfigurableFlower(sender, args);
+            case "listconfig":
+                return plugin.getFlowerIntegration().handleListConfigurable(sender);
+            case "infoconfig":
+                return plugin.getFlowerIntegration().handleInfoConfigurable(sender);
+            case "reloadconfig":
+                return plugin.getFlowerIntegration().handleReloadConfig(sender);
+            case "statsconfig":
+                return plugin.getFlowerIntegration().handleStatsConfig(sender);
+            case "migrate":
+                return plugin.getFlowerIntegration().handleMigrateFlowers(sender);
             default:
                 sender.sendMessage(ChatColor.RED + "Subcomando desconocido. Usa /flowerpot help para ver la ayuda.");
                 return true;

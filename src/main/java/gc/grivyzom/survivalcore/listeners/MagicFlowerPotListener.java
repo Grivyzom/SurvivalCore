@@ -5,6 +5,9 @@ import gc.grivyzom.survivalcore.flowerpot.MagicFlowerPot;
 import gc.grivyzom.survivalcore.flowerpot.MagicFlowerPotManager;
 import gc.grivyzom.survivalcore.flowerpot.MagicFlowerPotData;
 import gc.grivyzom.survivalcore.flowers.MagicFlowerFactory;
+import gc.grivyzom.survivalcore.flowers.config.ConfigurableFlowerFactory;
+import gc.grivyzom.survivalcore.flowers.config.FlowerConfigManager;
+import gc.grivyzom.survivalcore.flowers.config.FlowerDefinition;
 import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
@@ -264,8 +267,27 @@ public class MagicFlowerPotListener implements Listener {
      * 🔧 CORREGIDO: Maneja el plantado sin duplicación
      */
     private void handleFlowerPlanting(Player player, Location location, MagicFlowerPotData potData, ItemStack flower) {
-        String newFlowerId = getMagicFlowerId(flower);
-        int newFlowerLevel = getMagicFlowerLevel(flower);
+        String newFlowerId = null;
+        int newFlowerLevel = 1;
+        boolean isConfigurableFlower = false;
+
+        // 🆕 NUEVO: Verificar si es una flor configurable primero
+        if (plugin.getFlowerIntegration() != null) {
+            ConfigurableFlowerFactory factory = plugin.getFlowerIntegration().getFlowerFactory();
+            if (factory.isConfigurableFlower(flower)) {
+                // Usar el sistema configurable
+                newFlowerId = factory.getFlowerId(flower);
+                newFlowerLevel = factory.getFlowerLevel(flower);
+                isConfigurableFlower = true;
+            }
+        }
+
+        // Si no es configurable, usar el sistema tradicional
+        if (newFlowerId == null) {
+            newFlowerId = getMagicFlowerId(flower);
+            newFlowerLevel = getMagicFlowerLevel(flower);
+            isConfigurableFlower = false;
+        }
 
         if (newFlowerId == null) {
             player.sendMessage(ChatColor.RED + "Esta no es una flor mágica válida.");
@@ -282,7 +304,7 @@ public class MagicFlowerPotListener implements Listener {
             boolean isDifferentFlower = !newFlowerId.equals(oldFlowerId) || newFlowerLevel != oldFlowerLevel;
 
             if (isDifferentFlower) {
-                // Crear flor mágica con metadatos completos basada en el ID y nivel almacenado
+                // 🆕 MEJORADO: Crear flor según el tipo original
                 ItemStack oldMagicFlower = createMagicFlowerFromId(oldFlowerId, oldFlowerLevel);
                 if (oldMagicFlower != null) {
                     // Intentar añadir al inventario, si no cabe, dropear
@@ -313,16 +335,23 @@ public class MagicFlowerPotListener implements Listener {
                 flower.setAmount(flower.getAmount() - 1);
             }
 
-            // Mensajes diferenciados
+            // 🆕 MEJORADO: Mensajes diferenciados con información del tipo de flor
+            String flowerDisplayName = getFlowerDisplayName(newFlowerId);
+            String flowerTypeInfo = isConfigurableFlower ?
+                    ChatColor.LIGHT_PURPLE + " [Configurable]" :
+                    ChatColor.GRAY + " [Tradicional]";
+
             if (hadFlower && !newFlowerId.equals(oldFlowerId)) {
-                player.sendMessage(ChatColor.GREEN + "✓ " + getFlowerDisplayName(newFlowerId) +
-                        ChatColor.GREEN + " plantada, reemplazando " + getFlowerDisplayName(oldFlowerId) + "!");
+                player.sendMessage(ChatColor.GREEN + "✓ " + flowerDisplayName +
+                        flowerTypeInfo + ChatColor.GREEN + " plantada, reemplazando " +
+                        getFlowerDisplayName(oldFlowerId) + "!");
             } else if (hadFlower) {
-                player.sendMessage(ChatColor.GREEN + "✓ " + getFlowerDisplayName(newFlowerId) +
-                        ChatColor.GREEN + " mejorada de nivel " + oldFlowerLevel + " a " + newFlowerLevel + "!");
+                player.sendMessage(ChatColor.GREEN + "✓ " + flowerDisplayName +
+                        flowerTypeInfo + ChatColor.GREEN + " mejorada de nivel " +
+                        oldFlowerLevel + " a " + newFlowerLevel + "!");
             } else {
-                player.sendMessage(ChatColor.GREEN + "✓ " + getFlowerDisplayName(newFlowerId) +
-                        ChatColor.GREEN + " plantada correctamente!");
+                player.sendMessage(ChatColor.GREEN + "✓ " + flowerDisplayName +
+                        flowerTypeInfo + ChatColor.GREEN + " plantada correctamente!");
             }
 
             player.sendMessage(ChatColor.AQUA + "La maceta ahora irradia efectos en " +
@@ -331,25 +360,39 @@ public class MagicFlowerPotListener implements Listener {
             // Efectos de plantado
             playFlowerPlantEffects(location, newFlowerId, newFlowerLevel);
 
-            plugin.getLogger().info(String.format("Flor plantada: %s -> %s (nivel %d) en maceta ID: %s",
-                    player.getName(), newFlowerId, newFlowerLevel, potData.getPotId()));
+            plugin.getLogger().info(String.format("Flor plantada: %s -> %s (nivel %d) %s en maceta ID: %s",
+                    player.getName(), newFlowerId, newFlowerLevel,
+                    isConfigurableFlower ? "[CONFIG]" : "[TRAD]", potData.getPotId()));
         } else {
             player.sendMessage(ChatColor.RED + "Error al plantar la flor. Inténtalo de nuevo.");
         }
     }
-
     /**
      * 🆕 NUEVO: Crea una flor mágica a partir de su ID y nivel
      */
     private ItemStack createMagicFlowerFromId(String flowerId, int level) {
-        // Obtener el tipo de flor basado en el ID
+        // 🆕 NUEVO: Intentar crear flor configurable primero
+        if (plugin.getFlowerIntegration() != null) {
+            ConfigurableFlowerFactory factory = plugin.getFlowerIntegration().getFlowerFactory();
+            FlowerConfigManager configManager = plugin.getFlowerIntegration().getConfigManager();
+
+            // Verificar si existe en la configuración
+            if (configManager.hasFlower(flowerId)) {
+                ItemStack configurableFlower = factory.createConfigurableFlower(flowerId, level);
+                if (configurableFlower != null) {
+                    return configurableFlower;
+                }
+            }
+        }
+
+        // Si no es configurable o falla, usar sistema tradicional
         MagicFlowerFactory.FlowerType flowerType = getFlowerTypeFromId(flowerId);
         if (flowerType == null) {
             plugin.getLogger().warning("No se pudo crear flor mágica para ID: " + flowerId);
             return null;
         }
 
-        // Usar la factory para crear la flor mágica con metadatos completos
+        // Usar la factory tradicional para crear la flor mágica
         return flowerFactory.createMagicFlower(flowerType, level);
     }
 
@@ -379,6 +422,15 @@ public class MagicFlowerPotListener implements Listener {
     private int getMagicFlowerLevel(ItemStack flower) {
         if (!isMagicFlower(flower)) return 1;
 
+        // 🆕 NUEVO: Intentar obtener nivel de flor configurable primero
+        if (plugin.getFlowerIntegration() != null) {
+            ConfigurableFlowerFactory factory = plugin.getFlowerIntegration().getFlowerFactory();
+            if (factory.isConfigurableFlower(flower)) {
+                return factory.getFlowerLevel(flower);
+            }
+        }
+
+        // Obtener nivel de flor tradicional
         ItemMeta meta = flower.getItemMeta();
         if (meta == null) return 1;
 
@@ -555,7 +607,7 @@ public class MagicFlowerPotListener implements Listener {
             double y = center.getY();
 
             Location particleLocation = new Location(world, x, y, z);
-            world.spawnParticle(Particle.CRIT_MAGIC, particleLocation, 1, 0, 0, 0, 0);
+            world.spawnParticle(Particle.WAX_OFF, particleLocation, 1, 0, 0, 0, 0);
         }
     }
 
@@ -674,9 +726,17 @@ public class MagicFlowerPotListener implements Listener {
     private boolean isMagicFlower(ItemStack item) {
         if (item == null || !item.hasItemMeta()) return false;
 
+        // 🆕 NUEVO: Verificar flor configurable primero
+        if (plugin.getFlowerIntegration() != null) {
+            ConfigurableFlowerFactory factory = plugin.getFlowerIntegration().getFlowerFactory();
+            if (factory.isMagicFlower(item)) {
+                return true;
+            }
+        }
+
+        // Verificar flor tradicional
         ItemMeta meta = item.getItemMeta();
         PersistentDataContainer container = meta.getPersistentDataContainer();
-
         return container.has(isMagicFlowerKey, PersistentDataType.BYTE);
     }
 
@@ -686,9 +746,19 @@ public class MagicFlowerPotListener implements Listener {
     private String getMagicFlowerId(ItemStack item) {
         if (!isMagicFlower(item)) return null;
 
-        ItemMeta meta = item.getItemMeta();
-        PersistentDataContainer container = meta.getPersistentDataContainer();
+        // 🆕 NUEVO: Intentar obtener ID de flor configurable primero
+        if (plugin.getFlowerIntegration() != null) {
+            ConfigurableFlowerFactory factory = plugin.getFlowerIntegration().getFlowerFactory();
+            if (factory.isConfigurableFlower(item)) {
+                return factory.getFlowerId(item);
+            }
+        }
 
+        // Obtener ID de flor tradicional
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) return null;
+
+        PersistentDataContainer container = meta.getPersistentDataContainer();
         return container.get(new NamespacedKey(plugin, "flower_id"), PersistentDataType.STRING);
     }
 
@@ -696,6 +766,19 @@ public class MagicFlowerPotListener implements Listener {
      * Obtiene el nombre de display de una flor
      */
     private String getFlowerDisplayName(String flowerId) {
+        // 🆕 NUEVO: Intentar obtener nombre de configuración primero
+        if (plugin.getFlowerIntegration() != null) {
+            FlowerConfigManager configManager = plugin.getFlowerIntegration().getConfigManager();
+            if (configManager.hasFlower(flowerId)) {
+                FlowerDefinition flowerDef = configManager.getFlower(flowerId);
+                if (flowerDef != null) {
+                    return ChatColor.stripColor(ChatColor.translateAlternateColorCodes('&',
+                            flowerDef.getDisplay().getName()));
+                }
+            }
+        }
+
+        // Usar nombres tradicionales como fallback
         switch (flowerId.toLowerCase()) {
             case "love_flower":
                 return "Flor del Amor";
@@ -707,6 +790,17 @@ public class MagicFlowerPotListener implements Listener {
                 return "Flor de Fuerza";
             case "night_vision_flower":
                 return "Flor Nocturna";
+            // 🆕 NUEVO: Soporte para flores configurables adicionales
+            case "nature_flower":
+                return "Flor de la Naturaleza";
+            case "celestial_flower":
+                return "Flor Celestial";
+            case "guardian_flower":
+                return "Flor Guardiana";
+            case "phoenix_flower":
+                return "Flor del Fénix";
+            case "chaos_flower":
+                return "Flor del Caos";
             default:
                 return "Flor Desconocida";
         }

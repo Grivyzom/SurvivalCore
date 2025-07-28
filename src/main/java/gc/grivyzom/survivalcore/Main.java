@@ -1,6 +1,7 @@
 package gc.grivyzom.survivalcore;
 
 import gc.grivyzom.survivalcore.commands.*;
+import gc.grivyzom.survivalcore.flowers.integration.ConfigurableFlowerIntegration;
 import gc.grivyzom.survivalcore.recipes.LecternRecipeCreateCommand;
 import gc.grivyzom.survivalcore.config.CropExperienceConfig;
 import gc.grivyzom.survivalcore.config.MiningExperienceConfig;
@@ -64,6 +65,7 @@ public class Main extends JavaPlugin {
     private XpChequeCommand xpChequeCommand;
     private RankupManager rankupManager;
     private MagicFlowerPotManager magicFlowerPotManager;
+    private ConfigurableFlowerIntegration flowerIntegration;
 
     /* =================== CICLO DE VIDA =================== */
     @Override
@@ -74,6 +76,7 @@ public class Main extends JavaPlugin {
         loadSettings();
         if (!initDatabase()) return;
         initManagers();
+        flowerIntegration = new ConfigurableFlowerIntegration(this);
         RecipeUnlockManager.load();
 
         // Inicializar SellWand
@@ -108,6 +111,9 @@ public class Main extends JavaPlugin {
     public void onDisable() {
         if (databaseManager != null) databaseManager.close();
         if (magicFlowerPotManager != null) magicFlowerPotManager.shutdown();
+        if (flowerIntegration != null) {
+            flowerIntegration.shutdown();
+        }
 
         getLogger().info("SurvivalCore deshabilitado.");
     }
@@ -303,7 +309,7 @@ public class Main extends JavaPlugin {
     public RankupManager getRankupManager()                     { return rankupManager; }
     public SellWandManager getSellWandManager()                 { return sellWandManager; }
     public XpChequeCommand getXpChequeCommand()                 { return xpChequeCommand; }
-
+    public ConfigurableFlowerIntegration getFlowerIntegration() { return flowerIntegration;}
     /**
      * Verificar si el sistema de rankup está disponible
      */

@@ -304,34 +304,34 @@ public class ConfigurableFlowerIntegration {
         }
 
         Player player = (Player) sender;
-        int converted = 0;
-        int total = 0;
+        int convertedCount = 0;  // 🔧 CORREGIDO: Cambió nombre de variable
+        int totalItems = 0;      // 🔧 CORREGIDO: Cambió nombre de variable
 
         // Revisar todo el inventario
         for (int i = 0; i < player.getInventory().getSize(); i++) {
             ItemStack item = player.getInventory().getItem(i);
             if (item == null) continue;
 
-            total++;
+            totalItems++;
 
             // Intentar convertir si es una flor tradicional
-            ItemStack converted = flowerFactory.convertLegacyFlower(item);
-            if (converted != item) { // Si cambió, fue convertida
-                player.getInventory().setItem(i, converted);
-                converted++;
+            ItemStack convertedItem = flowerFactory.convertLegacyFlower(item);  // 🔧 CORREGIDO: Cambió nombre de variable
+            if (convertedItem != item) { // Si cambió, fue convertida
+                player.getInventory().setItem(i, convertedItem);
+                convertedCount++;  // 🔧 CORREGIDO: Ahora incrementa el contador correcto
             }
         }
 
         player.sendMessage(ChatColor.GREEN + "✓ Migración completada.");
-        player.sendMessage(ChatColor.GRAY + "Flores convertidas: " + converted + "/" + total);
+        player.sendMessage(ChatColor.GRAY + "Flores convertidas: " + convertedCount + "/" + totalItems);
 
-        if (converted > 0) {
-            player.sendMessage(ChatColor.YELLOW + "Las flores convertidas ahora usan el sistema configurable.");
+        if (convertedCount > 0) {
+            player.sendMessage(ChatColor.YELLOW
+                    + "Las flores convertidas ahora usan el sistema configurable.");
         }
 
         return true;
     }
-
     /**
      * Obtiene la lista de flores disponibles como string
      */

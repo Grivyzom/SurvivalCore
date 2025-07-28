@@ -278,7 +278,10 @@ public class ConditionEvaluator {
      */
     private static boolean evaluateBiomeTemperatureCondition(String tempCondition, EffectContext context) {
         Location location = context.getPotLocation();
-        float temperature = location.getBlock().getBiome().getTemperature();
+        org.bukkit.block.Biome biome = location.getBlock().getBiome();
+
+        // 🔧 CORREGIDO: Usar método escalable para obtener temperatura del bioma
+        float temperature = getBiomeTemperature(biome);
 
         if (tempCondition.startsWith(">")) {
             try {
@@ -406,10 +409,21 @@ public class ConditionEvaluator {
             this.potLevel = potLevel;
         }
 
-        public Player getPlayer() { return player; }
-        public Location getPotLocation() { return potLocation.clone(); }
-        public int getFlowerLevel() { return flowerLevel; }
-        public int getPotLevel() { return potLevel; }
+        public Player getPlayer() {
+            return player;
+        }
+
+        public Location getPotLocation() {
+            return potLocation.clone();
+        }
+
+        public int getFlowerLevel() {
+            return flowerLevel;
+        }
+
+        public int getPotLevel() {
+            return potLevel;
+        }
 
         /**
          * Crea un contexto básico sin jugador específico
@@ -425,5 +439,143 @@ public class ConditionEvaluator {
                                                     int flowerLevel, int potLevel) {
             return new EffectContext(player, potLocation, flowerLevel, potLevel);
         }
+    }
+
+    private static float getBiomeTemperature(org.bukkit.block.Biome biome) {
+        String biomeName = biome.name().toLowerCase();
+
+        // 🔥 BIOMAS MUY CALIENTES (2.0f)
+        if (isHotBiome(biomeName)) {
+            return 2.0f;
+        }
+
+        // 🌞 BIOMAS CALIENTES (0.95f)
+        if (isWarmBiome(biomeName)) {
+            return 0.95f;
+        }
+
+        // 🌿 BIOMAS TEMPLADOS CÁLIDOS (0.7f)
+        if (isTemperateWarmBiome(biomeName)) {
+            return 0.7f;
+        }
+
+        // 🌊 BIOMAS TEMPLADOS (0.5f)
+        if (isTemperateBiome(biomeName)) {
+            return 0.5f;
+        }
+
+        // ❄️ BIOMAS FRÍOS (0.2f)
+        if (isColdBiome(biomeName)) {
+            return 0.2f;
+        }
+
+        // 🧊 BIOMAS MUY FRÍOS (-0.5f)
+        if (isVeryColdBiome(biomeName)) {
+            return -0.5f;
+        }
+
+        // Por defecto: templado
+        return 0.5f;
+    }
+
+
+    /**
+     * Detecta biomas muy calientes por patrones en el nombre
+     */
+    private static boolean isHotBiome(String biomeName) {
+        return biomeName.contains("desert") ||
+                biomeName.contains("badlands") ||
+                biomeName.contains("mesa") ||
+                biomeName.contains("nether") ||
+                biomeName.contains("basalt") ||
+                biomeName.contains("crimson") ||
+                biomeName.contains("warped") ||
+                biomeName.contains("soul_sand");
+    }
+
+    /**
+     * Detecta biomas calientes por patrones en el nombre
+     */
+    private static boolean isWarmBiome(String biomeName) {
+        return biomeName.contains("savanna") ||
+                biomeName.contains("jungle") ||
+                biomeName.contains("bamboo");
+    }
+
+    /**
+     * Detecta biomas templados cálidos por patrones en el nombre
+     */
+    private static boolean isTemperateWarmBiome(String biomeName) {
+        return biomeName.contains("plains") ||
+                biomeName.contains("forest") ||
+                biomeName.contains("birch") ||
+                biomeName.contains("dark_forest") ||
+                biomeName.contains("swamp") ||
+                biomeName.contains("mushroom") ||
+                biomeName.contains("beach") ||
+                biomeName.contains("shore") ||
+                biomeName.contains("flower");
+    }
+
+    /**
+     * Detecta biomas templados por patrones en el nombre
+     */
+    private static boolean isTemperateBiome(String biomeName) {
+        return biomeName.contains("river") ||
+                biomeName.contains("lake") ||
+                (biomeName.contains("ocean") && (
+                        biomeName.contains("lukewarm") ||
+                                biomeName.contains("warm") ||
+                                (!biomeName.contains("cold") && !biomeName.contains("frozen"))
+                )) ||
+                biomeName.contains("end");
+    }
+
+    /**
+     * Detecta biomas fríos por patrones en el nombre
+     */
+    private static boolean isColdBiome(String biomeName) {
+        return biomeName.contains("taiga") ||
+                biomeName.contains("mountain") ||
+                biomeName.contains("hills") ||
+                biomeName.contains("peak") ||
+                (biomeName.contains("ocean") && biomeName.contains("cold")) ||
+                biomeName.contains("stone_shore");
+    }
+
+    /**
+     * Detecta biomas muy fríos por patrones en el nombre
+     */
+    private static boolean isVeryColdBiome(String biomeName) {
+        return biomeName.contains("snowy") ||
+                biomeName.contains("ice") ||
+                biomeName.contains("frozen") ||
+                biomeName.contains("tundra") ||
+                biomeName.equals("the_void");
+    }
+
+    /**
+     * 🆕 NUEVO: Método de debugging para verificar temperaturas de biomas
+     * Útil para testing y configuración
+     */
+    public static String getBiomeTemperatureInfo(org.bukkit.block.Biome biome) {
+        float temp = getBiomeTemperature(biome);
+        String category;
+
+        if (temp >= 2.0f) {
+            category = "Muy Caliente";
+        } else if (temp >= 0.8f) {
+            category = "Caliente";
+        } else if (temp >= 0.5f) {
+            category = "Templado Cálido";
+        } else if (temp >= 0.2f) {
+            category = "Templado";
+        } else if (temp >= 0.0f) {
+            category = "Frío";
+        } else {
+            category = "Muy Frío";
+        }
+
+        return String.format("%s: %.1f°C (%s)", biome.name(), temp, category);
     }
 }

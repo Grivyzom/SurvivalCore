@@ -1,0 +1,577 @@
+# ═══════════════════════════════════════════════════════════════════
+# FLOWERS.YML - Sistema de Flores Mágicas Configurable
+# Versión: 2.0 - Sistema Escalable y Flexible
+# Plugin: SurvivalCore by Brocolitx
+# ═══════════════════════════════════════════════════════════════════
+
+# ═══════════════════════════════════════════════════════════════════
+# CONFIGURACIÓN GLOBAL DEL SISTEMA
+# ═══════════════════════════════════════════════════════════════════
+global_settings:
+  # Habilitación de características visuales
+  enable_enchant_glint: true        # Brillo mágico en las flores
+  enable_advanced_particles: true   # Partículas avanzadas
+  enable_custom_sounds: true        # Sonidos personalizados
+  enable_tier_restrictions: false   # Restricciones por tier (futuro)
+
+  # Configuración de efectos
+  default_effect_duration: 60       # Duración base de efectos (segundos)
+  effect_refresh_interval: 3        # Frecuencia de aplicación de efectos (segundos)
+  particle_spawn_interval: 1        # Frecuencia de partículas (segundos)
+
+  # Configuración de macetas
+  allow_flower_stacking: false      # Múltiples flores en una maceta
+  max_flowers_per_pot: 1            # Máximo flores por maceta
+
+# ═══════════════════════════════════════════════════════════════════
+# DEFINICIÓN DE TIERS (CALIDADES DE FLORES)
+# ═══════════════════════════════════════════════════════════════════
+tiers:
+  COMMON:
+    color: "&f"                     # Color: Blanco
+    max_level: 3                    # Nivel máximo
+    effect_multiplier: 1.0          # Multiplicador de efectos
+    particle_multiplier: 1.0       # Multiplicador de partículas
+    rarity_weight: 100              # Peso de rareza (mayor = más común)
+
+  UNCOMMON:
+    color: "&a"                     # Color: Verde
+    max_level: 4
+    effect_multiplier: 1.2
+    particle_multiplier: 1.3
+    rarity_weight: 70
+
+  RARE:
+    color: "&9"                     # Color: Azul
+    max_level: 5
+    effect_multiplier: 1.5
+    particle_multiplier: 1.6
+    rarity_weight: 40
+
+  EPIC:
+    color: "&5"                     # Color: Púrpura
+    max_level: 6
+    effect_multiplier: 2.0
+    particle_multiplier: 2.0
+    rarity_weight: 15
+
+  LEGENDARY:
+    color: "&6"                     # Color: Dorado
+    max_level: 7
+    effect_multiplier: 2.5
+    particle_multiplier: 2.5
+    rarity_weight: 5
+
+  MYTHIC:
+    color: "&c"                     # Color: Rojo
+    max_level: 10
+    effect_multiplier: 3.0
+    particle_multiplier: 3.0
+    rarity_weight: 1
+
+# ═══════════════════════════════════════════════════════════════════
+# DEFINICIÓN DE FLORES MÁGICAS
+# ═══════════════════════════════════════════════════════════════════
+flowers:
+
+  # ─────────────────────────────────────────────────────────────────
+  # FLORES BÁSICAS (TIER COMÚN)
+  # ─────────────────────────────────────────────────────────────────
+  strength_flower:
+    config:
+      type: ALLIUM                  # Material de Minecraft
+      tier: COMMON                  # Tier definido arriba
+      max_level: 3                  # Override del nivel máximo del tier
+      enchant_effect: true          # Brillo de encantamiento
+
+      # Configuración de partículas
+      particles:
+        area_effect: CRIT_MAGIC     # Partícula principal del área
+        placement: VILLAGER_HAPPY   # Partícula al plantar
+        ambient: ENCHANTMENT_TABLE  # Partículas ambientales
+        amount: 5                   # Cantidad base
+
+      # Configuración de sonidos
+      sounds:
+        placement: ENTITY_IRON_GOLEM_ATTACK    # Al plantar
+        activation: ENTITY_PLAYER_LEVELUP      # Al activar efecto
+        ambient: BLOCK_ENCHANTMENT_TABLE_USE   # Sonido ambiental
+
+      # Efectos que aplicará (formato: TIPO:nivel:duración)
+      effects:
+        - "INCREASE_DAMAGE:{flower_level}:60"
+
+      # Condiciones especiales (opcional)
+      special_conditions:
+        requires_moonlight: false
+        requires_sunlight: false
+        disabled_in_nether: false
+        disabled_in_end: false
+        min_y_level: -64
+        max_y_level: 320
+
+    display:
+      name: "&cFlor de Fuerza"
+      lore:
+        - "&7Una flor que irradia poder físico"
+        - "&7y fortalece a quienes están cerca."
+        - ""
+        - "&aEfecto: &fFuerza {flower_level}"
+        - "&aDuración: &f60 segundos"
+        - "&aTier: {tier_color}{tier_name}"
+        - ""
+        - "&f✦ &7Flor mágica básica &f✦"
+
+  healing_flower:
+    config:
+      type: DANDELION
+      tier: COMMON
+      max_level: 3
+      enchant_effect: true
+
+      particles:
+        area_effect: HEART
+        placement: VILLAGER_HAPPY
+        ambient: ENCHANTMENT_TABLE
+        amount: 4
+
+      sounds:
+        placement: ENTITY_PLAYER_LEVELUP
+        activation: ENTITY_EXPERIENCE_ORB_PICKUP
+        ambient: BLOCK_ENCHANTMENT_TABLE_USE
+
+      effects:
+        - "REGENERATION:{flower_level}:45"
+
+    display:
+      name: "&dFlor Sanadora"
+      lore:
+        - "&7Una flor que canaliza energía curativa"
+        - "&7y restaura la vitalidad gradualmente."
+        - ""
+        - "&aEfecto: &fRegeneración {flower_level}"
+        - "&aDuración: &f45 segundos"
+        - "&aTier: {tier_color}{tier_name}"
+        - ""
+        - "&f✦ &7Perfecta para la supervivencia &f✦"
+
+  speed_flower:
+    config:
+      type: BLUE_ORCHID
+      tier: UNCOMMON
+      max_level: 4
+      enchant_effect: true
+
+      particles:
+        area_effect: CRIT
+        placement: CLOUD
+        ambient: ENCHANTMENT_TABLE
+        amount: 6
+
+      sounds:
+        placement: ENTITY_HORSE_GALLOP
+        activation: ENTITY_PLAYER_LEVELUP
+        ambient: BLOCK_ENCHANTMENT_TABLE_USE
+
+      effects:
+        - "SPEED:{flower_level}:75"
+
+    display:
+      name: "&bFlor de Velocidad"
+      lore:
+        - "&7Una flor que acelera el tiempo y"
+        - "&7otorga agilidad sobrenatural."
+        - ""
+        - "&aEfecto: &fVelocidad {flower_level}"
+        - "&aDuración: &f75 segundos"
+        - "&aTier: {tier_color}{tier_name}"
+        - ""
+        - "&a✦ &7Para los aventureros veloces &a✦"
+
+  # ─────────────────────────────────────────────────────────────────
+  # FLOR RARA CON EFECTOS MÚLTIPLES
+  # ─────────────────────────────────────────────────────────────────
+  nature_flower:
+    config:
+      type: LILY_OF_THE_VALLEY
+      tier: RARE
+      max_level: 5
+      enchant_effect: true
+
+      particles:
+        area_effect: VILLAGER_HAPPY
+        placement: COMPOSTER
+        ambient: ENCHANTMENT_TABLE
+        amount: 8
+
+      sounds:
+        placement: BLOCK_GRASS_PLACE
+        activation: ENTITY_PLAYER_LEVELUP
+        ambient: BLOCK_ENCHANTMENT_TABLE_USE
+
+      # Múltiples efectos para flores avanzadas
+      effects:
+        - "REGENERATION:{flower_level} - 1:60"
+        - "SATURATION:0:30"
+        - "LUCK:{flower_level} / 2:120"
+
+    display:
+      name: "&2Flor de la Naturaleza"
+      lore:
+        - "&7Una flor que conecta con la esencia"
+        - "&7misma de la naturaleza y sus dones."
+        - ""
+        - "&aEfectos:"
+        - "&f• &aRegeneración natural"
+        - "&f• &aSaciedad constante"
+        - "&f• &aSuerte de la naturaleza"
+        - ""
+        - "&aTier: {tier_color}{tier_name}"
+        - ""
+        - "&9✦ &7Bendición de la tierra &9✦"
+
+  # ─────────────────────────────────────────────────────────────────
+  # FLOR ÉPICA CON MECÁNICAS ESPECIALES
+  # ─────────────────────────────────────────────────────────────────
+  celestial_flower:
+    config:
+      type: CORNFLOWER
+      tier: EPIC
+      max_level: 6
+      enchant_effect: true
+
+      particles:
+        area_effect: WAX_OFF
+        placement: SOUL_FIRE_FLAME
+        ambient: END_ROD
+        amount: 12
+
+      sounds:
+        placement: BLOCK_BEACON_ACTIVATE
+        activation: ENTITY_ENDER_DRAGON_AMBIENT
+        ambient: BLOCK_BEACON_AMBIENT
+
+      effects:
+        - "INCREASE_DAMAGE:{flower_level} - 1:120"
+        - "NIGHT_VISION:0:200"
+        - "JUMP:{flower_level} / 2:90"
+
+      special_conditions:
+        requires_moonlight: true      # Solo funciona con luz de luna
+        disabled_in_nether: true     # No funciona en el nether
+        min_y_level: 50              # Solo funciona en altura
+
+      # Mecánicas especiales únicas
+      special_mechanics:
+        lunar_boost:                  # Potenciación lunar
+          enabled: true
+          effect_multiplier: 1.5      # x1.5 durante luna llena
+
+        star_alignment:               # Alineación estelar
+          enabled: true
+          bonus_effects:              # Efectos bonus aleatorios
+            - "SPEED:1:60"
+            - "LUCK:2:120"
+          trigger_chance: 0.15        # 15% de probabilidad
+
+    display:
+      name: "&5✦ &dFlor Celestial &5✦"
+      lore:
+        - "&7Una flor mística que canaliza el poder"
+        - "&7de las estrellas y la luna llena."
+        - ""
+        - "&5Efectos Nocturnos:"
+        - "&f• &aFuerza celestial"
+        - "&f• &aVisión nocturna perfecta"
+        - "&f• &aSalto mejorado"
+        - ""
+        - "&5Mecánicas Especiales:"
+        - "&f• &ePotenciada con Luna Llena"
+        - "&f• &ePosible alineación estelar"
+        - "&f• &eRequiere cielo abierto"
+        - ""
+        - "&5✦ &lÉPICA &5✦"
+
+  # ─────────────────────────────────────────────────────────────────
+  # FLOR LEGENDARIA CON EFECTOS AVANZADOS
+  # ─────────────────────────────────────────────────────────────────
+  guardian_flower:
+    config:
+      type: SUNFLOWER
+      tier: LEGENDARY
+      max_level: 7
+      enchant_effect: true
+
+      particles:
+        area_effect: TOTEM
+        placement: EXPLOSION_LARGE
+        ambient: ENCHANTMENT_TABLE
+        amount: 15
+
+      sounds:
+        placement: BLOCK_BEACON_POWER_SELECT
+        activation: ENTITY_PLAYER_LEVELUP
+        ambient: BLOCK_BEACON_AMBIENT
+
+      effects:
+        - "DAMAGE_RESISTANCE:{flower_level} / 2:180"
+        - "ABSORPTION:{flower_level}:150"
+        - "REGENERATION:{flower_level} - 2:120"
+        - "FIRE_RESISTANCE:0:300"
+
+      special_conditions:
+        requires_sunlight: true       # Solo funciona con luz solar
+        min_y_level: 60              # Altura mínima
+
+      special_mechanics:
+        solar_shield:                 # Escudo solar
+          enabled: true
+          damage_reduction: 0.25      # 25% menos daño durante el día
+
+        guardian_aura:                # Aura protectora
+          enabled: true
+          heal_nearby_players: true
+          heal_amount: 1.0
+          heal_radius: 5
+
+    display:
+      name: "&6☀ &eFlor Guardiana &6☀"
+      lore:
+        - "&7Una flor legendaria que brilla con"
+        - "&7la luz del sol y protege a los justos."
+        - ""
+        - "&6Efectos Protectores:"
+        - "&f• &aResistencia al daño"
+        - "&f• &aAbsorción de vida extra"
+        - "&f• &aRegeneración constante"
+        - "&f• &aInmunidad al fuego"
+        - ""
+        - "&6Habilidades Especiales:"
+        - "&f• &eEscudo Solar Activo"
+        - "&f• &eAura Curativa de Grupo"
+        - "&f• &eRequiere luz solar directa"
+        - ""
+        - "&6☀ &lLEGENDARIA &6☀"
+
+  # ─────────────────────────────────────────────────────────────────
+  # FLOR MÍTICA CON MECÁNICAS COMPLEJAS
+  # ─────────────────────────────────────────────────────────────────
+  phoenix_flower:
+    config:
+      type: WITHER_ROSE
+      tier: MYTHIC
+      max_level: 10
+      enchant_effect: true
+
+      particles:
+        area_effect: SOUL_FIRE_FLAME
+        placement: EXPLOSION_LARGE
+        ambient: LAVA
+        amount: 20
+
+      sounds:
+        placement: ENTITY_BLAZE_DEATH
+        activation: ENTITY_BLAZE_AMBIENT
+        ambient: BLOCK_FIRE_AMBIENT
+
+      effects:
+        - "FIRE_RESISTANCE:0:600"
+        - "REGENERATION:{flower_level} / 2:180"
+        - "INCREASE_DAMAGE:{flower_level}:240"
+        - "SPEED:{flower_level} / 3:200"
+
+      special_conditions:
+        disabled_in_water: true       # No funciona bajo agua
+        min_y_level: 0               # Nivel del mar mínimo
+
+      special_mechanics:
+        phoenix_rebirth:              # Renacimiento del fénix
+          enabled: true
+          trigger_on_death: true      # Se activa al morir
+          revival_effects:            # Efectos al revivir
+            - "FIRE_RESISTANCE:0:300"
+            - "REGENERATION:3:100"
+            - "DAMAGE_RESISTANCE:1:60"
+          cooldown: 3600              # 1 hora de cooldown
+
+        flame_aura:                   # Aura flamígera
+          enabled: true
+          damage_nearby_mobs: true    # Daña mobs hostiles
+          damage_amount: 3.0
+          damage_radius: 4
+
+        eternal_flame:                # Llama eterna
+          enabled: true
+          ignite_attackers: true      # Incendia a los atacantes
+          flame_duration: 100         # 5 segundos de fuego
+
+    display:
+      name: "&c&l🔥 &6&lFlor del Fénix &c&l🔥"
+      lore:
+        - "&7Una flor legendaria nacida de las cenizas"
+        - "&7de un fénix ancestral. Su poder es"
+        - "&7incomparable y su magia, eterna."
+        - ""
+        - "&cEfectos Permanentes:"
+        - "&f• &aResistencia al Fuego Total"
+        - "&f• &aRegeneración Avanzada"
+        - "&f• &aFuerza del Fénix"
+        - "&f• &aVelocidad Sobrenatural"
+        - ""
+        - "&6Habilidades Míticas:"
+        - "&f• &eRenacimiento Automático"
+        - "&f• &eAura Flamígera Letal"
+        - "&f• &eLlama Eterna Defensiva"
+        - "&f• &eRequiere ambiente seco"
+        - ""
+        - "&c🔥 &6&lMÍTICA &c🔥"
+
+  # ─────────────────────────────────────────────────────────────────
+  # FLOR ESPECIAL: MULTITIER
+  # ─────────────────────────────────────────────────────────────────
+  chaos_flower:
+    config:
+      type: CHORUS_FLOWER
+      tier: MYTHIC
+      max_level: 15                 # Nivel máximo excepcional
+      enchant_effect: true
+
+      particles:
+        area_effect: PORTAL
+        placement: DRAGON_BREATH
+        ambient: END_ROD
+        amount: 25
+
+      sounds:
+        placement: ENTITY_ENDERMAN_TELEPORT
+        activation: ENTITY_ENDER_DRAGON_GROWL
+        ambient: BLOCK_PORTAL_AMBIENT
+
+      effects:
+        - "LUCK:{flower_level} / 2:300"
+        - "UNLUCK:{flower_level} / 4:60"
+        - "LEVITATION:0:20"
+        - "SLOW_FALLING:0:100"
+
+      special_conditions:
+        disabled_in_nether: false
+        disabled_in_end: false
+        min_y_level: -64
+        max_y_level: 320
+
+      special_mechanics:
+        chaos_effect:                 # Efecto caótico
+          enabled: true
+          random_effects: true        # Efectos aleatorios
+          effect_pool:               # Pool de efectos posibles
+            - "JUMP:2:60"
+            - "SPEED:3:45"
+            - "INVISIBILITY:0:30"
+            - "WATER_BREATHING:0:120"
+            - "NIGHT_VISION:0:200"
+          trigger_chance: 0.3         # 30% cada aplicación
+
+        dimensional_shift:            # Cambio dimensional
+          enabled: true
+          teleport_chance: 0.05       # 5% de teletransporte aleatorio
+          teleport_range: 20          # Rango máximo
+
+    display:
+      name: "&5&l⚡ &d&lFlor del Caos &5&l⚡"
+      lore:
+        - "&7Una flor que desafía las leyes de la"
+        - "&7realidad y trae consecuencias impredecibles."
+        - ""
+        - "&5Efectos Caóticos:"
+        - "&f• &aSuerte y Mala Suerte"
+        - "&f• &aLevitación Temporal"
+        - "&f• &aCaída Lenta"
+        - "&f• &aEfectos Aleatorios"
+        - ""
+        - "&dHabilidades Dimensionales:"
+        - "&f• &eCaos Puro Aleatorio"
+        - "&f• &eTeletransporte Dimensional"
+        - "&f• &eEfectos Impredecibles"
+        - ""
+        - "&5⚡ &d&lCAÓTICA &5⚡"
+
+# ═══════════════════════════════════════════════════════════════════
+# CONFIGURACIÓN DE COMBINACIONES (FUTURO)
+# ═══════════════════════════════════════════════════════════════════
+flower_combinations:
+  # Cuando múltiples macetas con ciertas flores están cerca
+  synergy_effects:
+
+    strength_speed_combo:
+      required_flowers:
+        - strength_flower
+        - speed_flower
+      max_distance: 10              # Distancia máxima entre macetas
+      bonus_effects:
+        - "HERO_OF_THE_VILLAGE:0:300"
+      particles: TOTEM
+      message: "&6¡Sinergia de Fuerza y Velocidad activada!"
+
+    nature_guardian_combo:
+      required_flowers:
+        - nature_flower
+        - guardian_flower
+      max_distance: 15
+      bonus_effects:
+        - "HERO_OF_THE_VILLAGE:1:600"
+        - "LUCK:2:300"
+        - "DOLPHINS_GRACE:0:200"
+      particles: END_ROD
+      message: "&a¡La naturaleza y el guardián se han unido!"
+
+    celestial_phoenix_combo:
+      required_flowers:
+        - celestial_flower
+        - phoenix_flower
+      max_distance: 20
+      bonus_effects:
+        - "HERO_OF_THE_VILLAGE:2:900"
+        - "LUCK:3:600"
+        - "CONDUIT_POWER:0:400"
+      particles: DRAGON_BREATH
+      message: "&6¡Las fuerzas celestiales y el fuego primordial se han unido!"
+      special_effect: true          # Efecto visual especial
+
+# ═══════════════════════════════════════════════════════════════════
+# NOTAS DE CONFIGURACIÓN
+# ═══════════════════════════════════════════════════════════════════
+#
+# FÓRMULAS DISPONIBLES:
+# - {flower_level}: Nivel actual de la flor (1-max)
+# - {pot_level}: Nivel de la maceta mágica (1-5)
+# - {player_level}: Nivel de experiencia del jugador
+#
+# OPERADORES MATEMÁTICOS:
+# - Suma: +          Ejemplo: "{flower_level} + 2"
+# - Resta: -         Ejemplo: "{flower_level} - 1"
+# - Multiplicación: * Ejemplo: "{flower_level} * 2"
+# - División: /      Ejemplo: "{flower_level} / 2"
+# - Paréntesis: ()   Ejemplo: "({flower_level} + 1) * 2"
+#
+# EFECTOS DE POCIÓN DISPONIBLES:
+# - SPEED, SLOWNESS, HASTE, MINING_FATIGUE, STRENGTH, INSTANT_HEALTH
+# - INSTANT_DAMAGE, JUMP_BOOST, NAUSEA, REGENERATION, RESISTANCE
+# - FIRE_RESISTANCE, WATER_BREATHING, INVISIBILITY, BLINDNESS
+# - NIGHT_VISION, HUNGER, WEAKNESS, POISON, WITHER, HEALTH_BOOST
+# - ABSORPTION, SATURATION, GLOWING, LEVITATION, LUCK, UNLUCK
+# - SLOW_FALLING, CONDUIT_POWER, DOLPHINS_GRACE, BAD_OMEN
+# - HERO_OF_THE_VILLAGE, DARKNESS
+#
+# MATERIALES RECOMENDADOS PARA FLORES:
+# - Flores pequeñas: POPPY, DANDELION, BLUE_ORCHID, ALLIUM, AZURE_BLUET
+# - Tulipanes: RED_TULIP, ORANGE_TULIP, WHITE_TULIP, PINK_TULIP
+# - Otras: OXEYE_DAISY, CORNFLOWER, LILY_OF_THE_VALLEY, WITHER_ROSE
+# - Flores grandes: SUNFLOWER, LILAC, ROSE_BUSH, PEONY
+#
+# PARTÍCULAS DISPONIBLES:
+# - Básicas: HEART, VILLAGER_HAPPY, CRIT, CRIT_MAGIC, ENCHANTMENT_TABLE
+# - Fuego: FLAME, SOUL_FIRE_FLAME, LAVA, SMOKE_NORMAL
+# - Mágicas: END_ROD, PORTAL, DRAGON_BREATH, TOTEM, WAX_OFF
+# - Naturaleza: COMPOSTER, FALLING_LEAVES, SPORE_BLOSSOM_AIR
+#
+# ═══════════════════════════════════════════════════════════════════

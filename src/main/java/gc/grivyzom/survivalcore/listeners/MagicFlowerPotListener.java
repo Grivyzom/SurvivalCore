@@ -26,6 +26,8 @@ import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.scheduler.BukkitRunnable;
 
+import java.util.Collection;
+
 /**
  * Listener que maneja todos los eventos relacionados con las Macetas Mágicas
  * CORREGIDO v1.3 - Solucionados bugs de duplicación y conservación de metadatos
@@ -92,8 +94,8 @@ public class MagicFlowerPotListener implements Listener {
             return;
         }
 
-        // Verificación: Distancia mínima entre macetas
-        if (!isValidDistance(location)) {
+        // 🔧 CORRECCIÓN PRINCIPAL: Verificación mejorada de distancia
+        if (!isValidDistanceImproved(location)) {
             event.setCancelled(true);
             player.sendMessage(ChatColor.RED + "No puedes colocar una Maceta Mágica tan cerca de otra.");
             player.sendMessage(ChatColor.GRAY + "Debe estar al menos a " + MIN_DISTANCE_BETWEEN_POTS + " bloques de distancia de otras macetas mágicas.");
@@ -164,32 +166,34 @@ public class MagicFlowerPotListener implements Listener {
             return;
         }
 
-        // Obtener datos de la maceta
+        // Obtener datos de la maceta ANTES del desregistro
         MagicFlowerPotData potData = potManager.getPotData(location);
         if (potData == null) {
             return;
         }
 
+        // 🔧 CORRECCIÓN CRÍTICA: Desregistrar INMEDIATAMENTE y de forma síncrona
+        potManager.unregisterPot(location);
+
+        // 🆕 NUEVO: Limpieza adicional para asegurar que no queden referencias
+        cleanupPotLocation(location);
+
         // Cancelar drops vanilla
         event.setDropItems(false);
 
-        // 🔧 CORRECCIÓN CRÍTICA: Crear maceta VACÍA, sin metadatos de flor
+        // Crear maceta VACÍA, sin metadatos de flor
         ItemStack magicPot = potFactory.createMagicFlowerPot(potData.getLevel());
-        // ❌ NO establecer la flor en la maceta: magicPot = potFactory.setContainedFlower(magicPot, potData.getFlowerId());
 
         // Dropear la maceta mágica VACÍA
         block.getWorld().dropItemNaturally(location.add(0.5, 0.5, 0.5), magicPot);
 
-        // 🔧 CORRECCIÓN: Si tenía flor, dropear la flor MÁGICA por separado
+        // Si tenía flor, dropear la flor MÁGICA por separado
         if (potData.hasFlower()) {
             ItemStack magicFlowerItem = createMagicFlowerFromId(potData.getFlowerId(), getStoredFlowerLevel(potData));
             if (magicFlowerItem != null) {
                 block.getWorld().dropItemNaturally(location, magicFlowerItem);
             }
         }
-
-        // Desregistrar la maceta
-        potManager.unregisterPot(location);
 
         // Efectos de rotura
         playBreakEffects(location, potData.hasFlower());
@@ -261,6 +265,104 @@ public class MagicFlowerPotListener implements Listener {
 
         // Si hace clic con otros ítems, mostrar información
         showPotInfo(player, potData);
+    }
+
+    /**
+     * 🆕 NUEVO: Limpia ubicaciones inválidas de macetas fantasma
+     */
+    private void cleanupInvalidPotLocations() {
+        Collection<MagicFlowerPotData> activePots = potManager.getAllActivePots();
+        java.util.List<Location> toRemove = new java.util.ArrayList<>();
+
+        for (MagicFlowerPotData potData : activePots) {
+            Location location = potData.getLocation();
+            Block block = location.getBlock();
+
+            // Si el bloque ya no es una maceta, marcarlo para eliminación
+            if (block.getType() != Material.FLOWER_POT) {
+                toRemove.add(location);
+            }
+        }
+
+        // Remover macetas fantasma
+        for (Location location : toRemove) {
+            potManager.unregisterPot(location);
+            plugin.getLogger().info("Maceta fantasma removida de: " + formatLocation(location));
+        }
+
+        if (!toRemove.isEmpty()) {
+            plugin.getLogger().info("Limpieza completada: " + toRemove.size() + " macetas fantasma eliminadas");
+        }
+    }
+    /**
+     * 🆕 NUEVO: Formatea una ubicación para logging
+     */
+    private String formatLocation(Location location) {
+        return String.format("%s(%d,%d,%d)",
+                location.getWorld().getName(),
+                location.getBlockX(),
+                location.getBlockY(),
+                location.getBlockZ()
+        );
+    }
+
+    /**
+     * 🔧 MÉTODO MEJORADO: Verificación mejorada que TAMBIÉN detecta ubicaciones inválidas
+     */
+
+    /**
+     * 🔧 MÉTODO CORREGIDO: Verificación mejorada de distancia
+     * Soluciona el problema de detección de macetas fantasma
+     */
+    private boolean isValidDistanceImproved(Location newLocation) {
+        // 🆕 NUEVO: Limpiar ubicaciones inválidas antes de verificar
+        cleanupInvalidPotLocations();
+
+        for (MagicFlowerPotData existingPot : potManager.getAllActivePots()) {
+            Location existingLocation = existingPot.getLocation();
+
+            // Solo verificar en el mismo mundo
+            if (!newLocation.getWorld().equals(existingLocation.getWorld())) {
+                continue;
+            }
+
+            // 🔧 CORRECCIÓN CRÍTICA: Verificar que realmente existe una maceta en esa ubicación
+            Block existingBlock = existingLocation.getBlock();
+            if (existingBlock.getType() != Material.FLOWER_POT) {
+                // La maceta ya no existe físicamente, limpiar del manager
+                plugin.getLogger().warning("Maceta fantasma detectada en " + formatLocation(existingLocation) + " - Limpiando...");
+                potManager.unregisterPot(existingLocation);
+                continue; // Saltar esta ubicación
+            }
+
+            // 🆕 NUEVO: Excluir la misma ubicación exacta (permite recolocar en el mismo lugar)
+            if (existingLocation.equals(newLocation)) {
+                plugin.getLogger().info("Permitiendo recolocación en la misma ubicación: " + formatLocation(newLocation));
+                continue;
+            }
+
+            // Calcular distancia 3D
+            double distance = newLocation.distance(existingLocation);
+
+            if (distance < MIN_DISTANCE_BETWEEN_POTS) {
+                plugin.getLogger().info(String.format("Maceta rechazada por proximidad: %.2f bloques de %s",
+                        distance, formatLocation(existingLocation)));
+                return false; // Muy cerca de otra maceta válida
+            }
+        }
+
+        return true; // Distancia válida
+    }
+
+    /**
+     * 🆕 NUEVO: Limpia una ubicación específica de maceta
+     */
+    private void cleanupPotLocation(Location location) {
+        // Verificar si aún está registrada y limpiarla
+        if (potManager.hasPotAt(location)) {
+            potManager.unregisterPot(location);
+            plugin.getLogger().info("Limpieza adicional realizada para: " + formatLocation(location));
+        }
     }
 
     /**
@@ -462,22 +564,8 @@ public class MagicFlowerPotListener implements Listener {
      * Verificar distancia mínima entre macetas
      */
     private boolean isValidDistance(Location newLocation) {
-        for (MagicFlowerPotData existingPot : potManager.getAllActivePots()) {
-            Location existingLocation = existingPot.getLocation();
-
-            // Solo verificar en el mismo mundo
-            if (!newLocation.getWorld().equals(existingLocation.getWorld())) {
-                continue;
-            }
-
-            // Calcular distancia 3D
-            double distance = newLocation.distance(existingLocation);
-
-            if (distance < MIN_DISTANCE_BETWEEN_POTS) {
-                return false; // Muy cerca de otra maceta
-            }
-        }
-        return true; // Distancia válida
+        // Usar el método mejorado
+        return isValidDistanceImproved(newLocation);
     }
 
     /**

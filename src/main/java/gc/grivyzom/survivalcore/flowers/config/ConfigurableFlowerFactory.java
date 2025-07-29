@@ -125,7 +125,7 @@ public class ConfigurableFlowerFactory {
                     .replace("{effect_count}", String.valueOf(flowerDef.getEffects().size()));
 
             // Procesar efectos dinámicos
-            if (processedLine.contains("{effects_list}")) {Mision
+            if (processedLine.contains("{effects_list}")) {
                 processedLore.addAll(generateEffectsList(flowerDef, level));
                 continue;
             }

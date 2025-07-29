@@ -31,6 +31,7 @@ public class MagicFlowerPotManager {
     // Tareas de efectos activas
     private BukkitTask effectTask;
     private BukkitTask particleTask;
+    private BukkitTask cleanupTask;
 
     public MagicFlowerPotManager(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -72,10 +73,7 @@ public class MagicFlowerPotManager {
      * Desregistra una maceta mágica
      */
     public void unregisterPot(Location location) {
-        MagicFlowerPotData removed = activePots.remove(location);
-        if (removed != null) {
-            plugin.getLogger().info("Maceta mágica removida - ID: " + removed.getPotId());
-        }
+        unregisterPotSafe(location);
     }
 
     /**
@@ -147,6 +145,201 @@ public class MagicFlowerPotManager {
                 spawnParticles();
             }
         }.runTaskTimer(plugin, 10L, 20L);
+
+        // 🆕 NUEVO: Tarea de limpieza automática (cada 5 minutos)
+        cleanupTask = new BukkitRunnable() {
+            @Override
+            public void run() {
+                performAutomaticCleanup();
+            }
+        }.runTaskTimer(plugin, 6000L, 6000L); // 5 minutos inicial, luego cada 5 minutos
+    }
+
+    /**
+     * 🆕 NUEVO: Realiza limpieza automática de macetas fantasma
+     */
+    private void performAutomaticCleanup() {
+        int initialCount = activePots.size();
+        java.util.List<Location> toRemove = new java.util.ArrayList<>();
+
+        // Verificar cada maceta registrada
+        for (java.util.Map.Entry<Location, MagicFlowerPotData> entry : activePots.entrySet()) {
+            Location location = entry.getKey();
+
+            // Verificar que el chunk esté cargado
+            if (!location.getChunk().isLoaded()) {
+                continue; // Saltar chunks no cargados
+            }
+
+            Block block = location.getBlock();
+
+            // Si el bloque ya no es una maceta, marcarlo para eliminación
+            if (block.getType() != Material.FLOWER_POT) {
+                toRemove.add(location);
+            }
+        }
+
+        // Remover macetas fantasma
+        for (Location location : toRemove) {
+            MagicFlowerPotData removedData = activePots.remove(location);
+            if (removedData != null) {
+                plugin.getLogger().info("Limpieza automática: Maceta fantasma removida - ID: " +
+                        removedData.getPotId() + " en " + formatLocation(location));
+            }
+        }
+
+        int cleanedCount = toRemove.size();
+        int finalCount = activePots.size();
+
+        if (cleanedCount > 0) {
+            plugin.getLogger().info(String.format("Limpieza automática completada: %d macetas fantasma eliminadas (%d -> %d)",
+                    cleanedCount, initialCount, finalCount));
+        }
+    }
+
+    /**
+     * 🆕 NUEVO: Verifica la integridad de los datos de macetas
+     */
+    public int verifyDataIntegrity() {
+        int inconsistencies = 0;
+        java.util.List<Location> toRemove = new java.util.ArrayList<>();
+
+        for (java.util.Map.Entry<Location, MagicFlowerPotData> entry : activePots.entrySet()) {
+            Location location = entry.getKey();
+            MagicFlowerPotData data = entry.getValue();
+
+            // Verificar que el chunk esté cargado antes de verificar
+            if (!location.getChunk().isLoaded()) {
+                continue;
+            }
+
+            Block block = location.getBlock();
+
+            // Verificar que realmente hay una maceta en esa ubicación
+            if (block.getType() != Material.FLOWER_POT) {
+                toRemove.add(location);
+                inconsistencies++;
+                plugin.getLogger().warning("Inconsistencia detectada: Maceta registrada sin bloque físico en " +
+                        formatLocation(location) + " - ID: " + data.getPotId());
+            }
+        }
+
+        // Limpiar inconsistencias encontradas
+        for (Location location : toRemove) {
+            activePots.remove(location);
+        }
+
+        if (inconsistencies > 0) {
+            plugin.getLogger().info("Verificación de integridad completada: " + inconsistencies + " inconsistencias corregidas");
+        }
+
+        return inconsistencies;
+    }
+
+    /**
+     * 🆕 NUEVO: Desregistra una maceta con verificación adicional
+     */
+    public boolean unregisterPotSafe(Location location) {
+        MagicFlowerPotData removed = activePots.remove(location);
+
+        if (removed != null) {
+            plugin.getLogger().info("Maceta desregistrada correctamente - ID: " + removed.getPotId() +
+                    " en " + formatLocation(location));
+            return true;
+        } else {
+            plugin.getLogger().warning("Intento de desregistrar maceta inexistente en: " + formatLocation(location));
+            return false;
+        }
+    }
+
+    /**
+     * 🔧 MÉTODO MEJORADO: Desregistra con logging mejorado
+     */
+
+
+    /**
+     * 🆕 NUEVO: Fuerza la limpieza inmediata
+     */
+    public int forceCleanup() {
+        plugin.getLogger().info("Forzando limpieza manual de macetas...");
+
+        int beforeCount = activePots.size();
+        performAutomaticCleanup();
+        int afterCount = activePots.size();
+
+        int cleaned = beforeCount - afterCount;
+
+        plugin.getLogger().info("Limpieza manual completada: " + cleaned + " macetas limpiadas");
+        return cleaned;
+    }
+
+    /**
+     * 🆕 NUEVO: Obtiene información detallada de una ubicación
+     */
+    public String getLocationInfo(Location location) {
+        StringBuilder info = new StringBuilder();
+
+        info.append("=== INFORMACIÓN DE UBICACIÓN ===\n");
+        info.append("Coordenadas: ").append(formatLocation(location)).append("\n");
+        info.append("Chunk cargado: ").append(location.getChunk().isLoaded()).append("\n");
+        info.append("Tipo de bloque: ").append(location.getBlock().getType()).append("\n");
+        info.append("Registrada en manager: ").append(hasPotAt(location)).append("\n");
+
+        if (hasPotAt(location)) {
+            MagicFlowerPotData data = getPotData(location);
+            if (data != null) {
+                info.append("ID de maceta: ").append(data.getPotId()).append("\n");
+                info.append("Nivel: ").append(data.getLevel()).append("\n");
+                info.append("Tiene flor: ").append(data.hasFlower()).append("\n");
+                if (data.hasFlower()) {
+                    info.append("Flor: ").append(data.getFlowerId()).append(" (Lv.").append(data.getFlowerLevel()).append(")\n");
+                }
+            }
+        }
+
+        return info.toString();
+    }
+
+
+    /**
+     * 🆕 NUEVO: Formatea una ubicación para logging consistente
+     */
+    private String formatLocation(Location location) {
+        return String.format("%s(%d,%d,%d)",
+                location.getWorld().getName(),
+                location.getBlockX(),
+                location.getBlockY(),
+                location.getBlockZ()
+        );
+    }
+
+    /**
+     * 🆕 NUEVO: Comando de debug para administradores
+     */
+    public String getDebugInfo() {
+        StringBuilder debug = new StringBuilder();
+
+        debug.append("=== DEBUG INFO - MAGIC FLOWER POT MANAGER ===\n");
+        debug.append("Total macetas registradas: ").append(activePots.size()).append("\n");
+        debug.append("Tareas activas: ");
+        debug.append("Efectos=").append(effectTask != null && !effectTask.isCancelled());
+        debug.append(", Partículas=").append(particleTask != null && !particleTask.isCancelled());
+        debug.append(", Limpieza=").append(cleanupTask != null && !cleanupTask.isCancelled());
+        debug.append("\n");
+
+        // Información por mundo
+        java.util.Map<String, Integer> potsByWorld = new java.util.HashMap<>();
+        for (Location loc : activePots.keySet()) {
+            String worldName = loc.getWorld().getName();
+            potsByWorld.merge(worldName, 1, Integer::sum);
+        }
+
+        debug.append("Distribución por mundo:\n");
+        for (java.util.Map.Entry<String, Integer> entry : potsByWorld.entrySet()) {
+            debug.append("  ").append(entry.getKey()).append(": ").append(entry.getValue()).append(" macetas\n");
+        }
+
+        return debug.toString();
     }
 
     /**
@@ -471,6 +664,11 @@ public class MagicFlowerPotManager {
             particleTask.cancel();
         }
 
+        // 🆕 NUEVO: Cancelar tarea de limpieza
+        if (cleanupTask != null && !cleanupTask.isCancelled()) {
+            cleanupTask.cancel();
+        }
+
         activePots.clear();
 
         plugin.getLogger().info("MagicFlowerPotManager desactivado correctamente.");
@@ -484,8 +682,8 @@ public class MagicFlowerPotManager {
                 .filter(MagicFlowerPotData::hasFlower)
                 .count();
 
-        // 🆕 NUEVO: Estadísticas por nivel de flor
-        Map<Integer, Long> flowerLevelCounts = new HashMap<>();
+        // Estadísticas por nivel de flor
+        java.util.Map<Integer, Long> flowerLevelCounts = new java.util.HashMap<>();
         for (int i = 1; i <= 5; i++) {
             flowerLevelCounts.put(i, 0L);
         }
@@ -497,6 +695,20 @@ public class MagicFlowerPotManager {
                     flowerLevelCounts.put(level, flowerLevelCounts.get(level) + 1);
                 });
 
+        // Verificar integridad en tiempo real
+        int loadedChunks = 0;
+        int inconsistencies = 0;
+
+        for (java.util.Map.Entry<Location, MagicFlowerPotData> entry : activePots.entrySet()) {
+            Location loc = entry.getKey();
+            if (loc.getChunk().isLoaded()) {
+                loadedChunks++;
+                if (loc.getBlock().getType() != Material.FLOWER_POT) {
+                    inconsistencies++;
+                }
+            }
+        }
+
         StringBuilder stats = new StringBuilder();
         stats.append(String.format("Macetas activas: %d | Con flores: %d | Vacías: %d\n",
                 activePots.size(), activeFlowers, activePots.size() - activeFlowers));
@@ -506,8 +718,17 @@ public class MagicFlowerPotManager {
             stats.append(String.format("  Nivel %d: %d flores\n", i, flowerLevelCounts.get(i)));
         }
 
+        stats.append(String.format("Chunks cargados: %d/%d\n", loadedChunks, activePots.size()));
+
+        if (inconsistencies > 0) {
+            stats.append(String.format("⚠ INCONSISTENCIAS DETECTADAS: %d\n", inconsistencies));
+        } else {
+            stats.append("✓ Integridad de datos: OK\n");
+        }
+
         return stats.toString();
     }
+
 
     /**
      * Fuerza la actualización de efectos (útil para testing)

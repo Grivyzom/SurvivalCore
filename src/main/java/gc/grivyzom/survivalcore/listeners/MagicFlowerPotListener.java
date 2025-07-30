@@ -12,6 +12,7 @@ import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.TileState;
+import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -25,15 +26,15 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.scheduler.BukkitRunnable;
-
+import org.bukkit.block.data.BlockData;
 import java.util.Collection;
 
 /**
  * Listener que maneja todos los eventos relacionados con las Macetas Mágicas
- * CORREGIDO v1.3 - Solucionados bugs de duplicación y conservación de metadatos
+ * CORREGIDO v1.4 - Solucionado problema de importaciones conflictivas de FlowerPot
  *
  * @author Brocolitx
- * @version 1.3
+ * @version 1.4
  */
 public class MagicFlowerPotListener implements Listener {
 
@@ -146,7 +147,6 @@ public class MagicFlowerPotListener implements Listener {
     public void onMagicFlowerPotBreak(BlockBreakEvent event) {
         Block block = event.getBlock();
 
-        // Solo procesar macetas
         if (block.getType() != Material.FLOWER_POT) {
             return;
         }
@@ -154,37 +154,33 @@ public class MagicFlowerPotListener implements Listener {
         Location location = block.getLocation();
         Player player = event.getPlayer();
 
-        // Verificar si es una maceta mágica registrada
         if (!potManager.hasPotAt(location)) {
             return;
         }
 
-        // Verificar permisos
         if (!player.hasPermission(PERM_BREAK)) {
             event.setCancelled(true);
             player.sendMessage(ChatColor.RED + "No tienes permisos para romper Macetas Mágicas.");
             return;
         }
 
-        // Obtener datos de la maceta ANTES del desregistro
         MagicFlowerPotData potData = potManager.getPotData(location);
         if (potData == null) {
             return;
         }
 
-        // 🔧 CORRECCIÓN CRÍTICA: Desregistrar INMEDIATAMENTE y de forma síncrona
-        potManager.unregisterPot(location);
+        // 🔧 CORRECCIÓN: Limpiar visual antes de desregistrar
+        updatePotVisual(location, "none", false);
 
-        // 🆕 NUEVO: Limpieza adicional para asegurar que no queden referencias
+        // Desregistrar inmediatamente
+        potManager.unregisterPot(location);
         cleanupPotLocation(location);
 
         // Cancelar drops vanilla
         event.setDropItems(false);
 
-        // Crear maceta VACÍA, sin metadatos de flor
+        // Crear maceta VACÍA
         ItemStack magicPot = potFactory.createMagicFlowerPot(potData.getLevel());
-
-        // Dropear la maceta mágica VACÍA
         block.getWorld().dropItemNaturally(location.add(0.5, 0.5, 0.5), magicPot);
 
         // Si tenía flor, dropear la flor MÁGICA por separado
@@ -195,10 +191,9 @@ public class MagicFlowerPotListener implements Listener {
             }
         }
 
-        // Efectos de rotura
+        // Efectos y mensajes
         playBreakEffects(location, potData.hasFlower());
 
-        // Mensajes al jugador
         player.sendMessage(ChatColor.YELLOW + "⚡ Maceta Mágica recogida correctamente.");
         if (potData.hasFlower()) {
             player.sendMessage(ChatColor.LIGHT_PURPLE + "🌸 La flor mágica también ha sido devuelta por separado.");
@@ -294,6 +289,7 @@ public class MagicFlowerPotListener implements Listener {
             plugin.getLogger().info("Limpieza completada: " + toRemove.size() + " macetas fantasma eliminadas");
         }
     }
+
     /**
      * 🆕 NUEVO: Formatea una ubicación para logging
      */
@@ -306,9 +302,65 @@ public class MagicFlowerPotListener implements Listener {
         );
     }
 
+    public void syncPotsInChunk(org.bukkit.Chunk chunk) {
+        // Buscar todas las macetas mágicas en el chunk
+        for (MagicFlowerPotData potData : potManager.getAllActivePots()) {
+            Location potLocation = potData.getLocation();
+
+            // Verificar si está en este chunk
+            if (potLocation.getChunk().equals(chunk)) {
+                // Sincronizar visual
+                boolean isConfigurable = isFlowerConfigurable(potData.getFlowerId());
+                updatePotVisual(potLocation, potData.getFlowerId(), isConfigurable);
+
+                plugin.getLogger().info("Visual sincronizado para maceta ID: " + potData.getPotId() +
+                        " en " + formatLocation(potLocation));
+            }
+        }
+    }
+
     /**
-     * 🔧 MÉTODO MEJORADO: Verificación mejorada que TAMBIÉN detecta ubicaciones inválidas
+     * Verifica si una flor es del sistema configurable
      */
+    private boolean isFlowerConfigurable(String flowerId) {
+        if (plugin.getFlowerIntegration() != null) {
+            FlowerConfigManager configManager = plugin.getFlowerIntegration().getConfigManager();
+            return configManager.hasFlower(flowerId);
+        }
+        return false;
+    }
+
+    /**
+     * Comando para forzar sincronización de visuales
+     * Agregar esto al comando /flowerpot
+     */
+    private boolean handleSyncVisuals(CommandSender sender) {
+        if (!sender.hasPermission("survivalcore.flowerpot.admin")) {
+            sender.sendMessage(ChatColor.RED + "No tienes permisos para usar este comando.");
+            return true;
+        }
+
+        int syncedCount = 0;
+
+        for (MagicFlowerPotData potData : potManager.getAllActivePots()) {
+            Location potLocation = potData.getLocation();
+
+            // Verificar que el chunk esté cargado
+            if (!potLocation.getChunk().isLoaded()) {
+                continue;
+            }
+
+            // Sincronizar visual
+            boolean isConfigurable = isFlowerConfigurable(potData.getFlowerId());
+            if (updatePotVisual(potLocation, potData.getFlowerId(), isConfigurable)) {
+                syncedCount++;
+            }
+        }
+
+        sender.sendMessage(ChatColor.GREEN + "✓ Sincronizados " + syncedCount + " visuales de macetas.");
+
+        return true;
+    }
 
     /**
      * 🔧 MÉTODO CORREGIDO: Verificación mejorada de distancia
@@ -366,6 +418,97 @@ public class MagicFlowerPotListener implements Listener {
     }
 
     /**
+     * Obtiene el material de Minecraft que se debe mostrar en la maceta
+     * @param flowerId ID de la flor mágica
+     * @param isConfigurable Si es una flor configurable
+     * @return Material a mostrar en la maceta
+     */
+    private Material getVisualFlowerMaterial(String flowerId, boolean isConfigurable) {
+        if (flowerId == null || flowerId.equals("none")) {
+            return null; // Maceta vacía
+        }
+
+        // 🆕 NUEVO: Para flores configurables, obtener material de la configuración
+        if (isConfigurable && plugin.getFlowerIntegration() != null) {
+            FlowerConfigManager configManager = plugin.getFlowerIntegration().getConfigManager();
+            if (configManager.hasFlower(flowerId)) {
+                FlowerDefinition flowerDef = configManager.getFlower(flowerId);
+                if (flowerDef != null) {
+                    Material configMaterial = flowerDef.getConfig().getType();
+                    if (isValidFlowerMaterial(configMaterial)) {
+                        return configMaterial;
+                    }
+                }
+            }
+        }
+
+        // Para flores tradicionales o fallback
+        switch (flowerId.toLowerCase()) {
+            case "love_flower":
+                return Material.POPPY;
+            case "healing_flower":
+                return Material.DANDELION;
+            case "speed_flower":
+                return Material.BLUE_ORCHID;
+            case "strength_flower":
+                return Material.ALLIUM;
+            case "night_vision_flower":
+                return Material.AZURE_BLUET;
+            case "nature_flower":
+                return Material.LILY_OF_THE_VALLEY;
+            case "celestial_flower":
+                return Material.CORNFLOWER;
+            case "guardian_flower":
+                return Material.SUNFLOWER;
+            case "phoenix_flower":
+                return Material.WITHER_ROSE;
+            case "chaos_flower":
+                return Material.CHORUS_FLOWER;
+            default:
+                plugin.getLogger().warning("Material visual no definido para flor: " + flowerId);
+                return Material.DANDELION; // Fallback
+        }
+    }
+
+    /**
+     * Verifica si un material se puede mostrar en una maceta
+     * @param material Material a verificar
+     * @return true si es válido para macetas
+     */
+    private boolean isValidFlowerMaterial(Material material) {
+        // Lista de materiales que se pueden mostrar en macetas
+        Material[] validMaterials = {
+                // Flores pequeñas
+                Material.POPPY, Material.DANDELION, Material.BLUE_ORCHID, Material.ALLIUM,
+                Material.AZURE_BLUET, Material.RED_TULIP, Material.ORANGE_TULIP,
+                Material.WHITE_TULIP, Material.PINK_TULIP, Material.OXEYE_DAISY,
+                Material.CORNFLOWER, Material.LILY_OF_THE_VALLEY, Material.WITHER_ROSE,
+
+                // Otros válidos
+                Material.OAK_SAPLING, Material.SPRUCE_SAPLING, Material.BIRCH_SAPLING,
+                Material.JUNGLE_SAPLING, Material.ACACIA_SAPLING, Material.DARK_OAK_SAPLING,
+                Material.MANGROVE_PROPAGULE, Material.CHERRY_SAPLING,
+
+                // Hongos
+                Material.RED_MUSHROOM, Material.BROWN_MUSHROOM,
+
+                // Cactus y plantas especiales
+                Material.CACTUS, Material.DEAD_BUSH, Material.FERN, Material.BAMBOO,
+
+                // Flores especiales
+                Material.CHORUS_FLOWER
+        };
+
+        for (Material validMaterial : validMaterials) {
+            if (material == validMaterial) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * 🔧 CORREGIDO: Maneja el plantado sin duplicación
      */
     private void handleFlowerPlanting(Player player, Location location, MagicFlowerPotData potData, ItemStack flower) {
@@ -373,11 +516,10 @@ public class MagicFlowerPotListener implements Listener {
         int newFlowerLevel = 1;
         boolean isConfigurableFlower = false;
 
-        // 🆕 NUEVO: Verificar si es una flor configurable primero
+        // Verificar si es una flor configurable primero
         if (plugin.getFlowerIntegration() != null) {
             ConfigurableFlowerFactory factory = plugin.getFlowerIntegration().getFlowerFactory();
             if (factory.isConfigurableFlower(flower)) {
-                // Usar el sistema configurable
                 newFlowerId = factory.getFlowerId(flower);
                 newFlowerLevel = factory.getFlowerLevel(flower);
                 isConfigurableFlower = true;
@@ -400,16 +542,13 @@ public class MagicFlowerPotListener implements Listener {
         String oldFlowerId = hadFlower ? potData.getFlowerId() : null;
         int oldFlowerLevel = hadFlower ? getStoredFlowerLevel(potData) : 1;
 
-        // 🔧 CORRECCIÓN CRÍTICA: Verificar si es la misma flor antes de devolver
+        // Verificar si es la misma flor antes de devolver
         if (hadFlower) {
-            // Solo devolver la flor anterior si es DIFERENTE a la nueva
             boolean isDifferentFlower = !newFlowerId.equals(oldFlowerId) || newFlowerLevel != oldFlowerLevel;
 
             if (isDifferentFlower) {
-                // 🆕 MEJORADO: Crear flor según el tipo original
                 ItemStack oldMagicFlower = createMagicFlowerFromId(oldFlowerId, oldFlowerLevel);
                 if (oldMagicFlower != null) {
-                    // Intentar añadir al inventario, si no cabe, dropear
                     if (player.getInventory().addItem(oldMagicFlower).isEmpty()) {
                         player.sendMessage(ChatColor.YELLOW + "La " + getFlowerDisplayName(oldFlowerId) +
                                 " anterior ha sido devuelta a tu inventario.");
@@ -420,55 +559,179 @@ public class MagicFlowerPotListener implements Listener {
                     }
                 }
             } else {
-                // Es la misma flor - no devolver ni consumir
                 player.sendMessage(ChatColor.YELLOW + "Esta maceta ya contiene la misma flor.");
-                player.sendMessage(ChatColor.GRAY + "No es necesario reemplazarla.");
                 return;
             }
         }
 
-        // Plantar la nueva flor
-        if (potManager.updateFlowerInPot(location, newFlowerId, newFlowerLevel)) {
-            // Almacenar el nivel de la flor
-            storeFlowerLevel(potData, newFlowerLevel);
+        // 🔧 CORRECCIÓN PRINCIPAL: Actualizar el visual de la maceta
+        if (updatePotVisual(location, newFlowerId, isConfigurableFlower)) {
+            // Plantar la nueva flor en el sistema
+            if (potManager.updateFlowerInPot(location, newFlowerId, newFlowerLevel)) {
+                storeFlowerLevel(potData, newFlowerLevel);
 
-            // Consumir la flor del inventario (si no está en creativo)
-            if (player.getGameMode() != GameMode.CREATIVE) {
-                flower.setAmount(flower.getAmount() - 1);
-            }
+                // Consumir la flor del inventario
+                if (player.getGameMode() != GameMode.CREATIVE) {
+                    flower.setAmount(flower.getAmount() - 1);
+                }
 
-            // 🆕 MEJORADO: Mensajes diferenciados con información del tipo de flor
-            String flowerDisplayName = getFlowerDisplayName(newFlowerId);
-            String flowerTypeInfo = isConfigurableFlower ?
-                    ChatColor.LIGHT_PURPLE + " [Configurable]" :
-                    ChatColor.GRAY + " [Tradicional]";
+                // Mensajes diferenciados
+                String flowerDisplayName = getFlowerDisplayName(newFlowerId);
+                String flowerTypeInfo = isConfigurableFlower ?
+                        ChatColor.LIGHT_PURPLE + " [Configurable]" :
+                        ChatColor.GRAY + " [Tradicional]";
 
-            if (hadFlower && !newFlowerId.equals(oldFlowerId)) {
-                player.sendMessage(ChatColor.GREEN + "✓ " + flowerDisplayName +
-                        flowerTypeInfo + ChatColor.GREEN + " plantada, reemplazando " +
-                        getFlowerDisplayName(oldFlowerId) + "!");
-            } else if (hadFlower) {
-                player.sendMessage(ChatColor.GREEN + "✓ " + flowerDisplayName +
-                        flowerTypeInfo + ChatColor.GREEN + " mejorada de nivel " +
-                        oldFlowerLevel + " a " + newFlowerLevel + "!");
+                if (hadFlower && !newFlowerId.equals(oldFlowerId)) {
+                    player.sendMessage(ChatColor.GREEN + "✓ " + flowerDisplayName +
+                            flowerTypeInfo + ChatColor.GREEN + " plantada, reemplazando " +
+                            getFlowerDisplayName(oldFlowerId) + "!");
+                } else if (hadFlower) {
+                    player.sendMessage(ChatColor.GREEN + "✓ " + flowerDisplayName +
+                            flowerTypeInfo + ChatColor.GREEN + " mejorada de nivel " +
+                            oldFlowerLevel + " a " + newFlowerLevel + "!");
+                } else {
+                    player.sendMessage(ChatColor.GREEN + "✓ " + flowerDisplayName +
+                            flowerTypeInfo + ChatColor.GREEN + " plantada correctamente!");
+                }
+
+                player.sendMessage(ChatColor.AQUA + "La maceta ahora irradia efectos en " +
+                        potData.getEffectRange() + " bloques de distancia.");
+
+                // Efectos de plantado
+                playFlowerPlantEffects(location, newFlowerId, newFlowerLevel);
+
+                plugin.getLogger().info(String.format("Flor plantada: %s -> %s (nivel %d) %s en maceta ID: %s",
+                        player.getName(), newFlowerId, newFlowerLevel,
+                        isConfigurableFlower ? "[CONFIG]" : "[TRAD]", potData.getPotId()));
             } else {
-                player.sendMessage(ChatColor.GREEN + "✓ " + flowerDisplayName +
-                        flowerTypeInfo + ChatColor.GREEN + " plantada correctamente!");
+                player.sendMessage(ChatColor.RED + "Error al plantar la flor. Inténtalo de nuevo.");
+                // Revertir el visual si falló
+                updatePotVisual(location, hadFlower ? oldFlowerId : "none", false);
             }
-
-            player.sendMessage(ChatColor.AQUA + "La maceta ahora irradia efectos en " +
-                    potData.getEffectRange() + " bloques de distancia.");
-
-            // Efectos de plantado
-            playFlowerPlantEffects(location, newFlowerId, newFlowerLevel);
-
-            plugin.getLogger().info(String.format("Flor plantada: %s -> %s (nivel %d) %s en maceta ID: %s",
-                    player.getName(), newFlowerId, newFlowerLevel,
-                    isConfigurableFlower ? "[CONFIG]" : "[TRAD]", potData.getPotId()));
         } else {
-            player.sendMessage(ChatColor.RED + "Error al plantar la flor. Inténtalo de nuevo.");
+            player.sendMessage(ChatColor.RED + "Error actualizando el visual de la maceta.");
         }
     }
+
+    /**
+     * 🔧 MÉTODO COMPLETAMENTE CORREGIDO: Actualiza el visual de la maceta
+     * Ahora usa el método correcto para establecer flores en macetas
+     */
+    private boolean updatePotVisual(Location location, String flowerId, boolean isConfigurable) {
+        try {
+            Block block = location.getBlock();
+
+            // Verificar que sigue siendo una maceta
+            if (block.getType() != Material.FLOWER_POT) {
+                plugin.getLogger().warning("Bloque ya no es una maceta en: " + formatLocation(location));
+                return false;
+            }
+
+            // Obtener el material de la flor a mostrar
+            Material flowerMaterial = getVisualFlowerMaterial(flowerId, isConfigurable);
+
+            if (flowerMaterial != null && flowerMaterial != Material.AIR && isValidFlowerMaterial(flowerMaterial)) {
+                // 🔧 CORRECCIÓN PRINCIPAL: Usar setType directamente con el material de la flor
+                // Esto coloca la flor en la maceta automáticamente
+                Material potWithFlower = getMaterialForPottedFlower(flowerMaterial);
+                if (potWithFlower != null) {
+                    block.setType(potWithFlower, true);
+                    plugin.getLogger().info("Flor visual establecida: " + flowerMaterial.name() + " en " + formatLocation(location));
+                } else {
+                    plugin.getLogger().warning("No se encontró material de maceta para: " + flowerMaterial.name());
+                    return false;
+                }
+            } else {
+                // Maceta vacía - establecer como maceta normal
+                block.setType(Material.FLOWER_POT, true);
+                plugin.getLogger().info("Maceta visual vaciada en: " + formatLocation(location));
+            }
+
+            // Forzar actualización para los clientes
+            block.getState().update(true, true);
+
+            return true;
+
+        } catch (Exception e) {
+            plugin.getLogger().severe("Error actualizando visual de maceta en " + formatLocation(location) + ": " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    /**
+     * 🆕 NUEVO: Obtiene el material de maceta con flor correspondiente
+     */
+    private Material getMaterialForPottedFlower(Material flowerMaterial) {
+        switch (flowerMaterial) {
+            case POPPY:
+                return Material.POTTED_POPPY;
+            case DANDELION:
+                return Material.POTTED_DANDELION;
+            case BLUE_ORCHID:
+                return Material.POTTED_BLUE_ORCHID;
+            case ALLIUM:
+                return Material.POTTED_ALLIUM;
+            case AZURE_BLUET:
+                return Material.POTTED_AZURE_BLUET;
+            case RED_TULIP:
+                return Material.POTTED_RED_TULIP;
+            case ORANGE_TULIP:
+                return Material.POTTED_ORANGE_TULIP;
+            case WHITE_TULIP:
+                return Material.POTTED_WHITE_TULIP;
+            case PINK_TULIP:
+                return Material.POTTED_PINK_TULIP;
+            case OXEYE_DAISY:
+                return Material.POTTED_OXEYE_DAISY;
+            case CORNFLOWER:
+                return Material.POTTED_CORNFLOWER;
+            case LILY_OF_THE_VALLEY:
+                return Material.POTTED_LILY_OF_THE_VALLEY;
+            case WITHER_ROSE:
+                return Material.POTTED_WITHER_ROSE;
+
+            // Arbustos
+            case OAK_SAPLING:
+                return Material.POTTED_OAK_SAPLING;
+            case SPRUCE_SAPLING:
+                return Material.POTTED_SPRUCE_SAPLING;
+            case BIRCH_SAPLING:
+                return Material.POTTED_BIRCH_SAPLING;
+            case JUNGLE_SAPLING:
+                return Material.POTTED_JUNGLE_SAPLING;
+            case ACACIA_SAPLING:
+                return Material.POTTED_ACACIA_SAPLING;
+            case DARK_OAK_SAPLING:
+                return Material.POTTED_DARK_OAK_SAPLING;
+            case MANGROVE_PROPAGULE:
+                return Material.POTTED_MANGROVE_PROPAGULE;
+            case CHERRY_SAPLING:
+                return Material.POTTED_CHERRY_SAPLING;
+
+            // Hongos
+            case RED_MUSHROOM:
+                return Material.POTTED_RED_MUSHROOM;
+            case BROWN_MUSHROOM:
+                return Material.POTTED_BROWN_MUSHROOM;
+
+            // Otros
+            case CACTUS:
+                return Material.POTTED_CACTUS;
+            case DEAD_BUSH:
+                return Material.POTTED_DEAD_BUSH;
+            case FERN:
+                return Material.POTTED_FERN;
+            case BAMBOO:
+                return Material.POTTED_BAMBOO;
+
+            default:
+                // Si no hay equivalente directo, usar POTTED_DANDELION como fallback
+                plugin.getLogger().warning("Material sin equivalente en maceta: " + flowerMaterial.name() + ", usando DANDELION");
+                return Material.POTTED_DANDELION;
+        }
+    }
+
     /**
      * 🆕 NUEVO: Crea una flor mágica a partir de su ID y nivel
      */

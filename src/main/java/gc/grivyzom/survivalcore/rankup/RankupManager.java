@@ -775,13 +775,188 @@ public class RankupManager {
 
     public void reloadConfig() {
         try {
+            long startTime = System.currentTimeMillis();
+
+            if (debugMode) {
+                plugin.getLogger().info("🔄 Iniciando recarga de configuración de Rankup 2.0...");
+            }
+
+            // 1. Verificar que LuckPerms sigue disponible
+            if (!initLuckPerms()) {
+                throw new RuntimeException("LuckPerms ya no está disponible");
+            }
+
+            // 2. Verificar PlaceholderAPI
             checkPlaceholderAPI();
-            loadConfiguration();
-            plugin.getLogger().info("✅ Configuración de Rankup recargada");
+
+            // 3. Crear respaldo de configuración actual (por si falla)
+            Map<String, SimpleRankData> backupRanks = new HashMap<>(ranks);
+            long backupCooldownTime = this.cooldownTime;
+            boolean backupEffects = this.enableEffects;
+            boolean backupBroadcast = this.enableBroadcast;
+
+            try {
+                // 4. Intentar cargar nueva configuración
+                loadConfiguration();
+
+                long duration = System.currentTimeMillis() - startTime;
+
+                plugin.getLogger().info("✅ Configuración de Rankup 2.0 recargada exitosamente en " + duration + "ms");
+
+                // Log de estadísticas actualizadas
+                plugin.getLogger().info("📊 Estadísticas actualizadas:");
+                plugin.getLogger().info("  • Rangos: " + ranks.size());
+                plugin.getLogger().info("  • Cooldown: " + (cooldownTime / 1000) + "s");
+                plugin.getLogger().info("  • Efectos: " + (enableEffects ? "Habilitados" : "Deshabilitados"));
+                plugin.getLogger().info("  • Broadcast: " + (enableBroadcast ? "Habilitado" : "Deshabilitado"));
+                plugin.getLogger().info("  • PlaceholderAPI: " + (placeholderAPIEnabled ? "Disponible" : "No disponible"));
+
+                // Verificar cambios importantes
+                if (ranks.size() != backupRanks.size()) {
+                    plugin.getLogger().info("🔄 Cambio en número de rangos: " + backupRanks.size() + " → " + ranks.size());
+                }
+
+                if (cooldownTime != backupCooldownTime) {
+                    plugin.getLogger().info("🔄 Cambio en cooldown: " + (backupCooldownTime / 1000) + "s → " + (cooldownTime / 1000) + "s");
+                }
+
+                // Limpiar cooldowns si se cambió la configuración de cooldown
+                if (cooldownTime != backupCooldownTime) {
+                    cooldowns.clear();
+                    plugin.getLogger().info("🧹 Cooldowns limpiados debido a cambio de configuración");
+                }
+
+                if (debugMode) {
+                    plugin.getLogger().info("🔍 Recarga completa - Listando rangos cargados:");
+                    ranks.values().stream()
+                            .sorted(Comparator.comparingInt(SimpleRankData::getOrder))
+                            .forEach(rank -> plugin.getLogger().info("  • " + rank.getId() +
+                                    " (orden: " + rank.getOrder() + ", siguiente: " + rank.getNextRank() + ")"));
+                }
+
+            } catch (Exception configError) {
+                // Restaurar configuración de respaldo si la nueva falla
+                plugin.getLogger().severe("❌ Error cargando nueva configuración, restaurando respaldo...");
+
+                this.ranks.clear();
+                this.ranks.putAll(backupRanks);
+                this.cooldownTime = backupCooldownTime;
+                this.enableEffects = backupEffects;
+                this.enableBroadcast = backupBroadcast;
+
+                plugin.getLogger().warning("⚠️ Configuración restaurada al estado anterior");
+                throw new RuntimeException("Error en nueva configuración: " + configError.getMessage(), configError);
+            }
+
         } catch (Exception e) {
-            plugin.getLogger().severe("❌ Error recargando configuración: " + e.getMessage());
-            throw new RuntimeException(e);
+            plugin.getLogger().severe("❌ Error crítico recargando configuración de Rankup:");
+            plugin.getLogger().severe("Tipo: " + e.getClass().getSimpleName());
+            plugin.getLogger().severe("Mensaje: " + e.getMessage());
+            if (debugMode) {
+                e.printStackTrace();
+            }
+            throw new RuntimeException("Error crítico en recarga de configuración", e);
         }
+    }
+
+    /**
+     * Método auxiliar para verificar si un archivo de configuración fue modificado recientemente
+     */
+    private boolean isConfigFileModifiedRecently(long thresholdMinutes) {
+        try {
+            if (!configFile.exists()) {
+                return false;
+            }
+
+            long lastModified = configFile.lastModified();
+            long now = System.currentTimeMillis();
+            long thresholdMs = thresholdMinutes * 60 * 1000;
+
+            return (now - lastModified) < thresholdMs;
+
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /**
+     * Método auxiliar para obtener información detallada del archivo de configuración
+     */
+    public Map<String, Object> getConfigFileInfo() {
+        Map<String, Object> info = new HashMap<>();
+
+        try {
+            if (configFile.exists()) {
+                info.put("exists", true);
+                info.put("size", configFile.length());
+                info.put("lastModified", configFile.lastModified());
+                info.put("canRead", configFile.canRead());
+                info.put("path", configFile.getAbsolutePath());
+            } else {
+                info.put("exists", false);
+            }
+        } catch (Exception e) {
+            info.put("error", e.getMessage());
+        }
+
+        return info;
+    }
+
+    /**
+     * Método para forzar la creación de un archivo de configuración por defecto
+     */
+    public void createDefaultConfigFile() {
+        try {
+            if (!configFile.getParentFile().exists()) {
+                configFile.getParentFile().mkdirs();
+            }
+
+            if (!configFile.exists()) {
+                plugin.saveResource("rankups.yml", false);
+                plugin.getLogger().info("✅ Archivo rankups.yml creado con configuración por defecto");
+            } else {
+                plugin.getLogger().warning("⚠️ El archivo rankups.yml ya existe, no se sobrescribirá");
+            }
+        } catch (Exception e) {
+            plugin.getLogger().severe("❌ Error creando archivo de configuración por defecto: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Método de debug para validar la configuración actual
+     */
+    public void validateCurrentConfig() {
+        if (!debugMode) return;
+
+        plugin.getLogger().info("🔍 VALIDACIÓN DE CONFIGURACIÓN ACTUAL:");
+        plugin.getLogger().info("════════════════════════════════════");
+
+        // Validar rangos
+        plugin.getLogger().info("Rangos (" + ranks.size() + " total):");
+        for (SimpleRankData rank : ranks.values()) {
+            StringBuilder sb = new StringBuilder();
+            sb.append("  • ").append(rank.getId());
+            sb.append(" (orden: ").append(rank.getOrder()).append(")");
+            sb.append(" → ").append(rank.getNextRank() != null ? rank.getNextRank() : "FIN");
+            sb.append(" [").append(rank.getRequirements().size()).append(" req]");
+            plugin.getLogger().info(sb.toString());
+        }
+
+        // Validar configuración general
+        plugin.getLogger().info("Configuración general:");
+        plugin.getLogger().info("  • Cooldown: " + (cooldownTime / 1000) + " segundos");
+        plugin.getLogger().info("  • Efectos: " + enableEffects);
+        plugin.getLogger().info("  • Broadcast: " + enableBroadcast);
+        plugin.getLogger().info("  • Método detección: " + detectionMethod);
+        plugin.getLogger().info("  • Prefijo grupos: " + groupPrefix);
+        plugin.getLogger().info("  • Rango por defecto: " + defaultRank);
+
+        // Validar integraciones
+        plugin.getLogger().info("Integraciones:");
+        plugin.getLogger().info("  • LuckPerms: " + (luckPerms != null ? "✓" : "✗"));
+        plugin.getLogger().info("  • PlaceholderAPI: " + (placeholderAPIEnabled ? "✓" : "✗"));
+
+        plugin.getLogger().info("════════════════════════════════════");
     }
 
     public Map<String, SimpleRankData> getRanks() {

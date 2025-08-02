@@ -11,12 +11,14 @@ import org.bukkit.command.TabCompleter;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 
+import java.io.File;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Comando principal /score actualizado para Rankup 2.0
@@ -49,11 +51,14 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
         switch (subcommand) {
             case "version", "v" -> showVersion(sender);
             case "reload", "r" -> handleReload(sender);
+            case "reloadrankup", "rr", "rankupreload" -> handleRankupReload(sender); // 🆕 NUEVO
             case "birthday", "cumpleanos" -> handleBirthday(sender, args);
             case "gender", "genero" -> handleGender(sender, args);
             case "country", "pais" -> handleCountry(sender, args);
             case "help", "ayuda" -> showHelp(sender, args);
             case "debug" -> handleDebug(sender, args);
+            case "emergency" -> handleEmergencyRestart(sender); // 🆕 NUEVO
+            case "status" -> handleSystemStatus(sender); // 🆕 NUEVO
             default -> {
                 sender.sendMessage(ChatColor.RED + "Subcomando desconocido. Usa /score help para ver la ayuda.");
                 return true;
@@ -64,7 +69,7 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
     }
 
     /**
-     * Maneja el reload completo del plugin - ACTUALIZADO para Rankup 2.0
+     * Maneja el reload completo del plugin - OPTIMIZADO para Rankup 2.0
      */
     private void handleReload(CommandSender sender) {
         if (!sender.hasPermission("survivalcore.reload")) {
@@ -79,38 +84,60 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
         StringBuilder report = new StringBuilder();
 
         try {
-            // 1. Recargar configuración principal
+            // 1. Recargar configuración principal PRIMERO
+            sender.sendMessage(ChatColor.GRAY + "• Recargando configuración principal...");
             plugin.reloadConfig();
             report.append(ChatColor.GREEN + "✓ Configuración principal\n");
 
-            // 2. Actualizar configuración interna (incluye rankup)
-            plugin.updateInternalConfig();
-            report.append(ChatColor.GREEN + "✓ Configuración interna\n");
-
-            // 3. Verificar estado del sistema de rankup - ACTUALIZADO
+            // 2. NUEVA PRIORIDAD: Recargar rankup ANTES que updateInternalConfig
             if (plugin.isRankupSystemEnabled()) {
                 try {
+                    sender.sendMessage(ChatColor.GRAY + "• Recargando sistema de Rankup 2.0...");
                     RankupManager rankupManager = plugin.getRankupManager();
+
+                    // Recargar configuración del rankup de forma explícita
+                    rankupManager.reloadConfig();
+
+                    // Verificar que se cargó correctamente
                     int ranksCount = rankupManager.getRanks().size();
                     int prestigesCount = rankupManager.getPrestiges().size();
 
-                    report.append(ChatColor.GREEN + "✓ Sistema de rankup (" + ranksCount + " rangos, " + prestigesCount + " prestiges)\n");
+                    report.append(ChatColor.GREEN + "✓ Sistema de Rankup 2.0 (" + ranksCount + " rangos, " + prestigesCount + " prestiges)\n");
 
                     if (rankupManager.isPlaceholderAPIEnabled()) {
-                        report.append(ChatColor.GREEN + "✓ PlaceholderAPI integrado\n");
+                        report.append(ChatColor.GREEN + "✓ PlaceholderAPI integrado con Rankup\n");
                     } else {
-                        report.append(ChatColor.YELLOW + "⚠ PlaceholderAPI no disponible\n");
+                        report.append(ChatColor.YELLOW + "⚠ PlaceholderAPI no disponible para Rankup\n");
                     }
+
+                    // Log detallado para debug
+                    sender.sendMessage(ChatColor.GREEN + "  ✓ Rangos recargados: " + ranksCount);
+                    if (prestigesCount > 0) {
+                        sender.sendMessage(ChatColor.GREEN + "  ✓ Prestiges recargados: " + prestigesCount);
+                    }
+
                 } catch (Exception e) {
                     hasErrors = true;
-                    report.append(ChatColor.RED + "✗ Sistema de rankup: ").append(e.getMessage()).append("\n");
-                    plugin.getLogger().severe("Error verificando rankup: " + e.getMessage());
+                    report.append(ChatColor.RED + "✗ Sistema de Rankup 2.0: ").append(e.getMessage()).append("\n");
+                    plugin.getLogger().severe("Error crítico recargando Rankup 2.0:");
+                    plugin.getLogger().severe("Tipo: " + e.getClass().getSimpleName());
+                    plugin.getLogger().severe("Mensaje: " + e.getMessage());
+                    e.printStackTrace();
+
+                    sender.sendMessage(ChatColor.RED + "  ✗ Error en Rankup: " + e.getMessage());
                 }
             } else {
-                report.append(ChatColor.YELLOW + "⚠ Sistema de rankup: No disponible (LuckPerms requerido)\n");
+                report.append(ChatColor.YELLOW + "⚠ Sistema de Rankup: No disponible (LuckPerms requerido)\n");
+                sender.sendMessage(ChatColor.YELLOW + "  ⚠ Sistema de Rankup no disponible");
             }
 
+            // 3. Actualizar configuración interna (otros sistemas)
+            sender.sendMessage(ChatColor.GRAY + "• Actualizando configuración interna...");
+            plugin.updateInternalConfig();
+            report.append(ChatColor.GREEN + "✓ Configuración interna actualizada\n");
+
             // 4. Verificar configuraciones específicas
+            sender.sendMessage(ChatColor.GRAY + "• Verificando sistemas específicos...");
             try {
                 if (plugin.getCropExperienceConfig() != null) {
                     report.append(ChatColor.GREEN + "✓ Configuración de cultivos\n");
@@ -128,13 +155,16 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
                 report.append(ChatColor.RED + "✗ Configuraciones específicas: ").append(e.getMessage()).append("\n");
             }
 
-            // 5. Verificar managers
+            // 5. Verificar managers principales
+            sender.sendMessage(ChatColor.GRAY + "• Verificando managers...");
             report.append(verifyManager("XpTransferManager", plugin.getXpTransferManager()));
             report.append(verifyManager("SellWandManager", plugin.getSellWandManager()));
             report.append(verifyManager("XpChequeManager", plugin.getXpChequeCommand()));
             report.append(verifyManager("LecternRecipeManager", plugin.getLecternRecipeManager()));
+            report.append(verifyManager("MagicFlowerPotManager", plugin.getMagicFlowerPotManager()));
 
             // 6. Verificar base de datos
+            sender.sendMessage(ChatColor.GRAY + "• Verificando conexión a base de datos...");
             try {
                 plugin.getDatabaseManager().testConnection();
                 report.append(ChatColor.GREEN + "✓ Conexión a base de datos\n");
@@ -143,25 +173,84 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
                 report.append(ChatColor.RED + "✗ Base de datos: ").append(e.getMessage()).append("\n");
             }
 
-            // 7. Verificar PlaceholderAPI
+            // 7. Verificar PlaceholderAPI y expansiones
+            sender.sendMessage(ChatColor.GRAY + "• Verificando PlaceholderAPI...");
             try {
                 if (plugin.getServer().getPluginManager().getPlugin("PlaceholderAPI") != null) {
                     report.append(ChatColor.GREEN + "✓ PlaceholderAPI disponible\n");
 
-                    // Verificar si nuestros placeholders están registrados
+                    // Verificar expansiones específicas
                     var papiPlugin = (me.clip.placeholderapi.PlaceholderAPIPlugin)
                             plugin.getServer().getPluginManager().getPlugin("PlaceholderAPI");
 
                     if (papiPlugin.getLocalExpansionManager().getExpansion("score") != null) {
-                        report.append(ChatColor.GREEN + "✓ Placeholders de SurvivalCore registrados\n");
+                        report.append(ChatColor.GREEN + "✓ Expansión 'score' registrada\n");
                     } else {
-                        report.append(ChatColor.YELLOW + "⚠ Placeholders de SurvivalCore no registrados\n");
+                        report.append(ChatColor.YELLOW + "⚠ Expansión 'score' no registrada\n");
                     }
                 } else {
                     report.append(ChatColor.YELLOW + "⚠ PlaceholderAPI no instalado\n");
                 }
             } catch (Exception e) {
                 report.append(ChatColor.YELLOW + "⚠ Error verificando PlaceholderAPI: " + e.getMessage() + "\n");
+            }
+
+            // 8. Verificar plugins externos críticos
+            sender.sendMessage(ChatColor.GRAY + "• Verificando dependencias externas...");
+            report.append(ChatColor.YELLOW + "Plugins externos:\n");
+            report.append(ChatColor.WHITE + "  • LuckPerms: " + getPluginStatus("LuckPerms") + "\n");
+            report.append(ChatColor.WHITE + "  • PlaceholderAPI: " + getPluginStatus("PlaceholderAPI") + "\n");
+            report.append(ChatColor.WHITE + "  • Vault: " + getPluginStatus("Vault") + "\n");
+
+            // 9. NUEVA FUNCIONALIDAD: Verificar archivos de configuración modificados
+            sender.sendMessage(ChatColor.GRAY + "• Verificando archivos de configuración...");
+            try {
+                // Verificar si rankups.yml existe y es válido
+                File rankupsFile = new File(plugin.getDataFolder(), "rankups.yml");
+                if (rankupsFile.exists()) {
+                    long fileSize = rankupsFile.length();
+                    long lastModified = rankupsFile.lastModified();
+                    report.append(ChatColor.GREEN + "✓ rankups.yml encontrado (" + fileSize + " bytes, modificado: " +
+                            new java.text.SimpleDateFormat("HH:mm:ss").format(new java.util.Date(lastModified)) + ")\n");
+                } else {
+                    report.append(ChatColor.YELLOW + "⚠ rankups.yml no encontrado\n");
+                }
+
+                // Verificar config.yml
+                File configFile = new File(plugin.getDataFolder(), "config.yml");
+                if (configFile.exists()) {
+                    long lastModified = configFile.lastModified();
+                    report.append(ChatColor.GREEN + "✓ config.yml (modificado: " +
+                            new java.text.SimpleDateFormat("HH:mm:ss").format(new java.util.Date(lastModified)) + ")\n");
+                }
+
+            } catch (Exception e) {
+                report.append(ChatColor.YELLOW + "⚠ Error verificando archivos: " + e.getMessage() + "\n");
+            }
+
+            // 10. Estadísticas finales del servidor
+            sender.sendMessage(ChatColor.GRAY + "• Recopilando estadísticas finales...");
+            report.append(ChatColor.YELLOW + "Estadísticas del servidor:\n");
+            report.append(ChatColor.WHITE + "  • Jugadores online: " + ChatColor.YELLOW +
+                    plugin.getServer().getOnlinePlayers().size() + "\n");
+            report.append(ChatColor.WHITE + "  • Versión del plugin: " + ChatColor.YELLOW +
+                    plugin.getDescription().getVersion() + "\n");
+
+            // Si hay sistema de rankup, mostrar estadísticas específicas
+            if (plugin.isRankupSystemEnabled()) {
+                try {
+                    RankupManager rankupManager = plugin.getRankupManager();
+                    report.append(ChatColor.WHITE + "  • Configuración de rankup:\n");
+                    report.append(ChatColor.GRAY + "    - Cooldown: " + (rankupManager.getCooldownTime() / 1000) + "s\n");
+                    report.append(ChatColor.GRAY + "    - Efectos: " +
+                            (rankupManager.areEffectsEnabled() ? "Habilitados" : "Deshabilitados") + "\n");
+                    report.append(ChatColor.GRAY + "    - Broadcast: " +
+                            (rankupManager.isBroadcastEnabled() ? "Habilitado" : "Deshabilitado") + "\n");
+                    report.append(ChatColor.GRAY + "    - Prestige: " +
+                            (rankupManager.isPrestigeEnabled() ? "Habilitado" : "Deshabilitado") + "\n");
+                } catch (Exception e) {
+                    report.append(ChatColor.YELLOW + "    - Error obteniendo estadísticas de rankup\n");
+                }
             }
 
         } catch (Exception e) {
@@ -173,26 +262,33 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
 
         long duration = System.currentTimeMillis() - startTime;
 
-        // Mostrar reporte final
+        // Mostrar reporte final mejorado
         sender.sendMessage("");
-        sender.sendMessage(ChatColor.AQUA + "═══════ REPORTE DE RECARGA ═══════");
+        sender.sendMessage(ChatColor.AQUA + "═══════════ REPORTE DE RECARGA ═══════════");
         sender.sendMessage(report.toString());
 
         if (hasErrors) {
             sender.sendMessage(ChatColor.RED + "⚠ Recarga completada con errores");
             sender.sendMessage(ChatColor.GRAY + "Revisa la consola para más detalles");
+            sender.sendMessage(ChatColor.YELLOW + "💡 Tip: Verifica que los archivos de configuración sean válidos");
         } else {
             sender.sendMessage(ChatColor.GREEN + "✅ Recarga completada exitosamente");
+            sender.sendMessage(ChatColor.GRAY + "Todos los sistemas funcionan correctamente");
         }
 
-        sender.sendMessage(ChatColor.GRAY + "Tiempo: " + duration + "ms");
-        sender.sendMessage(ChatColor.AQUA + "═══════════════════════════════════");
+        sender.sendMessage(ChatColor.GRAY + "Tiempo total: " + duration + "ms");
+        sender.sendMessage(ChatColor.AQUA + "═════════════════════════════════════════");
 
-        // Log en consola
+        // Log mejorado en consola
         if (hasErrors) {
             plugin.getLogger().warning("Recarga completada con errores en " + duration + "ms");
+            plugin.getLogger().warning("Se recomienda verificar la configuración manualmente");
         } else {
-            plugin.getLogger().info("Recarga completada exitosamente en " + duration + "ms");
+            plugin.getLogger().info("✅ Recarga completada exitosamente en " + duration + "ms");
+            if (plugin.isRankupSystemEnabled()) {
+                RankupManager rankupManager = plugin.getRankupManager();
+                plugin.getLogger().info("Sistema de Rankup 2.0: " + rankupManager.getRanks().size() + " rangos activos");
+            }
         }
     }
 
@@ -628,7 +724,7 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
     }
 
     /**
-     * Muestra el menú de ayuda
+     * Actualiza el método showHelp para incluir los nuevos comandos
      */
     private void showHelp(CommandSender sender, String[] args) {
         int page = 1;
@@ -640,25 +736,33 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
             }
         }
 
-        ConfigurationSection helpSection = plugin.getConfig().getConfigurationSection("help.commands");
-        if (helpSection == null) {
-            sender.sendMessage(ChatColor.RED + "Ayuda no configurada.");
-            return;
+        // Comandos básicos
+        List<String> basicCommands = Arrays.asList(
+                ChatColor.WHITE + "/score" + ChatColor.GRAY + " - Ver tu puntuación",
+                ChatColor.WHITE + "/score version" + ChatColor.GRAY + " - Ver versión del plugin",
+                ChatColor.WHITE + "/score help [página]" + ChatColor.GRAY + " - Mostrar ayuda"
+        );
+
+        // Comandos administrativos
+        List<String> adminCommands = new ArrayList<>();
+        if (sender.hasPermission("survivalcore.reload")) {
+            adminCommands.add(ChatColor.WHITE + "/score reload" + ChatColor.GRAY + " - Recarga completa del plugin");
+            adminCommands.add(ChatColor.WHITE + "/score reloadrankup" + ChatColor.GRAY + " - Recarga solo el sistema de rankup");
+        }
+        if (sender.hasPermission("survivalcore.debug")) {
+            adminCommands.add(ChatColor.WHITE + "/score debug [tipo]" + ChatColor.GRAY + " - Comandos de debug");
+            adminCommands.add(ChatColor.WHITE + "/score status" + ChatColor.GRAY + " - Ver estado de sistemas");
+        }
+        if (sender.hasPermission("survivalcore.admin")) {
+            adminCommands.add(ChatColor.WHITE + "/score emergency" + ChatColor.GRAY + " - Reinicio de emergencia");
         }
 
-        List<String> commands = new ArrayList<>();
-        for (String key : helpSection.getKeys(false)) {
-            String command = helpSection.getString(key + ".command");
-            String message = helpSection.getString(key + ".message");
-            String permission = helpSection.getString(key + ".permission", "");
-
-            if (permission.isEmpty() || sender.hasPermission(permission)) {
-                commands.add(ChatColor.translateAlternateColorCodes('&', message));
-            }
-        }
+        // Combinar comandos
+        List<String> allCommands = new ArrayList<>(basicCommands);
+        allCommands.addAll(adminCommands);
 
         int commandsPerPage = 8;
-        int totalPages = (int) Math.ceil((double) commands.size() / commandsPerPage);
+        int totalPages = (int) Math.ceil((double) allCommands.size() / commandsPerPage);
 
         if (page < 1 || page > totalPages) {
             page = 1;
@@ -670,10 +774,10 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage("");
 
         int start = (page - 1) * commandsPerPage;
-        int end = Math.min(start + commandsPerPage, commands.size());
+        int end = Math.min(start + commandsPerPage, allCommands.size());
 
         for (int i = start; i < end; i++) {
-            sender.sendMessage(commands.get(i));
+            sender.sendMessage(allCommands.get(i));
         }
 
         sender.sendMessage("");
@@ -681,6 +785,17 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage(ChatColor.GRAY + "Usa " + ChatColor.WHITE + "/score help " + (page + 1) +
                     ChatColor.GRAY + " para la siguiente página.");
         }
+
+        // Información específica de rankup si está disponible
+        if (plugin.isRankupSystemEnabled() && sender.hasPermission("survivalcore.reload")) {
+            sender.sendMessage("");
+            sender.sendMessage(ChatColor.AQUA + "💡 Sistema de Rankup 2.0:");
+            sender.sendMessage(ChatColor.GRAY + "• " + ChatColor.WHITE + "/score reloadrankup" +
+                    ChatColor.GRAY + " - Recarga rápida solo del sistema de rankup");
+            sender.sendMessage(ChatColor.GRAY + "• " + ChatColor.WHITE + "/score debug rankup" +
+                    ChatColor.GRAY + " - Debug específico del sistema de rankup");
+        }
+
         sender.sendMessage(ChatColor.GOLD + "═══════════════════════════════════");
     }
 
@@ -688,12 +803,26 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
             List<String> completions = new ArrayList<>(Arrays.asList(
-                    "version", "reload", "birthday", "gender", "country", "help"
+                    "version", "help"
             ));
 
-            if (sender.hasPermission("survivalcore.debug")) {
-                completions.add("debug");
+            // Comandos administrativos básicos
+            if (sender.hasPermission("survivalcore.reload")) {
+                completions.addAll(Arrays.asList("reload", "reloadrankup"));
             }
+
+            // Comandos de debug
+            if (sender.hasPermission("survivalcore.debug")) {
+                completions.addAll(Arrays.asList("debug", "status"));
+            }
+
+            // Comandos de emergencia
+            if (sender.hasPermission("survivalcore.admin")) {
+                completions.add("emergency");
+            }
+
+            // Comandos de información personal (siempre disponibles)
+            completions.addAll(Arrays.asList("birthday", "gender", "country"));
 
             return completions.stream()
                     .filter(completion -> completion.startsWith(args[0].toLowerCase()))
@@ -701,6 +830,7 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
                     .toList();
         }
 
+        // Tab completion para debug
         if (args.length == 2 && args[0].equalsIgnoreCase("debug")) {
             List<String> debugCommands = new ArrayList<>(Arrays.asList("rankup", "placeholders", "systems"));
             if (sender instanceof Player) {
@@ -711,6 +841,194 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
                     .toList();
         }
 
+        // Tab completion para help (páginas)
+        if (args.length == 2 && args[0].equalsIgnoreCase("help")) {
+            return Arrays.asList("1", "2", "3").stream()
+                    .filter(completion -> completion.startsWith(args[1]))
+                    .toList();
+        }
+
         return new ArrayList<>();
     }
+
+    /**
+     * 🆕 NUEVO: Maneja la recarga específica del sistema de rankup
+     */
+    private void handleRankupReload(CommandSender sender) {
+        if (!sender.hasPermission("survivalcore.reload")) {
+            sender.sendMessage(ChatColor.RED + "No tienes permisos para recargar la configuración.");
+            return;
+        }
+
+        if (!plugin.isRankupSystemEnabled()) {
+            sender.sendMessage(ChatColor.RED + "❌ El sistema de Rankup no está disponible.");
+            sender.sendMessage(ChatColor.GRAY + "Motivo: LuckPerms no está instalado o habilitado.");
+            return;
+        }
+
+        sender.sendMessage(ChatColor.YELLOW + "🔄 Recargando configuración de Rankup 2.0...");
+
+        try {
+            long startTime = System.currentTimeMillis();
+
+            // Verificar archivo antes de recargar
+            File rankupsFile = new File(plugin.getDataFolder(), "rankups.yml");
+            if (!rankupsFile.exists()) {
+                sender.sendMessage(ChatColor.RED + "❌ Archivo rankups.yml no encontrado.");
+                sender.sendMessage(ChatColor.YELLOW + "💡 Creando archivo por defecto...");
+
+                plugin.getRankupManager().createDefaultConfigFile();
+
+                if (!rankupsFile.exists()) {
+                    sender.sendMessage(ChatColor.RED + "❌ No se pudo crear rankups.yml");
+                    return;
+                }
+                sender.sendMessage(ChatColor.GREEN + "✓ Archivo rankups.yml creado");
+            }
+
+            // Obtener información previa para comparación
+            RankupManager rankupManager = plugin.getRankupManager();
+            int oldRanksCount = rankupManager.getRanks().size();
+            int oldPrestigesCount = rankupManager.getPrestiges().size();
+            long oldCooldown = rankupManager.getCooldownTime();
+
+            // Realizar recarga
+            rankupManager.reloadConfig();
+
+            // Obtener nueva información
+            int newRanksCount = rankupManager.getRanks().size();
+            int newPrestigesCount = rankupManager.getPrestiges().size();
+            long newCooldown = rankupManager.getCooldownTime();
+
+            long duration = System.currentTimeMillis() - startTime;
+
+            // Mostrar resultado
+            sender.sendMessage("");
+            sender.sendMessage(ChatColor.GREEN + "✅ Sistema de Rankup 2.0 recargado exitosamente");
+            sender.sendMessage(ChatColor.GRAY + "Tiempo: " + duration + "ms");
+            sender.sendMessage("");
+
+            // Mostrar cambios
+            sender.sendMessage(ChatColor.AQUA + "📊 Estadísticas actualizadas:");
+            sender.sendMessage(formatStatChange("Rangos", oldRanksCount, newRanksCount));
+            sender.sendMessage(formatStatChange("Prestiges", oldPrestigesCount, newPrestigesCount));
+            sender.sendMessage(formatStatChange("Cooldown", oldCooldown / 1000 + "s", newCooldown / 1000 + "s"));
+
+            sender.sendMessage(ChatColor.WHITE + "PlaceholderAPI: " +
+                    (rankupManager.isPlaceholderAPIEnabled() ? ChatColor.GREEN + "✓" : ChatColor.RED + "✗"));
+            sender.sendMessage(ChatColor.WHITE + "Efectos: " +
+                    (rankupManager.areEffectsEnabled() ? ChatColor.GREEN + "Habilitados" : ChatColor.RED + "Deshabilitados"));
+            sender.sendMessage(ChatColor.WHITE + "Broadcast: " +
+                    (rankupManager.isBroadcastEnabled() ? ChatColor.GREEN + "Habilitado" : ChatColor.RED + "Deshabilitado"));
+
+            // Validar configuración
+            if (newRanksCount == 0) {
+                sender.sendMessage("");
+                sender.sendMessage(ChatColor.RED + "⚠️ ADVERTENCIA: No se cargaron rangos");
+                sender.sendMessage(ChatColor.YELLOW + "Verifica que rankups.yml tenga una configuración válida");
+            }
+
+            // Mensaje de éxito final
+            sender.sendMessage("");
+            sender.sendMessage(ChatColor.GREEN + "🎯 El sistema de Rankup está listo para usar");
+
+            // Log en consola
+            plugin.getLogger().info("Sistema de Rankup recargado por " + sender.getName() +
+                    " - " + newRanksCount + " rangos activos");
+
+        } catch (Exception e) {
+            sender.sendMessage("");
+            sender.sendMessage(ChatColor.RED + "❌ Error recargando sistema de Rankup:");
+            sender.sendMessage(ChatColor.RED + e.getMessage());
+            sender.sendMessage("");
+            sender.sendMessage(ChatColor.YELLOW + "💡 Consejos:");
+            sender.sendMessage(ChatColor.GRAY + "• Verifica que rankups.yml tenga sintaxis YAML válida");
+            sender.sendMessage(ChatColor.GRAY + "• Asegúrate de que LuckPerms esté funcionando");
+            sender.sendMessage(ChatColor.GRAY + "• Usa /score debug rankup para más información");
+
+            plugin.getLogger().severe("Error recargando Rankup solicitado por " + sender.getName() + ": " + e.getMessage());
+        }
+    }
+
+    /**
+     * 🆕 NUEVO: Maneja reinicio de emergencia de sistemas
+     */
+    private void handleEmergencyRestart(CommandSender sender) {
+        if (!sender.hasPermission("survivalcore.admin")) {
+            sender.sendMessage(ChatColor.RED + "No tienes permisos para usar comandos de emergencia.");
+            return;
+        }
+
+        sender.sendMessage(ChatColor.RED + "🚨 Iniciando reinicio de emergencia...");
+        sender.sendMessage(ChatColor.YELLOW + "⚠️ Esto reiniciará sistemas críticos del plugin");
+
+        boolean success = plugin.emergencySystemRestart();
+
+        if (success) {
+            sender.sendMessage(ChatColor.GREEN + "✅ Reinicio de emergencia completado");
+            sender.sendMessage(ChatColor.GRAY + "Todos los sistemas están operativos");
+        } else {
+            sender.sendMessage(ChatColor.RED + "⚠️ Reinicio completado con errores");
+            sender.sendMessage(ChatColor.YELLOW + "Revisa la consola para más detalles");
+        }
+    }
+
+    /**
+     * 🆕 NUEVO: Muestra el estado actual de todos los sistemas
+     */
+    private void handleSystemStatus(CommandSender sender) {
+        if (!sender.hasPermission("survivalcore.debug")) {
+            sender.sendMessage(ChatColor.RED + "No tienes permisos para ver el estado del sistema.");
+            return;
+        }
+
+        sender.sendMessage(ChatColor.AQUA + "═══ ESTADO DE SISTEMAS ═══");
+
+        Map<String, String> status = plugin.getSystemsStatus();
+
+        for (Map.Entry<String, String> entry : status.entrySet()) {
+            String systemName = entry.getKey();
+            String systemStatus = entry.getValue();
+
+            ChatColor color = systemStatus.startsWith("OK") ? ChatColor.GREEN :
+                    systemStatus.contains("ERROR") ? ChatColor.RED :
+                            systemStatus.equals("NULL") ? ChatColor.DARK_RED :
+                                    ChatColor.YELLOW;
+
+            sender.sendMessage(ChatColor.WHITE + systemName + ": " + color + systemStatus);
+        }
+
+        // Información adicional del servidor
+        sender.sendMessage("");
+        sender.sendMessage(ChatColor.YELLOW + "Información del servidor:");
+        sender.sendMessage(ChatColor.WHITE + "Jugadores online: " + ChatColor.GREEN +
+                plugin.getServer().getOnlinePlayers().size());
+        sender.sendMessage(ChatColor.WHITE + "Versión de SurvivalCore: " + ChatColor.GREEN +
+                plugin.getDescription().getVersion());
+
+        long maxMemory = Runtime.getRuntime().maxMemory() / 1024 / 1024;
+        long totalMemory = Runtime.getRuntime().totalMemory() / 1024 / 1024;
+        long freeMemory = Runtime.getRuntime().freeMemory() / 1024 / 1024;
+        long usedMemory = totalMemory - freeMemory;
+
+        sender.sendMessage(ChatColor.WHITE + "Memoria: " + ChatColor.YELLOW +
+                usedMemory + "MB/" + maxMemory + "MB");
+    }
+
+    /**
+     * Formatea un cambio en estadísticas para mostrar diferencias
+     */
+    private String formatStatChange(String name, Object oldValue, Object newValue) {
+        String oldStr = String.valueOf(oldValue);
+        String newStr = String.valueOf(newValue);
+
+        if (oldStr.equals(newStr)) {
+            return ChatColor.WHITE + name + ": " + ChatColor.GRAY + newStr + " (sin cambios)";
+        } else {
+            return ChatColor.WHITE + name + ": " + ChatColor.YELLOW + oldStr +
+                    ChatColor.GRAY + " → " + ChatColor.GREEN + newStr;
+        }
+    }
+
+
 }

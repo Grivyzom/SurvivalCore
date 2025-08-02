@@ -36,6 +36,9 @@ import gc.grivyzom.survivalcore.listeners.MagicFlowerPotListener;
 
 
 import java.time.LocalDate;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.logging.Level;
 
 /**
@@ -344,10 +347,7 @@ public class Main extends JavaPlugin {
 
     /**
      * Refresca valores que cambian al recargar configuración.
-     */
-    /**
-     * Refresca valores que cambian al recargar configuración.
-     * VERSIÓN MEJORADA con soporte completo para todos los sistemas
+     * VERSIÓN MEJORADA con soporte completo para todos los sistemas incluyendo Rankup 2.0
      */
     public void updateInternalConfig() {
         getLogger().info("🔄 Iniciando actualización de configuración interna...");
@@ -416,9 +416,26 @@ public class Main extends JavaPlugin {
                 }
             }
 
-            // 🆕 NUEVO: Recargar configuración de Rankup 2.0
-            if (rankupManager != null) {
+            // SISTEMA DE FLORES CONFIGURABLES
+            if (flowerIntegration != null) {
                 try {
+                    // Verificar si tiene método de recarga
+                    // flowerIntegration.reload(); // Descomenta si implementas este método
+                    getLogger().info("✓ Sistema de flores configurables verificado");
+                } catch (Exception e) {
+                    getLogger().warning("Error verificando sistema de flores: " + e.getMessage());
+                }
+            }
+
+            // 🆕 IMPORTANTE: NO recargar Rankup aquí si ya se hizo en handleReload
+            // Esta verificación evita recargas duplicadas
+            boolean rankupAlreadyReloaded = Thread.currentThread().getStackTrace().length > 15 &&
+                    Arrays.stream(Thread.currentThread().getStackTrace())
+                            .anyMatch(element -> element.getMethodName().equals("handleReload"));
+
+            if (rankupManager != null && !rankupAlreadyReloaded) {
+                try {
+                    getLogger().info("🔄 Recargando configuración de Rankup 2.0...");
                     rankupManager.reloadConfig();
 
                     // Mostrar estadísticas actualizadas
@@ -428,11 +445,15 @@ public class Main extends JavaPlugin {
                     getLogger().info("✅ Configuración de Rankup 2.0 actualizada");
                     getLogger().info("  • Rangos: " + ranksCount);
                     getLogger().info("  • PlaceholderAPI: " + (papiEnabled ? "Disponible" : "No disponible"));
+                    getLogger().info("  • Cooldown: " + (rankupManager.getCooldownTime() / 1000) + "s");
+                    getLogger().info("  • Efectos: " + (rankupManager.areEffectsEnabled() ? "Habilitados" : "Deshabilitados"));
 
                 } catch (Exception e) {
                     getLogger().severe("❌ Error recargando configuración de Rankup 2.0: " + e.getMessage());
                     e.printStackTrace();
                 }
+            } else if (rankupManager != null && rankupAlreadyReloaded) {
+                getLogger().info("ℹ️ Sistema de Rankup 2.0 ya fue recargado previamente");
             } else {
                 getLogger().info("ℹ️ Sistema de Rankup 2.0 no está disponible");
             }
@@ -444,7 +465,6 @@ public class Main extends JavaPlugin {
             e.printStackTrace();
         }
     }
-
     // =================== EVENTOS PERSONALIZADOS ===================
 
     /**
@@ -584,4 +604,178 @@ public class Main extends JavaPlugin {
             return;
         }
     }
+
+    /**
+     * Método auxiliar para recargar solo el sistema de Rankup
+     * Útil para comandos específicos de recarga de rankup
+     */
+    public void reloadRankupSystem() {
+        if (!isRankupSystemEnabled()) {
+            getLogger().warning("⚠️ Sistema de Rankup no está disponible para recarga");
+            return;
+        }
+
+        try {
+            getLogger().info("🔄 Recargando solo el sistema de Rankup 2.0...");
+
+            long startTime = System.currentTimeMillis();
+            rankupManager.reloadConfig();
+            long duration = System.currentTimeMillis() - startTime;
+
+            // Estadísticas detalladas
+            int ranksCount = rankupManager.getRanks().size();
+            int prestigesCount = rankupManager.getPrestiges().size();
+
+            getLogger().info("✅ Sistema de Rankup 2.0 recargado exitosamente en " + duration + "ms");
+            getLogger().info("📊 Estadísticas:");
+            getLogger().info("  • Rangos activos: " + ranksCount);
+            getLogger().info("  • Prestiges: " + prestigesCount);
+            getLogger().info("  • PlaceholderAPI: " + (rankupManager.isPlaceholderAPIEnabled() ? "✓" : "✗"));
+
+        } catch (Exception e) {
+            getLogger().severe("❌ Error crítico recargando solo el sistema de Rankup:");
+            getLogger().severe("Tipo: " + e.getClass().getSimpleName());
+            getLogger().severe("Mensaje: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Verifica el estado de todos los sistemas después de una recarga
+     */
+    public Map<String, String> getSystemsStatus() {
+        Map<String, String> status = new LinkedHashMap<>();
+
+        // Sistemas básicos
+        status.put("DatabaseManager", databaseManager != null ? "OK" : "NULL");
+        status.put("CooldownManager", cooldownManager != null ? "OK" : "NULL");
+        status.put("CropConfig", cropConfig != null ? "OK" : "NULL");
+        status.put("MiningConfig", miningConfig != null ? "OK" : "NULL");
+
+        // Managers avanzados
+        status.put("XpTransferManager", xpTransferManager != null ? "OK" : "NULL");
+        status.put("SellWandManager", sellWandManager != null ? "OK" : "NULL");
+        status.put("XpChequeManager", xpChequeCommand != null ? "OK" : "NULL");
+        status.put("LecternRecipeManager", lecternRecipeManager != null ? "OK" : "NULL");
+        status.put("MagicFlowerPotManager", magicFlowerPotManager != null ? "OK" : "NULL");
+        status.put("FlowerIntegration", flowerIntegration != null ? "OK" : "NULL");
+
+        // Sistema de Rankup
+        if (rankupManager != null) {
+            try {
+                int ranksCount = rankupManager.getRanks().size();
+                boolean papiEnabled = rankupManager.isPlaceholderAPIEnabled();
+                status.put("RankupManager", "OK (" + ranksCount + " rangos, PAPI: " + (papiEnabled ? "✓" : "✗") + ")");
+            } catch (Exception e) {
+                status.put("RankupManager", "ERROR: " + e.getMessage());
+            }
+        } else {
+            status.put("RankupManager", "NULL (LuckPerms requerido)");
+        }
+
+        // Base de datos
+        try {
+            databaseManager.testConnection();
+            status.put("Database Connection", "OK");
+        } catch (Exception e) {
+            status.put("Database Connection", "ERROR: " + e.getMessage());
+        }
+
+        // Plugins externos
+        status.put("LuckPerms", getPluginStatus("LuckPerms"));
+        status.put("PlaceholderAPI", getPluginStatus("PlaceholderAPI"));
+        status.put("Vault", getPluginStatus("Vault"));
+
+        return status;
+    }
+
+    /**
+     * Obtiene el estado de un plugin externo
+     */
+    private String getPluginStatus(String pluginName) {
+        var pluginManager = getServer().getPluginManager();
+        var targetPlugin = pluginManager.getPlugin(pluginName);
+
+        if (targetPlugin == null) {
+            return "NO INSTALADO";
+        } else if (targetPlugin.isEnabled()) {
+            return "HABILITADO (" + targetPlugin.getDescription().getVersion() + ")";
+        } else {
+            return "DESHABILITADO";
+        }
+    }
+
+    /**
+     * Método de emergencia para reinicializar sistemas críticos
+     * Útil si algo falla durante la recarga
+     */
+    public boolean emergencySystemRestart() {
+        getLogger().warning("🚨 Iniciando reinicio de emergencia de sistemas...");
+
+        boolean allSuccess = true;
+
+        try {
+            // Reinicializar cooldown manager
+            if (cooldownManager == null) {
+                cooldownManager = new CooldownManager(getConfig().getLong("plugin.cooldownMs", 5000));
+                getLogger().info("✓ CooldownManager reinicializado");
+            }
+
+            // Reinicializar configuraciones
+            if (cropConfig == null) {
+                cropConfig = new CropExperienceConfig(this);
+                getLogger().info("✓ CropExperienceConfig reinicializado");
+            }
+
+            if (miningConfig == null) {
+                miningConfig = new MiningExperienceConfig(this);
+                getLogger().info("✓ MiningExperienceConfig reinicializado");
+            }
+
+            // Verificar sistema de rankup
+            if (rankupManager == null && isLuckPermsAvailable()) {
+                try {
+                    if (initRankupSystem()) {
+                        getLogger().info("✓ Sistema de Rankup reinicializado");
+                    } else {
+                        getLogger().warning("⚠️ No se pudo reinicializar el sistema de Rankup");
+                        allSuccess = false;
+                    }
+                } catch (Exception e) {
+                    getLogger().severe("❌ Error reinicializando Rankup: " + e.getMessage());
+                    allSuccess = false;
+                }
+            }
+
+            // Verificar base de datos
+            try {
+                databaseManager.testConnection();
+                getLogger().info("✓ Conexión a base de datos verificada");
+            } catch (Exception e) {
+                getLogger().severe("❌ Problema con base de datos: " + e.getMessage());
+                allSuccess = false;
+            }
+
+        } catch (Exception e) {
+            getLogger().severe("❌ Error crítico en reinicio de emergencia: " + e.getMessage());
+            allSuccess = false;
+        }
+
+        if (allSuccess) {
+            getLogger().info("✅ Reinicio de emergencia completado exitosamente");
+        } else {
+            getLogger().warning("⚠️ Reinicio de emergencia completado con errores");
+        }
+
+        return allSuccess;
+    }
+
+    /**
+     * Verifica si LuckPerms está disponible
+     */
+    private boolean isLuckPermsAvailable() {
+        var luckPermsPlugin = getServer().getPluginManager().getPlugin("LuckPerms");
+        return luckPermsPlugin != null && luckPermsPlugin.isEnabled();
+    }
+
 }

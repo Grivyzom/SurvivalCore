@@ -56,14 +56,8 @@ commands:
   # ========== COMANDOS DE RANKUP ==========
   rankup:
     description: Comando principal del sistema de rankup
-    usage: |
-      /rankup - Intentar subir de rango
-      /rankup info - Ver información del rango actual
-      /rankup progress - Ver progreso hacia el siguiente rango
-      /rankup list - Ver lista de rangos
-      /rankup help - Mostrar ayuda
-      /rankup reload - Recargar configuración (admin)
-    aliases: [rangoup, ru]
+    usage: /rankup [subcomando]
+    aliases: [ru]
     permission-message: "§cNo tienes permisos para usar este comando."
   prestige:
     description: Comando del sistema de prestige

@@ -16,11 +16,11 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * Interfaz gráfica para el sistema de rankup.
- * Proporciona menús interactivos para gestionar rangos y ver progreso.
+ * Interfaz gráfica para el sistema de rankup 2.0
+ * Actualizada para trabajar con la nueva estructura simplificada
  *
  * @author Brocolitx
- * @version 1.0
+ * @version 2.0 - Compatible con RankupManager 2.0
  */
 public class RankupGUI {
 
@@ -29,7 +29,7 @@ public class RankupGUI {
     private static final String RANKS_LIST_TITLE = ChatColor.GREEN + "Lista de Rangos";
 
     /**
-     * Abre el menú principal del sistema de rangos
+     * Abre el menú principal del sistema de rangos - ACTUALIZADO
      */
     public static void openMainMenu(Player player, Main plugin) {
         Inventory inv = Bukkit.createInventory(null, 27, MAIN_MENU_TITLE);
@@ -71,7 +71,7 @@ public class RankupGUI {
     }
 
     /**
-     * Abre el menú de progreso detallado
+     * Abre el menú de progreso detallado - ACTUALIZADO
      */
     public static void openProgressMenu(Player player, Main plugin) {
         RankupManager rankupManager = plugin.getRankupManager();
@@ -105,11 +105,11 @@ public class RankupGUI {
     }
 
     /**
-     * Abre la lista de todos los rangos
+     * Abre la lista de todos los rangos - ACTUALIZADO
      */
     public static void openRanksList(Player player, Main plugin) {
         RankupManager rankupManager = plugin.getRankupManager();
-        Map<String, RankupData> rankups = rankupManager.getRankups();
+        Map<String, RankupManager.SimpleRankData> rankups = rankupManager.getRanks();
 
         if (rankups.isEmpty()) {
             player.sendMessage(ChatColor.RED + "No hay rangos configurados.");
@@ -122,15 +122,15 @@ public class RankupGUI {
 
         fillBorders(inv, Material.GREEN_STAINED_GLASS_PANE);
 
-        // Ordenar rangos por orden
-        List<RankupData> sortedRanks = rankups.values().stream()
-                .sorted(Comparator.comparingInt(RankupData::getOrder))
+        // Ordenar rangos por orden - ACTUALIZADO
+        List<RankupManager.SimpleRankData> sortedRanks = rankups.values().stream()
+                .sorted(Comparator.comparingInt(RankupManager.SimpleRankData::getOrder))
                 .collect(Collectors.toList());
 
         String currentRank = rankupManager.getCurrentRank(player);
         int slot = 10;
 
-        for (RankupData rankData : sortedRanks) {
+        for (RankupManager.SimpleRankData rankData : sortedRanks) {
             if (slot % 9 == 8) slot += 2; // Saltar bordes
             if (slot >= size - 9) break; // No exceder el inventario
 
@@ -148,7 +148,7 @@ public class RankupGUI {
     }
 
     /**
-     * Crea la cabeza del jugador con información del rango
+     * Crea la cabeza del jugador con información del rango - ACTUALIZADO
      */
     private static ItemStack createPlayerHead(Player player, String currentRank, RankupManager rankupManager) {
         ItemStack head = new ItemStack(Material.PLAYER_HEAD);
@@ -161,12 +161,12 @@ public class RankupGUI {
         lore.add("");
 
         if (currentRank != null) {
-            RankupData rankData = rankupManager.getRankups().get(currentRank);
+            RankupManager.SimpleRankData rankData = rankupManager.getRanks().get(currentRank);
             String displayName = rankData != null ? rankData.getDisplayName() : currentRank;
             lore.add(ChatColor.WHITE + "Rango actual: " + displayName);
 
             if (rankData != null && rankData.hasNextRank()) {
-                RankupData nextRankData = rankupManager.getRankups().get(rankData.getNextRank());
+                RankupManager.SimpleRankData nextRankData = rankupManager.getRanks().get(rankData.getNextRank());
                 String nextDisplay = nextRankData != null ? nextRankData.getDisplayName() : rankData.getNextRank();
                 lore.add(ChatColor.WHITE + "Siguiente: " + nextDisplay);
             } else {
@@ -299,22 +299,22 @@ public class RankupGUI {
     }
 
     /**
-     * Crea el ítem de información de progreso
+     * Crea el ítem de información de progreso - ACTUALIZADO
      */
     private static ItemStack createProgressInfoItem(RankupProgress progress, RankupManager rankupManager) {
         Material material = Material.EXPERIENCE_BOTTLE;
         String name = ChatColor.AQUA + "📊 Tu Progreso General";
         List<String> lore = new ArrayList<>();
 
-        // Información básica
-        RankupData currentRankData = rankupManager.getRankups().get(progress.getCurrentRank());
+        // Información básica - ACTUALIZADO
+        RankupManager.SimpleRankData currentRankData = rankupManager.getRanks().get(progress.getCurrentRank());
         String currentDisplay = currentRankData != null ? currentRankData.getDisplayName() : progress.getCurrentRank();
 
         lore.add("");
         lore.add(ChatColor.WHITE + "Rango actual: " + currentDisplay);
 
         if (progress.getNextRank() != null) {
-            RankupData nextRankData = rankupManager.getRankups().get(progress.getNextRank());
+            RankupManager.SimpleRankData nextRankData = rankupManager.getRanks().get(progress.getNextRank());
             String nextDisplay = nextRankData != null ? nextRankData.getDisplayName() : progress.getNextRank();
             lore.add(ChatColor.WHITE + "Siguiente: " + nextDisplay);
             lore.add("");
@@ -358,7 +358,7 @@ public class RankupGUI {
     }
 
     /**
-     * Crea un ítem para mostrar un requisito
+     * Crea un ítem para mostrar un requisito - ACTUALIZADO
      */
     private static ItemStack createRequirementItem(RequirementProgress progress) {
         Material material = getRequirementMaterial(progress.getType());
@@ -385,28 +385,32 @@ public class RankupGUI {
     }
 
     /**
-     * Obtiene el material apropiado para un tipo de requisito
+     * Obtiene el material apropiado para un tipo de requisito - ACTUALIZADO
      */
     private static Material getRequirementMaterial(String type) {
         return switch (type.toLowerCase()) {
             case "money", "eco", "economy" -> Material.GOLD_INGOT;
             case "xp", "experience" -> Material.EXPERIENCE_BOTTLE;
             case "level", "levels" -> Material.ENCHANTED_BOOK;
-            case "playtime", "time_played" -> Material.CLOCK;
+            case "playtime_hours", "time_played" -> Material.CLOCK;
             case "farming_level" -> Material.WHEAT;
             case "mining_level" -> Material.DIAMOND_PICKAXE;
-            case "kills", "mob_kills" -> Material.IRON_SWORD;
-            case "blocks_broken" -> Material.STONE_PICKAXE;
+            case "mob_kills", "kills" -> Material.IRON_SWORD;
+            case "blocks_mined", "blocks_broken" -> Material.STONE_PICKAXE;
+            case "animals_bred" -> Material.WHEAT_SEEDS;
+            case "fish_caught" -> Material.FISHING_ROD;
+            case "ender_dragon_kills" -> Material.DRAGON_HEAD;
+            case "wither_kills" -> Material.WITHER_SKELETON_SKULL;
             case "permission" -> Material.PAPER;
             default -> Material.ITEM_FRAME;
         };
     }
 
     /**
-     * Crea un ítem para mostrar información de un rango
+     * Crea un ítem para mostrar información de un rango - ACTUALIZADO
      */
-    private static ItemStack createRankDisplayItem(RankupData rankData, String currentRank) {
-        boolean isCurrent = rankData.getRankId().equals(currentRank);
+    private static ItemStack createRankDisplayItem(RankupManager.SimpleRankData rankData, String currentRank) {
+        boolean isCurrent = rankData.getId().equals(currentRank);
         Material material = isCurrent ? Material.EMERALD : Material.DIAMOND;
 
         String name = (isCurrent ? ChatColor.GREEN + "► " : ChatColor.WHITE) + rankData.getDisplayName();
@@ -426,7 +430,7 @@ public class RankupGUI {
             lore.add(ChatColor.LIGHT_PURPLE + "Rango máximo");
         }
 
-        // Mostrar algunos requisitos si los hay
+        // Mostrar algunos requisitos si los hay - ACTUALIZADO
         Map<String, Object> requirements = rankData.getRequirements();
         if (!requirements.isEmpty()) {
             lore.add("");
@@ -447,13 +451,16 @@ public class RankupGUI {
     }
 
     /**
-     * Crea una barra de progreso visual
+     * Crea una barra de progreso visual mejorada
      */
     private static String createProgressBar(double percentage, int length) {
         int filled = (int) Math.ceil(percentage / 100.0 * length);
         StringBuilder bar = new StringBuilder();
 
-        bar.append(ChatColor.GREEN);
+        // Color basado en progreso
+        String color = getProgressColor(percentage);
+
+        bar.append(color);
         for (int i = 0; i < filled; i++) {
             bar.append("█");
         }
@@ -467,25 +474,40 @@ public class RankupGUI {
     }
 
     /**
-     * Formatea el nombre de un requisito para mostrar
+     * Obtiene color basado en porcentaje de progreso
+     */
+    private static String getProgressColor(double percentage) {
+        if (percentage >= 100.0) return ChatColor.GREEN.toString();
+        if (percentage >= 75.0) return ChatColor.YELLOW.toString();
+        if (percentage >= 50.0) return ChatColor.GOLD.toString();
+        if (percentage >= 25.0) return ChatColor.RED.toString();
+        return ChatColor.DARK_RED.toString();
+    }
+
+    /**
+     * Formatea el nombre de un requisito para mostrar - ACTUALIZADO
      */
     private static String formatRequirementName(String type) {
         return switch (type.toLowerCase()) {
             case "money", "eco", "economy" -> "Dinero";
             case "xp", "experience" -> "Experiencia";
             case "level", "levels" -> "Nivel";
-            case "playtime", "time_played" -> "Tiempo jugado";
+            case "playtime_hours", "time_played" -> "Tiempo jugado";
             case "farming_level" -> "Nivel de granjería";
             case "mining_level" -> "Nivel de minería";
-            case "kills", "mob_kills" -> "Kills";
-            case "blocks_broken" -> "Bloques rotos";
+            case "mob_kills", "kills" -> "Mobs matados";
+            case "blocks_mined", "blocks_broken" -> "Bloques minados";
+            case "animals_bred" -> "Animales criados";
+            case "fish_caught" -> "Peces pescados";
+            case "ender_dragon_kills" -> "Ender Dragons";
+            case "wither_kills" -> "Withers matados";
             case "permission" -> "Permiso";
-            default -> type;
+            default -> type.replace("_", " ");
         };
     }
 
     /**
-     * Formatea el valor de un requisito para mostrar
+     * Formatea el valor de un requisito para mostrar - ACTUALIZADO
      */
     private static String formatRequirementValue(RequirementProgress progress) {
         String type = progress.getType().toLowerCase();
@@ -496,10 +518,11 @@ public class RankupGUI {
             case "money", "eco", "economy" -> String.format("$%,.0f/$%,.0f", current, required);
             case "xp", "experience" -> String.format("%,.0f/%,.0f XP", current, required);
             case "level", "levels" -> String.format("%.0f/%.0f", current, required);
-            case "playtime", "time_played" -> String.format("%.0f/%.0f horas", current, required);
-            case "farming_level", "mining_level" -> String.format("%.0f/%.0f", current, required);
-            case "kills", "mob_kills", "blocks_broken" -> String.format("%,.0f/%,.0f", current, required);
-            default -> String.format("%.0f/%.0f", current, required);
+            case "playtime_hours", "time_played" -> String.format("%.1f/%.1fh", current, required);
+            case "farming_level", "mining_level" -> String.format("Lv.%.0f/%.0f", current, required);
+            case "mob_kills", "blocks_mined", "animals_bred", "fish_caught",
+                 "ender_dragon_kills", "wither_kills" -> String.format("%,.0f/%,.0f", current, required);
+            default -> String.format("%.1f/%.1f", current, required);
         };
     }
 
@@ -541,6 +564,3 @@ public class RankupGUI {
         return item;
     }
 }
-
-// =====================================================================
-

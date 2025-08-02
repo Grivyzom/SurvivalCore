@@ -2,6 +2,7 @@ package gc.grivyzom.survivalcore.commands;
 
 import gc.grivyzom.survivalcore.Main;
 import gc.grivyzom.survivalcore.data.UserData;
+import gc.grivyzom.survivalcore.rankup.RankupManager;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -18,10 +19,10 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * Comando principal /score con soporte completo para reload de todos los sistemas
+ * Comando principal /score actualizado para Rankup 2.0
  *
  * @author Brocolitx
- * @version 2.0
+ * @version 2.1 - Compatible con Rankup 2.0
  */
 public class ScoreCommand implements CommandExecutor, TabCompleter {
 
@@ -63,7 +64,7 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
     }
 
     /**
-     * Maneja el reload completo del plugin - VERSIÓN COMPLETA
+     * Maneja el reload completo del plugin - ACTUALIZADO para Rankup 2.0
      */
     private void handleReload(CommandSender sender) {
         if (!sender.hasPermission("survivalcore.reload")) {
@@ -86,11 +87,11 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
             plugin.updateInternalConfig();
             report.append(ChatColor.GREEN + "✓ Configuración interna\n");
 
-            // 3. Verificar estado del sistema de rankup
+            // 3. Verificar estado del sistema de rankup - ACTUALIZADO
             if (plugin.isRankupSystemEnabled()) {
                 try {
-                    var rankupManager = plugin.getRankupManager();
-                    int ranksCount = rankupManager.getRankups().size();
+                    RankupManager rankupManager = plugin.getRankupManager();
+                    int ranksCount = rankupManager.getRanks().size();
                     int prestigesCount = rankupManager.getPrestiges().size();
 
                     report.append(ChatColor.GREEN + "✓ Sistema de rankup (" + ranksCount + " rangos, " + prestigesCount + " prestiges)\n");
@@ -244,10 +245,10 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
     }
 
     /**
-     * Debug del sistema de rankup
+     * Debug del sistema de rankup - ACTUALIZADO para Rankup 2.0
      */
     private void debugRankupSystem(CommandSender sender) {
-        sender.sendMessage(ChatColor.AQUA + "═══ DEBUG SISTEMA RANKUP ═══");
+        sender.sendMessage(ChatColor.AQUA + "═══ DEBUG SISTEMA RANKUP 2.0 ═══");
 
         if (!plugin.isRankupSystemEnabled()) {
             sender.sendMessage(ChatColor.RED + "❌ Sistema de rankup: DESHABILITADO");
@@ -265,10 +266,10 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
         }
 
         try {
-            var rankupManager = plugin.getRankupManager();
+            RankupManager rankupManager = plugin.getRankupManager();
 
-            sender.sendMessage(ChatColor.GREEN + "✅ Sistema de rankup: HABILITADO");
-            sender.sendMessage(ChatColor.WHITE + "Rangos cargados: " + ChatColor.YELLOW + rankupManager.getRankups().size());
+            sender.sendMessage(ChatColor.GREEN + "✅ Sistema de rankup 2.0: HABILITADO");
+            sender.sendMessage(ChatColor.WHITE + "Rangos cargados: " + ChatColor.YELLOW + rankupManager.getRanks().size());
             sender.sendMessage(ChatColor.WHITE + "Prestiges cargados: " + ChatColor.YELLOW + rankupManager.getPrestiges().size());
             sender.sendMessage(ChatColor.WHITE + "PlaceholderAPI: " +
                     (rankupManager.isPlaceholderAPIEnabled() ? ChatColor.GREEN + "DISPONIBLE" : ChatColor.RED + "NO DISPONIBLE"));
@@ -280,10 +281,10 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage(ChatColor.WHITE + "Prestige habilitado: " +
                     (rankupManager.isPrestigeEnabled() ? ChatColor.GREEN + "SÍ" : ChatColor.RED + "NO"));
 
-            // Mostrar algunos rangos como ejemplo
-            if (!rankupManager.getRankups().isEmpty()) {
+            // Mostrar algunos rangos como ejemplo - ACTUALIZADO
+            if (!rankupManager.getRanks().isEmpty()) {
                 sender.sendMessage(ChatColor.YELLOW + "Primeros rangos:");
-                rankupManager.getRankups().values().stream()
+                rankupManager.getRanks().values().stream()
                         .sorted((a, b) -> Integer.compare(a.getOrder(), b.getOrder()))
                         .limit(3)
                         .forEach(rank -> sender.sendMessage(ChatColor.GRAY + "  • " + rank.getDisplayName() +
@@ -296,10 +297,10 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
     }
 
     /**
-     * Debug de placeholders
+     * Debug de placeholders - ACTUALIZADO para nuevos placeholders
      */
     private void debugPlaceholders(CommandSender sender) {
-        sender.sendMessage(ChatColor.AQUA + "═══ DEBUG PLACEHOLDERS ═══");
+        sender.sendMessage(ChatColor.AQUA + "═══ DEBUG PLACEHOLDERS 2.0 ═══");
 
         // Verificar PlaceholderAPI
         boolean papiAvailable = plugin.getServer().getPluginManager().getPlugin("PlaceholderAPI") != null;
@@ -322,13 +323,17 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
                     (scoreRegistered ? ChatColor.GREEN + "REGISTRADA" : ChatColor.RED + "NO REGISTRADA"));
 
             if (scoreRegistered) {
-                sender.sendMessage(ChatColor.GREEN + "✅ Placeholders disponibles:");
+                sender.sendMessage(ChatColor.GREEN + "✅ Placeholders disponibles (v2.0):");
                 sender.sendMessage(ChatColor.YELLOW + "Sistema de Rankup:");
-                sender.sendMessage(ChatColor.WHITE + "  %score_rank% - Rango actual");
-                sender.sendMessage(ChatColor.WHITE + "  %score_rankup_next% - Siguiente rango");
-                sender.sendMessage(ChatColor.WHITE + "  %score_rankup_percentage% - Porcentaje de progreso");
+                sender.sendMessage(ChatColor.WHITE + "  %score_rank% - ID del rango actual");
+                sender.sendMessage(ChatColor.WHITE + "  %score_rank_display% - Nombre del rango");
+                sender.sendMessage(ChatColor.WHITE + "  %score_next_rank% - Siguiente rango");
+                sender.sendMessage(ChatColor.WHITE + "  %score_rankup_progress% - Porcentaje de progreso");
                 sender.sendMessage(ChatColor.WHITE + "  %score_rankup_progress_bar% - Barra de progreso");
-                sender.sendMessage(ChatColor.WHITE + "  %score_rankup_is_max% - ¿Es rango máximo?");
+                sender.sendMessage(ChatColor.WHITE + "  %score_rank_order% - Orden del rango");
+                sender.sendMessage(ChatColor.WHITE + "  %score_is_max_rank% - ¿Es rango máximo?");
+                sender.sendMessage(ChatColor.WHITE + "  %score_total_ranks% - Total de rangos");
+
                 sender.sendMessage(ChatColor.YELLOW + "Datos del jugador:");
                 sender.sendMessage(ChatColor.WHITE + "  %score_farming_level% - Nivel de farming");
                 sender.sendMessage(ChatColor.WHITE + "  %score_mining_level% - Nivel de minería");
@@ -336,13 +341,14 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
                 sender.sendMessage(ChatColor.WHITE + "  %score_banked_xp% - XP en banco");
 
                 // Test de placeholder si es un jugador
-                if (sender instanceof Player) {
-                    Player player = (Player) sender;
+                if (sender instanceof Player player) {
                     sender.sendMessage(ChatColor.YELLOW + "Test en vivo:");
                     sender.sendMessage(ChatColor.WHITE + "  Tu rango: " +
                             me.clip.placeholderapi.PlaceholderAPI.setPlaceholders(player, "%score_rank%"));
-                    sender.sendMessage(ChatColor.WHITE + "  Tu nivel farming: " +
-                            me.clip.placeholderapi.PlaceholderAPI.setPlaceholders(player, "%score_farming_level%"));
+                    sender.sendMessage(ChatColor.WHITE + "  Tu rango (display): " +
+                            me.clip.placeholderapi.PlaceholderAPI.setPlaceholders(player, "%score_rank_display%"));
+                    sender.sendMessage(ChatColor.WHITE + "  Tu progreso: " +
+                            me.clip.placeholderapi.PlaceholderAPI.setPlaceholders(player, "%score_rankup_progress%"));
                 }
             }
 
@@ -377,7 +383,7 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(ChatColor.WHITE + "SellWandManager: " +
                 (plugin.getSellWandManager() != null ? ChatColor.GREEN + "OK" : ChatColor.RED + "NULL"));
         sender.sendMessage(ChatColor.WHITE + "RankupManager: " +
-                (plugin.getRankupManager() != null ? ChatColor.GREEN + "OK" : ChatColor.RED + "NULL"));
+                (plugin.getRankupManager() != null ? ChatColor.GREEN + "OK (v2.0)" : ChatColor.RED + "NULL"));
 
         // Plugins externos
         sender.sendMessage(ChatColor.YELLOW + "Plugins externos:");
@@ -394,7 +400,7 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
     }
 
     /**
-     * Debug de información del jugador
+     * Debug de información del jugador - ACTUALIZADO para Rankup 2.0
      */
     private void debugPlayerInfo(Player player) {
         player.sendMessage(ChatColor.AQUA + "═══ DEBUG INFORMACIÓN DEL JUGADOR ═══");
@@ -427,21 +433,22 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
             player.sendMessage(ChatColor.WHITE + "  País: " +
                     (userData.getPais() != null ? userData.getPais() : "No establecido"));
 
-            // Información de rankup si está disponible
+            // Información de rankup si está disponible - ACTUALIZADO
             if (plugin.isRankupSystemEnabled()) {
                 try {
-                    String currentRank = plugin.getRankupManager().getCurrentRank(player);
-                    player.sendMessage(ChatColor.YELLOW + "Sistema de Rankup:");
+                    RankupManager rankupManager = plugin.getRankupManager();
+                    String currentRank = rankupManager.getCurrentRank(player);
+                    player.sendMessage(ChatColor.YELLOW + "Sistema de Rankup 2.0:");
                     player.sendMessage(ChatColor.WHITE + "  Rango actual: " +
                             (currentRank != null ? currentRank : "Sin detectar"));
 
                     if (currentRank != null) {
-                        var rankData = plugin.getRankupManager().getRankups().get(currentRank);
+                        var rankData = rankupManager.getRanks().get(currentRank);
                         if (rankData != null) {
                             player.sendMessage(ChatColor.WHITE + "  Display: " + rankData.getDisplayName());
                             player.sendMessage(ChatColor.WHITE + "  Orden: " + rankData.getOrder());
                             player.sendMessage(ChatColor.WHITE + "  Siguiente: " +
-                                    (rankData.getNextRank() != null ? rankData.getNextRank() : "Rango máximo"));
+                                    (rankData.hasNextRank() ? rankData.getNextRank() : "Rango máximo"));
                         }
                     }
                 } catch (Exception e) {
@@ -472,7 +479,7 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
     }
 
     /**
-     * Muestra la puntuación del jugador
+     * Muestra la puntuación del jugador - ACTUALIZADO para Rankup 2.0
      */
     private void showPlayerScore(Player player) {
         try {
@@ -490,17 +497,18 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
             // Información básica
             player.sendMessage(ChatColor.WHITE + "👤 Jugador: " + ChatColor.YELLOW + player.getName());
 
-            // Información de rankup si está disponible
+            // Información de rankup si está disponible - ACTUALIZADO
             if (plugin.isRankupSystemEnabled()) {
                 try {
-                    String currentRank = plugin.getRankupManager().getCurrentRank(player);
+                    RankupManager rankupManager = plugin.getRankupManager();
+                    String currentRank = rankupManager.getCurrentRank(player);
                     if (currentRank != null) {
-                        var rankData = plugin.getRankupManager().getRankups().get(currentRank);
+                        var rankData = rankupManager.getRanks().get(currentRank);
                         String displayName = rankData != null ? rankData.getDisplayName() : currentRank;
                         player.sendMessage(ChatColor.WHITE + "🏆 Rango: " + displayName);
 
                         if (rankData != null && rankData.hasNextRank()) {
-                            var nextRankData = plugin.getRankupManager().getRankups().get(rankData.getNextRank());
+                            var nextRankData = rankupManager.getRanks().get(rankData.getNextRank());
                             String nextDisplay = nextRankData != null ? nextRankData.getDisplayName() : rankData.getNextRank();
                             player.sendMessage(ChatColor.WHITE + "⬆️ Siguiente: " + nextDisplay);
                         } else {
@@ -572,7 +580,7 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
     }
 
     /**
-     * Muestra la versión del plugin
+     * Muestra la versión del plugin - ACTUALIZADA
      */
     private void showVersion(CommandSender sender) {
         sender.sendMessage("");
@@ -588,7 +596,16 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(ChatColor.GREEN + "✓ " + ChatColor.WHITE + "SellWands");
         sender.sendMessage(ChatColor.GREEN + "✓ " + ChatColor.WHITE + "Cheques de XP");
         sender.sendMessage((plugin.isRankupSystemEnabled() ? ChatColor.GREEN + "✓ " : ChatColor.RED + "✗ ") +
-                ChatColor.WHITE + "Sistema de Rankup");
+                ChatColor.WHITE + "Sistema de Rankup 2.0");
+
+        if (plugin.isRankupSystemEnabled()) {
+            RankupManager rankupManager = plugin.getRankupManager();
+            sender.sendMessage(ChatColor.GRAY + "  └ " + rankupManager.getRanks().size() + " rangos configurados");
+            if (rankupManager.isPlaceholderAPIEnabled()) {
+                sender.sendMessage(ChatColor.GRAY + "  └ PlaceholderAPI integrado");
+            }
+        }
+
         sender.sendMessage("");
         sender.sendMessage(ChatColor.AQUA + "═══════════════════════════════════");
     }

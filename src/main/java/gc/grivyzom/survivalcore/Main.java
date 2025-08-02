@@ -180,24 +180,35 @@ public class Main extends JavaPlugin {
         try {
             // Verificar si LuckPerms está disponible
             if (getServer().getPluginManager().getPlugin("LuckPerms") == null) {
-                getLogger().warning("LuckPerms no encontrado - Sistema de Rankup deshabilitado");
+                getLogger().warning("LuckPerms no encontrado - Sistema de Rankup 2.0 deshabilitado");
                 getLogger().warning("Para usar el sistema de rankup, instala LuckPerms");
                 return false;
             }
 
             // Verificar si LuckPerms está habilitado
             if (!getServer().getPluginManager().isPluginEnabled("LuckPerms")) {
-                getLogger().warning("LuckPerms no está habilitado - Sistema de Rankup deshabilitado");
+                getLogger().warning("LuckPerms no está habilitado - Sistema de Rankup 2.0 deshabilitado");
                 return false;
             }
 
-            // Intentar inicializar RankupManager
+            // Intentar inicializar RankupManager 2.0
             rankupManager = new RankupManager(this);
-            getLogger().info("Sistema de Rankup inicializado correctamente con LuckPerms.");
+            getLogger().info("✅ Sistema de Rankup 2.0 inicializado correctamente con LuckPerms.");
+
+            // Mostrar estadísticas de carga
+            int ranksCount = rankupManager.getRanks().size();
+            boolean papiEnabled = rankupManager.isPlaceholderAPIEnabled();
+
+            getLogger().info("📊 Estadísticas de Rankup 2.0:");
+            getLogger().info("  • Rangos cargados: " + ranksCount);
+            getLogger().info("  • PlaceholderAPI: " + (papiEnabled ? "Disponible" : "No disponible"));
+            getLogger().info("  • Efectos: " + (rankupManager.areEffectsEnabled() ? "Habilitados" : "Deshabilitados"));
+            getLogger().info("  • Broadcast: " + (rankupManager.isBroadcastEnabled() ? "Habilitado" : "Deshabilitado"));
+
             return true;
 
         } catch (Exception e) {
-            getLogger().severe("Error crítico al inicializar el sistema de Rankup:");
+            getLogger().severe("❌ Error crítico al inicializar el sistema de Rankup 2.0:");
             getLogger().severe("Tipo de error: " + e.getClass().getSimpleName());
             getLogger().severe("Mensaje: " + e.getMessage());
             e.printStackTrace();
@@ -207,7 +218,6 @@ public class Main extends JavaPlugin {
             return false;
         }
     }
-
     private void initSellWand() {
         try {
             sellWandManager = new SellWandManager(this);
@@ -243,20 +253,20 @@ public class Main extends JavaPlugin {
 
         registerCommand("xpbank", new XpBankCommand(this));
 
-        // 🔧 CORREGIDO: COMANDOS DE MACETAS Y FLORES MÁGICAS
+        // Comandos de macetas y flores mágicas
         MagicFlowerPotCommand magicFlowerPotCommand = new MagicFlowerPotCommand(this);
         registerCommand("flowerpot", magicFlowerPotCommand);
-        registerCommand("magicflower", magicFlowerPotCommand);  // ✅ Ahora apunta al comando correcto
+        registerCommand("magicflower", magicFlowerPotCommand);
 
-        // COMANDOS DE RANKUP - Solo registrar si el sistema está disponible
+        // 🆕 COMANDOS DE RANKUP 2.0 - Solo registrar si el sistema está disponible
         if (rankupManager != null) {
             RankupCommand rankupCmd = new RankupCommand(this, rankupManager);
             registerCommand("rankup", rankupCmd);
             registerCommand("prestige", rankupCmd);
             registerCommand("ranks", rankupCmd);
-            getLogger().info("Comandos de rankup registrados correctamente.");
+            getLogger().info("✅ Comandos de Rankup 2.0 registrados correctamente.");
         } else {
-            getLogger().warning("Comandos de rankup NO registrados - Sistema no disponible");
+            getLogger().warning("⚠️ Comandos de rankup NO registrados - Sistema no disponible");
         }
     }
 
@@ -280,10 +290,10 @@ public class Main extends JavaPlugin {
         pm.registerEvents(new SellWandListener(this, sellWandManager), this);
         pm.registerEvents(new MagicFlowerPotListener(this), this);
 
-        // LISTENER DE RANKUP - Solo registrar si el sistema está disponible
+        // 🆕 LISTENER DE RANKUP 2.0 - Solo registrar si el sistema está disponible
         if (rankupManager != null) {
             pm.registerEvents(new RankupMenuListener(this), this);
-            getLogger().info("Listeners de rankup registrados correctamente.");
+            getLogger().info("✅ Listeners de Rankup 2.0 registrados correctamente.");
         }
     }
 
@@ -340,7 +350,7 @@ public class Main extends JavaPlugin {
      * VERSIÓN MEJORADA con soporte completo para todos los sistemas
      */
     public void updateInternalConfig() {
-        getLogger().info("Iniciando actualización de configuración interna...");
+        getLogger().info("🔄 Iniciando actualización de configuración interna...");
 
         try {
             // Recargar configuración básica
@@ -406,24 +416,31 @@ public class Main extends JavaPlugin {
                 }
             }
 
-            // 🚀 NUEVO: Recargar configuración de rankup
+            // 🆕 NUEVO: Recargar configuración de Rankup 2.0
             if (rankupManager != null) {
                 try {
                     rankupManager.reloadConfig();
-                    getLogger().info("✓ Configuración de rankup actualizada");
+
+                    // Mostrar estadísticas actualizadas
+                    int ranksCount = rankupManager.getRanks().size();
+                    boolean papiEnabled = rankupManager.isPlaceholderAPIEnabled();
+
+                    getLogger().info("✅ Configuración de Rankup 2.0 actualizada");
+                    getLogger().info("  • Rangos: " + ranksCount);
+                    getLogger().info("  • PlaceholderAPI: " + (papiEnabled ? "Disponible" : "No disponible"));
+
                 } catch (Exception e) {
-                    getLogger().severe("Error recargando configuración de rankup: " + e.getMessage());
+                    getLogger().severe("❌ Error recargando configuración de Rankup 2.0: " + e.getMessage());
                     e.printStackTrace();
                 }
             } else {
-                getLogger().info("ℹ Sistema de rankup no está disponible");
+                getLogger().info("ℹ️ Sistema de Rankup 2.0 no está disponible");
             }
 
-
-            getLogger().info("Configuración interna actualizada correctamente.");
+            getLogger().info("✅ Configuración interna actualizada correctamente.");
 
         } catch (Exception e) {
-            getLogger().severe("Error crítico actualizando configuración interna: " + e.getMessage());
+            getLogger().severe("❌ Error crítico actualizando configuración interna: " + e.getMessage());
             e.printStackTrace();
         }
     }

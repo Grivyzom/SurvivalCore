@@ -296,6 +296,10 @@ public class RankupManager {
         return CompletableFuture.supplyAsync(() -> {
             UUID uuid = player.getUniqueId();
 
+            if (debugMode) {
+                plugin.getLogger().info("🚀 Iniciando rankup para " + player.getName());
+            }
+
             // Verificar cooldown
             if (isOnCooldown(uuid)) {
                 long remaining = getRemainingCooldown(uuid);
@@ -303,32 +307,94 @@ public class RankupManager {
                         Map.of("seconds", String.valueOf(remaining / 1000))));
             }
 
-            // Obtener rango actual
-            String currentRank = getCurrentRank(player);
+            // Obtener rango actual con retry
+            String currentRank = getCurrentRankWithRetry(player, 3);
             if (currentRank == null) {
-                return new RankupResult(false, "❌ No se pudo determinar tu rango actual");
+                plugin.getLogger().warning("❌ No se pudo determinar el rango de " + player.getName());
+                return new RankupResult(false, "❌ Error: No se pudo determinar tu rango actual. Contacta a un administrador.");
+            }
+
+            if (debugMode) {
+                plugin.getLogger().info("🎯 Rango actual detectado: " + currentRank);
             }
 
             SimpleRankData rankData = ranks.get(currentRank);
-            if (rankData == null || rankData.getNextRank() == null) {
+            if (rankData == null) {
+                plugin.getLogger().warning("❌ No hay datos para el rango: " + currentRank);
+                return new RankupResult(false, "❌ Error: No hay configuración para tu rango actual (" + currentRank + ")");
+            }
+
+            if (rankData.getNextRank() == null) {
                 return new RankupResult(false, formatMessage("max_rank", Map.of()));
             }
 
-            // Verificar requisitos
-            RequirementCheckResult check = checkAllRequirements(player, rankData);
-            if (!check.isSuccess()) {
-                return new RankupResult(false, formatMessage("failed", Map.of()) + "\n" + check.getFailureMessage());
+            if (debugMode) {
+                plugin.getLogger().info("➡️ Siguiente rango: " + rankData.getNextRank());
             }
 
-            // Realizar rankup
-            if (performRankupProcess(player, currentRank, rankData.getNextRank(), rankData)) {
-                setCooldown(uuid);
-                return new RankupResult(true, formatMessage("success",
-                        Map.of("new_rank", getDisplayName(rankData.getNextRank()))));
-            } else {
-                return new RankupResult(false, "❌ Error interno realizando rankup");
+            // Verificar requisitos con timeout más largo
+            try {
+                RequirementCheckResult check = checkAllRequirementsWithTimeout(player, rankData, 10); // 10 segundos timeout
+
+                if (!check.isSuccess()) {
+                    if (debugMode) {
+                        plugin.getLogger().info("❌ Requisitos no cumplidos para " + player.getName());
+                    }
+                    return new RankupResult(false, formatMessage("failed", Map.of()) + "\n" + check.getFailureMessage());
+                }
+
+                // Realizar rankup
+                if (performRankupProcess(player, currentRank, rankData.getNextRank(), rankData)) {
+                    setCooldown(uuid);
+
+                    String successMessage = formatMessage("success",
+                            Map.of("new_rank", getDisplayName(rankData.getNextRank())));
+
+                    if (debugMode) {
+                        plugin.getLogger().info("✅ Rankup exitoso: " + player.getName() + " → " + rankData.getNextRank());
+                    }
+
+                    return new RankupResult(true, successMessage);
+                } else {
+                    plugin.getLogger().severe("❌ Error interno en rankup de " + player.getName());
+                    return new RankupResult(false, "❌ Error interno realizando rankup. Contacta a un administrador.");
+                }
+
+            } catch (Exception e) {
+                plugin.getLogger().severe("❌ Error crítico en rankup de " + player.getName() + ": " + e.getMessage());
+                e.printStackTrace();
+                return new RankupResult(false, "❌ Error crítico realizando rankup. Contacta a un administrador.");
             }
+        }).exceptionally(throwable -> {
+            plugin.getLogger().severe("❌ Error asíncrono en rankup de " + player.getName() + ": " + throwable.getMessage());
+            return new RankupResult(false, "❌ Error procesando rankup. Intenta de nuevo en unos segundos.");
         });
+    }
+
+    private String getCurrentRankWithRetry(Player player, int maxRetries) {
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                String rank = getCurrentRank(player);
+                if (rank != null) {
+                    return rank;
+                }
+
+                if (debugMode) {
+                    plugin.getLogger().info("🔄 Intento " + attempt + "/" + maxRetries + " para detectar rango de " + player.getName());
+                }
+
+                // Esperar un poco antes del siguiente intento
+                Thread.sleep(500);
+
+            } catch (Exception e) {
+                if (debugMode) {
+                    plugin.getLogger().warning("❌ Error en intento " + attempt + " para " + player.getName() + ": " + e.getMessage());
+                }
+            }
+        }
+
+        plugin.getLogger().warning("❌ No se pudo detectar rango de " + player.getName() + " después de " + maxRetries + " intentos");
+        return defaultRank; // Fallback al rango por defecto
     }
 
     /**
@@ -646,14 +712,236 @@ public class RankupManager {
     }
 
     private double getPlayerMoney(Player player) {
-        // TODO: Integrar con Vault
-        return 0.0;
+        // Verificar si Vault está disponible
+        if (plugin.getServer().getPluginManager().getPlugin("Vault") == null) {
+            if (debugMode) {
+                plugin.getLogger().warning("⚠️ Vault no está disponible para verificar dinero de " + player.getName());
+            }
+            return 0.0;
+        }
+
+        try {
+            // Intentar obtener el balance usando Vault
+            org.bukkit.plugin.RegisteredServiceProvider<net.milkbowl.vault.economy.Economy> rsp =
+                    plugin.getServer().getServicesManager().getRegistration(net.milkbowl.vault.economy.Economy.class);
+
+            if (rsp == null) {
+                if (debugMode) {
+                    plugin.getLogger().warning("⚠️ Proveedor de economía no encontrado para " + player.getName());
+                }
+                return 0.0;
+            }
+
+            net.milkbowl.vault.economy.Economy economy = rsp.getProvider();
+            if (economy == null) {
+                return 0.0;
+            }
+
+            double balance = economy.getBalance(player);
+
+            if (debugMode) {
+                plugin.getLogger().info("💰 Balance de " + player.getName() + ": $" + balance);
+            }
+
+            return balance;
+
+        } catch (Exception e) {
+            if (debugMode) {
+                plugin.getLogger().warning("❌ Error obteniendo dinero de " + player.getName() + ": " + e.getMessage());
+            }
+            return 0.0;
+        }
     }
 
     private double getPlaytimeHours(Player player) {
-        long ticks = player.getStatistic(org.bukkit.Statistic.PLAY_ONE_MINUTE);
-        return (ticks * 50L) / (1000.0 * 60 * 60); // Convertir ticks a horas
+        try {
+            // Método 1: Usar estadística de Minecraft (más confiable)
+            long ticks = player.getStatistic(org.bukkit.Statistic.PLAY_ONE_MINUTE);
+            double hours = (ticks * 50L) / (1000.0 * 60 * 60); // Convertir ticks a horas
+
+            if (debugMode) {
+                plugin.getLogger().info("⏰ Tiempo jugado de " + player.getName() + ": " +
+                        String.format("%.2f", hours) + " horas (" + ticks + " ticks)");
+            }
+
+            return hours;
+
+        } catch (Exception e) {
+            if (debugMode) {
+                plugin.getLogger().warning("❌ Error obteniendo tiempo jugado de " + player.getName() + ": " + e.getMessage());
+            }
+
+            // Fallback: Usar PlaceholderAPI si está disponible
+            if (placeholderAPIEnabled) {
+                try {
+                    String placeholder = "%cmi_user_playtime_hoursf%";
+                    String result = PlaceholderAPI.setPlaceholders(player, placeholder);
+
+                    if (!result.equals(placeholder)) { // Si el placeholder se resolvió
+                        return Double.parseDouble(result.replaceAll("[^0-9.]", ""));
+                    }
+                } catch (Exception papiError) {
+                    if (debugMode) {
+                        plugin.getLogger().warning("❌ Error con PlaceholderAPI para tiempo jugado: " + papiError.getMessage());
+                    }
+                }
+            }
+
+            return 0.0;
+        }
     }
+
+    private RequirementCheckResult checkAllRequirementsWithTimeout(Player player, SimpleRankData rankData, int timeoutSeconds) {
+        Map<String, Object> requirements = rankData.getRequirements();
+        List<String> failures = new ArrayList<>();
+
+        if (debugMode) {
+            plugin.getLogger().info("🔍 Verificando " + requirements.size() + " requisitos para " + player.getName() +
+                    " (timeout: " + timeoutSeconds + "s)");
+        }
+
+        long startTime = System.currentTimeMillis();
+        long timeoutMs = timeoutSeconds * 1000L;
+
+        for (Map.Entry<String, Object> req : requirements.entrySet()) {
+            // Verificar timeout
+            if (System.currentTimeMillis() - startTime > timeoutMs) {
+                plugin.getLogger().warning("⏰ Timeout verificando requisitos para " + player.getName());
+                failures.add("⏰ Timeout verificando requisitos. Intenta de nuevo.");
+                break;
+            }
+
+            String type = req.getKey();
+            Object required = req.getValue();
+
+            try {
+                if (!checkSingleRequirementSafe(player, type, required)) {
+                    String message = formatRequirementFailure(player, type, required);
+                    failures.add(message);
+
+                    if (debugMode) {
+                        plugin.getLogger().info("  ❌ " + type + ": " + message);
+                    }
+                } else if (debugMode) {
+                    plugin.getLogger().info("  ✅ " + type + ": cumplido");
+                }
+            } catch (Exception e) {
+                plugin.getLogger().warning("❌ Error verificando requisito " + type + " para " + player.getName() + ": " + e.getMessage());
+                failures.add("❌ Error verificando " + type + ". Contacta a un administrador.");
+            }
+        }
+
+        if (failures.isEmpty()) {
+            if (debugMode) {
+                long duration = System.currentTimeMillis() - startTime;
+                plugin.getLogger().info("✅ Todos los requisitos cumplidos para " + player.getName() + " en " + duration + "ms");
+            }
+            return new RequirementCheckResult(true, "");
+        } else {
+            return new RequirementCheckResult(false, String.join("\n", failures));
+        }
+    }
+
+    private boolean checkSingleRequirementSafe(Player player, String type, Object required) {
+        try {
+            double requiredValue = ((Number) required).doubleValue();
+            double currentValue = getCurrentRequirementValueSafe(player, type);
+
+            if (debugMode) {
+                plugin.getLogger().info("    🔍 " + type + ": " + currentValue + "/" + requiredValue);
+            }
+
+            return currentValue >= requiredValue;
+
+        } catch (ClassCastException e) {
+            plugin.getLogger().warning("❌ Valor de requisito inválido para " + type + ": " + required);
+            return false;
+        } catch (Exception e) {
+            plugin.getLogger().warning("❌ Error verificando requisito " + type + ": " + e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * 🆕 NUEVO: Obtener valor de requisito de forma segura
+     */
+    private double getCurrentRequirementValueSafe(Player player, String type) {
+        try {
+            return switch (type) {
+                case "money" -> getPlayerMoney(player);
+                case "level" -> player.getLevel();
+                case "playtime_hours" -> getPlaytimeHours(player);
+                case "mob_kills" -> player.getStatistic(org.bukkit.Statistic.MOB_KILLS);
+                case "blocks_mined" -> player.getStatistic(org.bukkit.Statistic.MINE_BLOCK);
+                case "farming_level" -> getFarmingLevel(player);
+                case "mining_level" -> getMiningLevel(player);
+                case "animals_bred" -> player.getStatistic(org.bukkit.Statistic.ANIMALS_BRED);
+                case "fish_caught" -> player.getStatistic(org.bukkit.Statistic.FISH_CAUGHT);
+                case "ender_dragon_kills" -> getEntityKills(player, "ENDER_DRAGON");
+                case "wither_kills" -> getEntityKills(player, "WITHER");
+                default -> handleCustomRequirementSafe(player, type);
+            };
+        } catch (Exception e) {
+            if (debugMode) {
+                plugin.getLogger().warning("❌ Error obteniendo valor para " + type + ": " + e.getMessage());
+            }
+            return 0.0;
+        }
+    }
+
+    /**
+     * 🆕 NUEVO: Manejo seguro de requisitos personalizados
+     */
+    private double handleCustomRequirementSafe(Player player, String type) {
+        if (!placeholderAPIEnabled) {
+            if (debugMode) {
+                plugin.getLogger().warning("⚠️ PlaceholderAPI requerido para requisito personalizado: " + type);
+            }
+            return 0;
+        }
+
+        try {
+            // Buscar en requisitos personalizados
+            String placeholderTemplate = config.getString("custom_requirements." + type);
+            if (placeholderTemplate == null) {
+                if (debugMode) {
+                    plugin.getLogger().warning("⚠️ Requisito personalizado no configurado: " + type);
+                }
+                return 0;
+            }
+
+            // Usar timeout para PlaceholderAPI
+            String result = PlaceholderAPI.setPlaceholders(player, placeholderTemplate);
+
+            // Verificar si el placeholder se resolvió
+            if (result.equals(placeholderTemplate)) {
+                if (debugMode) {
+                    plugin.getLogger().warning("⚠️ Placeholder no resuelto: " + placeholderTemplate);
+                }
+                return 0;
+            }
+
+            // Extraer números de la respuesta
+            String numberOnly = result.replaceAll("[^0-9.-]", "");
+            if (numberOnly.isEmpty()) {
+                return 0;
+            }
+
+            return Double.parseDouble(numberOnly);
+
+        } catch (NumberFormatException e) {
+            if (debugMode) {
+                plugin.getLogger().warning("❌ Valor no numérico para requisito " + type + ": " + e.getMessage());
+            }
+            return 0;
+        } catch (Exception e) {
+            if (debugMode) {
+                plugin.getLogger().warning("❌ Error en requisito personalizado " + type + ": " + e.getMessage());
+            }
+            return 0;
+        }
+    }
+
 
     private double getFarmingLevel(Player player) {
         try {
@@ -675,12 +963,28 @@ public class RankupManager {
 
     private double getEntityKills(Player player, String entityType) {
         try {
-            return player.getStatistic(org.bukkit.Statistic.KILL_ENTITY,
-                    org.bukkit.entity.EntityType.valueOf(entityType));
+            org.bukkit.entity.EntityType type = org.bukkit.entity.EntityType.valueOf(entityType);
+            int kills = player.getStatistic(org.bukkit.Statistic.KILL_ENTITY, type);
+
+            if (debugMode) {
+                plugin.getLogger().info("🗡️ " + entityType + " matados por " + player.getName() + ": " + kills);
+            }
+
+            return kills;
+
+        } catch (IllegalArgumentException e) {
+            if (debugMode) {
+                plugin.getLogger().warning("❌ Tipo de entidad inválido: " + entityType);
+            }
+            return 0.0;
         } catch (Exception e) {
-            return 0;
+            if (debugMode) {
+                plugin.getLogger().warning("❌ Error obteniendo kills de " + entityType + " para " + player.getName() + ": " + e.getMessage());
+            }
+            return 0.0;
         }
     }
+
 
     private double handleCustomRequirement(Player player, String type) {
         if (!placeholderAPIEnabled) return 0;
@@ -845,41 +1149,80 @@ public class RankupManager {
 
     public CompletableFuture<RankupProgress> getPlayerProgress(Player player) {
         return CompletableFuture.supplyAsync(() -> {
-            String currentRank = getCurrentRank(player);
-            if (currentRank == null) {
+            try {
+                if (debugMode) {
+                    plugin.getLogger().info("📊 Obteniendo progreso para " + player.getName());
+                }
+
+                String currentRank = getCurrentRankWithRetry(player, 2);
+                if (currentRank == null) {
+                    plugin.getLogger().warning("❌ No se pudo obtener rango actual para progreso de " + player.getName());
+                    return new RankupProgress(null, null, new HashMap<>(), 0.0);
+                }
+
+                SimpleRankData rankData = ranks.get(currentRank);
+                if (rankData == null || rankData.getNextRank() == null) {
+                    return new RankupProgress(currentRank, null, new HashMap<>(), 100.0);
+                }
+
+                Map<String, Object> requirements = rankData.getRequirements();
+                Map<String, RequirementProgress> progress = new HashMap<>();
+                double totalProgress = 0.0;
+                int completedRequirements = 0;
+
+                for (Map.Entry<String, Object> requirement : requirements.entrySet()) {
+                    String type = requirement.getKey();
+
+                    try {
+                        double required = ((Number) requirement.getValue()).doubleValue();
+                        double current = getCurrentRequirementValueSafe(player, type);
+                        double percentage = Math.min((current / required) * 100.0, 100.0);
+                        boolean completed = current >= required;
+
+                        RequirementProgress reqProgress = new RequirementProgress(
+                                type, current, required, percentage, completed
+                        );
+                        progress.put(type, reqProgress);
+
+                        totalProgress += percentage;
+                        if (completed) completedRequirements++;
+
+                        if (debugMode) {
+                            plugin.getLogger().info("  📈 " + type + ": " + String.format("%.1f", current) +
+                                    "/" + String.format("%.1f", required) + " (" + String.format("%.1f", percentage) + "%)");
+                        }
+
+                    } catch (Exception e) {
+                        plugin.getLogger().warning("❌ Error calculando progreso para " + type + ": " + e.getMessage());
+                        // Agregar requisito con error
+                        RequirementProgress errorProgress = new RequirementProgress(
+                                type, 0, 1, 0, false
+                        );
+                        progress.put(type, errorProgress);
+                    }
+                }
+
+                if (!requirements.isEmpty()) {
+                    totalProgress /= requirements.size();
+                }
+
+                if (debugMode) {
+                    plugin.getLogger().info("📊 Progreso total para " + player.getName() + ": " +
+                            String.format("%.1f", totalProgress) + "% (" + completedRequirements + "/" + requirements.size() + " requisitos)");
+                }
+
+                return new RankupProgress(currentRank, rankData.getNextRank(), progress, totalProgress);
+
+            } catch (Exception e) {
+                plugin.getLogger().severe("❌ Error crítico obteniendo progreso para " + player.getName() + ": " + e.getMessage());
+                e.printStackTrace();
                 return new RankupProgress(null, null, new HashMap<>(), 0.0);
             }
-
-            SimpleRankData rankData = ranks.get(currentRank);
-            if (rankData == null || rankData.getNextRank() == null) {
-                return new RankupProgress(currentRank, null, new HashMap<>(), 100.0);
-            }
-
-            Map<String, Object> requirements = rankData.getRequirements();
-            Map<String, RequirementProgress> progress = new HashMap<>();
-            double totalProgress = 0.0;
-
-            for (Map.Entry<String, Object> requirement : requirements.entrySet()) {
-                String type = requirement.getKey();
-                double required = ((Number) requirement.getValue()).doubleValue();
-                double current = getCurrentRequirementValue(player, type);
-                double percentage = Math.min((current / required) * 100.0, 100.0);
-
-                RequirementProgress reqProgress = new RequirementProgress(
-                        type, current, required, percentage, current >= required
-                );
-                progress.put(type, reqProgress);
-                totalProgress += percentage;
-            }
-
-            if (!requirements.isEmpty()) {
-                totalProgress /= requirements.size();
-            }
-
-            return new RankupProgress(currentRank, rankData.getNextRank(), progress, totalProgress);
+        }).exceptionally(throwable -> {
+            plugin.getLogger().severe("❌ Error asíncrono obteniendo progreso para " + player.getName() + ": " + throwable.getMessage());
+            return new RankupProgress(null, null, new HashMap<>(), 0.0);
         });
     }
-
     /**
      * Debug de información del jugador (para admins)
      */

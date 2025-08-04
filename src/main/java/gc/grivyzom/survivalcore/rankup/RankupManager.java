@@ -14,6 +14,7 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
+import net.luckperms.api.node.NodeEqualityPredicate;
 
 import java.io.File;
 import java.util.*;
@@ -202,37 +203,92 @@ public class RankupManager {
      */
     private void validateConfiguration() {
         List<String> errors = new ArrayList<>();
+        List<String> warnings = new ArrayList<>();
 
         // Verificar que existe rango por defecto
         if (!ranks.containsKey(defaultRank)) {
-            errors.add("Rango por defecto '" + defaultRank + "' no existe");
+            errors.add("Rango por defecto '" + defaultRank + "' no existe en configuración");
+        } else {
+            // Verificar que el grupo por defecto existe en LuckPerms
+            String defaultGroupName = groupPrefix.isEmpty() ? defaultRank : groupPrefix + defaultRank;
+            if (!groupExists(defaultGroupName)) {
+                errors.add("Grupo por defecto '" + defaultGroupName + "' no existe en LuckPerms");
+            }
         }
 
-        // Verificar cadena de rangos
+        // Verificar cadena de rangos y grupos en LuckPerms
         for (SimpleRankData rank : ranks.values()) {
+            String rankId = rank.getId();
+            String groupName = groupPrefix.isEmpty() ? rankId : groupPrefix + rankId;
+
+            // Verificar que el grupo existe en LuckPerms
+            if (!groupExists(groupName)) {
+                errors.add("Grupo '" + groupName + "' para rango '" + rankId + "' no existe en LuckPerms");
+            }
+
+            // Verificar siguiente rango
             String nextRank = rank.getNextRank();
-            if (nextRank != null && !ranks.containsKey(nextRank)) {
-                errors.add("Rango '" + rank.getId() + "' apunta a rango inexistente: " + nextRank);
+            if (nextRank != null) {
+                if (!ranks.containsKey(nextRank)) {
+                    errors.add("Rango '" + rankId + "' apunta a rango inexistente: " + nextRank);
+                } else {
+                    // Verificar que el siguiente grupo existe en LuckPerms
+                    String nextGroupName = groupPrefix.isEmpty() ? nextRank : groupPrefix + nextRank;
+                    if (!groupExists(nextGroupName)) {
+                        errors.add("Siguiente grupo '" + nextGroupName + "' para rango '" + nextRank + "' no existe en LuckPerms");
+                    }
+                }
+            }
+        }
+
+        // Verificar orden de rangos (no debe haber duplicados)
+        Map<Integer, String> orderMap = new HashMap<>();
+        for (SimpleRankData rank : ranks.values()) {
+            int order = rank.getOrder();
+            if (orderMap.containsKey(order)) {
+                warnings.add("Orden " + order + " duplicado entre rangos '" + orderMap.get(order) + "' y '" + rank.getId() + "'");
+            } else {
+                orderMap.put(order, rank.getId());
             }
         }
 
         // Verificar PlaceholderAPI si es necesario
         List<String> requiresPAPI = config.getStringList("advanced.requires_placeholderapi");
         if (!requiresPAPI.isEmpty() && !placeholderAPIEnabled) {
-            plugin.getLogger().warning("⚠️ Algunos requisitos requieren PlaceholderAPI pero no está disponible");
+            warnings.add("Algunos requisitos requieren PlaceholderAPI pero no está disponible");
         }
 
+        // Mostrar errores
         if (!errors.isEmpty()) {
-            plugin.getLogger().severe("❌ Errores de configuración:");
+            plugin.getLogger().severe("❌ ERRORES CRÍTICOS de configuración:");
             errors.forEach(error -> plugin.getLogger().severe("  • " + error));
-            throw new RuntimeException("Configuración inválida");
+            plugin.getLogger().severe("");
+            plugin.getLogger().severe("🔧 SOLUCIONES SUGERIDAS:");
+            plugin.getLogger().severe("  1. Verifica que todos los grupos estén creados en LuckPerms:");
+            ranks.values().forEach(rank -> {
+                String groupName = groupPrefix.isEmpty() ? rank.getId() : groupPrefix + rank.getId();
+                plugin.getLogger().severe("     /lp creategroup " + groupName);
+            });
+            plugin.getLogger().severe("  2. Verifica que el prefix en rankups.yml coincida con LuckPerms");
+            plugin.getLogger().severe("  3. Usa /score debug rankup [jugador] para más información");
+
+            throw new RuntimeException("Errores críticos en configuración de rangos - revisa los logs");
+        }
+
+        // Mostrar advertencias
+        if (!warnings.isEmpty()) {
+            plugin.getLogger().warning("⚠️ Advertencias de configuración:");
+            warnings.forEach(warning -> plugin.getLogger().warning("  • " + warning));
         }
 
         if (debugMode) {
             plugin.getLogger().info("✅ Configuración validada correctamente");
+            plugin.getLogger().info("📊 Resumen de validación:");
+            plugin.getLogger().info("  • Rangos verificados: " + ranks.size());
+            plugin.getLogger().info("  • Errores: " + errors.size());
+            plugin.getLogger().info("  • Advertencias: " + warnings.size());
         }
     }
-
     /**
      * Intenta hacer rankup de forma simplificada
      */
@@ -359,33 +415,57 @@ public class RankupManager {
 
             if ("primary_group".equals(detectionMethod)) {
                 String primaryGroup = user.getPrimaryGroup();
-                String rankId = primaryGroup.startsWith(groupPrefix) ?
-                        primaryGroup.substring(groupPrefix.length()) : primaryGroup;
+
+                // 🔧 CORRECCIÓN: Manejar tanto con prefijo como sin prefijo
+                String rankId;
+                if (groupPrefix.isEmpty()) {
+                    // Sin prefijo: el grupo ES el rango directamente
+                    rankId = primaryGroup;
+                } else {
+                    // Con prefijo: quitar el prefijo del grupo
+                    rankId = primaryGroup.startsWith(groupPrefix) ?
+                            primaryGroup.substring(groupPrefix.length()) : primaryGroup;
+                }
+
+                if (debugMode) {
+                    plugin.getLogger().info("🔍 Debug detección de rango:");
+                    plugin.getLogger().info("  • Grupo primario: " + primaryGroup);
+                    plugin.getLogger().info("  • Prefijo configurado: '" + groupPrefix + "'");
+                    plugin.getLogger().info("  • Rango extraído: " + rankId);
+                    plugin.getLogger().info("  • ¿Existe en configuración? " + ranks.containsKey(rankId));
+                }
 
                 if (ranks.containsKey(rankId)) {
                     return rankId;
+                } else {
+                    plugin.getLogger().warning("⚠️ Rango '" + rankId + "' no encontrado en configuración. Rangos disponibles: " + ranks.keySet());
                 }
             }
 
-            // Fallback: buscar el rango de mayor orden
+            // Fallback: buscar el rango de mayor orden entre todos los grupos del jugador
             String highestRank = user.getInheritedGroups(user.getQueryOptions())
                     .stream()
                     .map(group -> {
                         String name = group.getName();
-                        return name.startsWith(groupPrefix) ? name.substring(groupPrefix.length()) : name;
+                        if (groupPrefix.isEmpty()) {
+                            return name;
+                        } else {
+                            return name.startsWith(groupPrefix) ? name.substring(groupPrefix.length()) : name;
+                        }
                     })
                     .filter(ranks::containsKey)
                     .max(Comparator.comparingInt(rankId -> ranks.get(rankId).getOrder()))
                     .orElse(defaultRank);
 
             if (debugMode) {
-                plugin.getLogger().info("🎯 Rango detectado para " + player.getName() + ": " + highestRank);
+                plugin.getLogger().info("🎯 Rango final detectado para " + player.getName() + ": " + highestRank);
             }
 
             return highestRank;
 
         } catch (Exception e) {
-            plugin.getLogger().warning("Error detectando rango de " + player.getName() + ": " + e.getMessage());
+            plugin.getLogger().severe("❌ Error detectando rango de " + player.getName() + ": " + e.getMessage());
+            e.printStackTrace();
             return defaultRank;
         }
     }
@@ -431,31 +511,103 @@ public class RankupManager {
     private boolean updatePlayerGroup(Player player, String fromRank, String toRank) {
         try {
             User user = luckPerms.getPlayerAdapter(Player.class).getUser(player);
-            if (user == null) return false;
+            if (user == null) {
+                plugin.getLogger().severe("❌ Usuario LuckPerms no encontrado para " + player.getName());
+                return false;
+            }
 
-            // Remover grupo anterior
-            String oldGroup = groupPrefix + fromRank;
-            user.data().remove(InheritanceNode.builder(oldGroup).build());
+            // 🔧 CORRECCIÓN: Construir nombres de grupos correctamente
+            String oldGroup, newGroup;
 
-            // Añadir nuevo grupo
-            String newGroup = groupPrefix + toRank;
-            user.data().add(InheritanceNode.builder(newGroup).build());
-
-            // Guardar cambios
-            luckPerms.getUserManager().saveUser(user).join();
+            if (groupPrefix.isEmpty()) {
+                // Sin prefijo: el grupo ES el rango directamente
+                oldGroup = fromRank;
+                newGroup = toRank;
+            } else {
+                // Con prefijo: agregar prefijo al rango
+                oldGroup = groupPrefix + fromRank;
+                newGroup = groupPrefix + toRank;
+            }
 
             if (debugMode) {
-                plugin.getLogger().info("✅ Grupo actualizado: " + oldGroup + " -> " + newGroup);
+                plugin.getLogger().info("🔄 Actualizando grupos de " + player.getName() + ":");
+                plugin.getLogger().info("  • Removiendo: " + oldGroup);
+                plugin.getLogger().info("  • Agregando: " + newGroup);
+                plugin.getLogger().info("  • Prefijo: '" + groupPrefix + "'");
+            }
+
+            // Verificar que los grupos existen en LuckPerms
+            if (!groupExists(oldGroup)) {
+                plugin.getLogger().warning("⚠️ Grupo origen '" + oldGroup + "' no existe en LuckPerms");
+            }
+
+            if (!groupExists(newGroup)) {
+                plugin.getLogger().severe("❌ Grupo destino '" + newGroup + "' no existe en LuckPerms");
+                return false;
+            }
+
+            // 🔧 CORRECCIÓN PRINCIPAL: Usar API actualizada de LuckPerms
+            InheritanceNode oldNode = InheritanceNode.builder(oldGroup).build();
+
+            // ANTES (INCORRECTO):
+            // if (user.data().contains(oldNode).asBoolean()) {
+
+            // DESPUÉS (CORRECTO):
+            if (user.data().contains(oldNode, NodeEqualityPredicate.ONLY_KEY).asBoolean()) {
+                user.data().remove(oldNode);
+                if (debugMode) {
+                    plugin.getLogger().info("✅ Grupo '" + oldGroup + "' removido exitosamente");
+                }
+            } else {
+                plugin.getLogger().warning("⚠️ El jugador no tenía el grupo '" + oldGroup + "'");
+            }
+
+            // Añadir nuevo grupo
+            InheritanceNode newNode = InheritanceNode.builder(newGroup).build();
+            user.data().add(newNode);
+
+            // 🆕 NUEVO: Establecer como grupo primario para asegurar detección correcta
+            if ("primary_group".equals(detectionMethod)) {
+                user.setPrimaryGroup(newGroup);
+                if (debugMode) {
+                    plugin.getLogger().info("✅ '" + newGroup + "' establecido como grupo primario");
+                }
+            }
+
+            // Guardar cambios - MEJORADO con verificación
+            try {
+                luckPerms.getUserManager().saveUser(user).join();
+
+                // Verificar que el cambio se aplicó correctamente
+                Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                    User updatedUser = luckPerms.getPlayerAdapter(Player.class).getUser(player);
+                    if (updatedUser != null) {
+                        String verifyRank = getCurrentRank(player);
+                        if (toRank.equals(verifyRank)) {
+                            plugin.getLogger().info("✅ Rankup verificado: " + player.getName() + " ahora es " + toRank);
+                        } else {
+                            plugin.getLogger().warning("⚠️ Verificación fallida: se esperaba " + toRank + " pero se detectó " + verifyRank);
+                        }
+                    }
+                }, 5L); // Verificar después de 5 ticks
+
+            } catch (Exception saveError) {
+                plugin.getLogger().severe("❌ Error guardando cambios en LuckPerms: " + saveError.getMessage());
+                return false;
+            }
+
+            if (debugMode) {
+                plugin.getLogger().info("✅ Grupos actualizados exitosamente: " + oldGroup + " → " + newGroup);
             }
 
             return true;
 
         } catch (Exception e) {
-            plugin.getLogger().severe("Error actualizando grupo: " + e.getMessage());
+            plugin.getLogger().severe("❌ Error crítico actualizando grupo de " + player.getName() + ": " + e.getMessage());
+            e.printStackTrace();
             return false;
         }
     }
-
     // =================== MÉTODOS DE UTILIDAD ===================
 
     private boolean initLuckPerms() {
@@ -479,6 +631,17 @@ public class RankupManager {
             plugin.saveResource("rankups.yml", false);
         } catch (Exception e) {
             plugin.getLogger().warning("No se pudo crear configuración por defecto");
+        }
+    }
+
+    private boolean groupExists(String groupName) {
+        try {
+            return luckPerms.getGroupManager().getGroup(groupName) != null;
+        } catch (Exception e) {
+            if (debugMode) {
+                plugin.getLogger().warning("Error verificando grupo '" + groupName + "': " + e.getMessage());
+            }
+            return false;
         }
     }
 
@@ -721,53 +884,104 @@ public class RankupManager {
      * Debug de información del jugador (para admins)
      */
     public void debugPlayerRankup(Player player, Player admin) {
-        admin.sendMessage(ChatColor.GOLD + "═══ Debug Rankup - " + player.getName() + " ═══");
+        admin.sendMessage(ChatColor.GOLD + "═══ Debug Rankup MEJORADO - " + player.getName() + " ═══");
 
-        String currentRank = getCurrentRank(player);
-        admin.sendMessage(ChatColor.WHITE + "Rango actual: " + ChatColor.YELLOW +
-                (currentRank != null ? currentRank : "NULL"));
+        try {
+            User user = luckPerms.getPlayerAdapter(Player.class).getUser(player);
+            if (user == null) {
+                admin.sendMessage(ChatColor.RED + "❌ Usuario LuckPerms no encontrado");
+                return;
+            }
 
-        if (currentRank == null) {
-            admin.sendMessage(ChatColor.RED + "❌ Error: No se pudo detectar el rango");
-            return;
-        }
+            // Información de LuckPerms
+            admin.sendMessage(ChatColor.YELLOW + "🔍 Información de LuckPerms:");
+            admin.sendMessage(ChatColor.WHITE + "  • Grupo primario: " + ChatColor.AQUA + user.getPrimaryGroup());
 
-        SimpleRankData rankData = ranks.get(currentRank);
-        if (rankData == null) {
-            admin.sendMessage(ChatColor.RED + "❌ Error: No hay datos para el rango " + currentRank);
-            return;
-        }
+            // Todos los grupos del jugador
+            Set<String> playerGroups = user.getInheritedGroups(user.getQueryOptions())
+                    .stream()
+                    .map(group -> group.getName())
+                    .collect(java.util.stream.Collectors.toSet());
 
-        admin.sendMessage(ChatColor.WHITE + "Display: " + rankData.getDisplayName());
-        admin.sendMessage(ChatColor.WHITE + "Orden: " + ChatColor.YELLOW + rankData.getOrder());
-        admin.sendMessage(ChatColor.WHITE + "Siguiente: " + ChatColor.YELLOW +
-                (rankData.getNextRank() != null ? rankData.getNextRank() : "RANGO MÁXIMO"));
+            admin.sendMessage(ChatColor.WHITE + "  • Todos los grupos: " + ChatColor.GRAY + String.join(", ", playerGroups));
 
-        if (rankData.getNextRank() == null) {
-            admin.sendMessage(ChatColor.GREEN + "✅ El jugador ya tiene el rango máximo");
-            return;
-        }
+            // Configuración del sistema
+            admin.sendMessage(ChatColor.YELLOW + "⚙️ Configuración del sistema:");
+            admin.sendMessage(ChatColor.WHITE + "  • Prefijo de grupos: '" + ChatColor.AQUA + groupPrefix + ChatColor.WHITE + "'");
+            admin.sendMessage(ChatColor.WHITE + "  • Método de detección: " + ChatColor.AQUA + detectionMethod);
+            admin.sendMessage(ChatColor.WHITE + "  • Rango por defecto: " + ChatColor.AQUA + defaultRank);
 
-        admin.sendMessage(ChatColor.WHITE + "Verificando requisitos:");
-        Map<String, Object> requirements = rankData.getRequirements();
+            // Detección actual
+            String currentRank = getCurrentRank(player);
+            admin.sendMessage(ChatColor.YELLOW + "🎯 Detección de rango:");
+            admin.sendMessage(ChatColor.WHITE + "  • Rango detectado: " + ChatColor.YELLOW +
+                    (currentRank != null ? currentRank : "NULL"));
 
-        for (Map.Entry<String, Object> req : requirements.entrySet()) {
-            String type = req.getKey();
-            double required = ((Number) req.getValue()).doubleValue();
-            double current = getCurrentRequirementValue(player, type);
-            boolean met = current >= required;
+            // Verificar si existe en configuración
+            SimpleRankData rankData = ranks.get(currentRank);
+            if (rankData == null) {
+                admin.sendMessage(ChatColor.RED + "  ❌ Error: No hay datos para el rango " + currentRank);
+                admin.sendMessage(ChatColor.YELLOW + "  📋 Rangos disponibles en configuración:");
+                ranks.keySet().forEach(rank -> admin.sendMessage(ChatColor.GRAY + "    - " + rank));
+                return;
+            }
 
-            String status = met ? ChatColor.GREEN + "✓" : ChatColor.RED + "✗";
-            admin.sendMessage("  " + status + ChatColor.WHITE + " " + type +
-                    ": " + ChatColor.YELLOW + formatValue(type, current) +
-                    ChatColor.GRAY + "/" + ChatColor.GREEN + formatValue(type, required));
-        }
+            admin.sendMessage(ChatColor.WHITE + "  • Display: " + rankData.getDisplayName());
+            admin.sendMessage(ChatColor.WHITE + "  • Orden: " + ChatColor.YELLOW + rankData.getOrder());
+            admin.sendMessage(ChatColor.WHITE + "  • Siguiente: " + ChatColor.YELLOW +
+                    (rankData.getNextRank() != null ? rankData.getNextRank() : "RANGO MÁXIMO"));
 
-        if (isOnCooldown(player.getUniqueId())) {
-            long remaining = getRemainingCooldown(player.getUniqueId());
-            admin.sendMessage(ChatColor.YELLOW + "⏰ Cooldown: " + (remaining / 1000) + "s restantes");
-        } else {
-            admin.sendMessage(ChatColor.GREEN + "✅ Sin cooldown activo");
+            // Verificar grupos en LuckPerms
+            admin.sendMessage(ChatColor.YELLOW + "🔧 Verificación de grupos:");
+            String currentGroupName = groupPrefix.isEmpty() ? currentRank : groupPrefix + currentRank;
+            boolean currentGroupExists = groupExists(currentGroupName);
+            admin.sendMessage(ChatColor.WHITE + "  • Grupo actual (" + currentGroupName + "): " +
+                    (currentGroupExists ? ChatColor.GREEN + "EXISTS" : ChatColor.RED + "NO EXISTE"));
+
+            if (rankData.getNextRank() != null) {
+                String nextGroupName = groupPrefix.isEmpty() ? rankData.getNextRank() : groupPrefix + rankData.getNextRank();
+                boolean nextGroupExists = groupExists(nextGroupName);
+                admin.sendMessage(ChatColor.WHITE + "  • Siguiente grupo (" + nextGroupName + "): " +
+                        (nextGroupExists ? ChatColor.GREEN + "EXISTS" : ChatColor.RED + "NO EXISTE"));
+            }
+
+            if (rankData.getNextRank() == null) {
+                admin.sendMessage(ChatColor.GREEN + "✅ El jugador ya tiene el rango máximo");
+                return;
+            }
+
+            // Verificar requisitos
+            admin.sendMessage(ChatColor.YELLOW + "📋 Verificando requisitos:");
+            Map<String, Object> requirements = rankData.getRequirements();
+
+            if (requirements.isEmpty()) {
+                admin.sendMessage(ChatColor.YELLOW + "  ⚠️ No hay requisitos configurados para el siguiente rango");
+            } else {
+                for (Map.Entry<String, Object> req : requirements.entrySet()) {
+                    String type = req.getKey();
+                    double required = ((Number) req.getValue()).doubleValue();
+                    double current = getCurrentRequirementValue(player, type);
+                    boolean met = current >= required;
+
+                    String status = met ? ChatColor.GREEN + "✓" : ChatColor.RED + "✗";
+                    admin.sendMessage("    " + status + ChatColor.WHITE + " " + type +
+                            ": " + ChatColor.YELLOW + formatValue(type, current) +
+                            ChatColor.GRAY + "/" + ChatColor.GREEN + formatValue(type, required));
+                }
+            }
+
+            // Cooldown
+            if (isOnCooldown(player.getUniqueId())) {
+                long remaining = getRemainingCooldown(player.getUniqueId());
+                admin.sendMessage(ChatColor.YELLOW + "⏰ Cooldown: " + (remaining / 1000) + "s restantes");
+            } else {
+                admin.sendMessage(ChatColor.GREEN + "✅ Sin cooldown activo");
+            }
+
+        } catch (Exception e) {
+            admin.sendMessage(ChatColor.RED + "❌ Error en debug: " + e.getMessage());
+            plugin.getLogger().severe("Error en debug de rankup: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
@@ -1089,4 +1303,6 @@ public class RankupManager {
         public double getPercentage() { return percentage; }
         public boolean isCompleted() { return completed; }
     }
+
+
 }

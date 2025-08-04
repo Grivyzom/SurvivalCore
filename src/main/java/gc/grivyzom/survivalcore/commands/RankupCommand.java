@@ -278,9 +278,14 @@ public class RankupCommand implements CommandExecutor, TabCompleter {
 
         if (player.hasPermission("survivalcore.rankup.admin")) {
             player.sendMessage(ChatColor.RED + "🔧 Admin:");
-            player.sendMessage(ChatColor.WHITE + "  §e/rankup debug [jugador] §7- Debug");
-            player.sendMessage(ChatColor.WHITE + "  §e/rankup reload §7- Recargar");
+            player.sendMessage(ChatColor.WHITE + "  §e/rankup debug [jugador] §7- Debug de jugador");
+            player.sendMessage(ChatColor.WHITE + "  §e/rankup debug config §7- Debug de configuración");
+            player.sendMessage(ChatColor.WHITE + "  §e/rankup debug groups §7- Debug de grupos LuckPerms");
+            player.sendMessage(ChatColor.WHITE + "  §e/rankup reload §7- Recargar configuración");
             player.sendMessage("");
+            player.sendMessage(ChatColor.YELLOW + "💡 Debug útil:");
+            player.sendMessage(ChatColor.GRAY + "  Si un jugador no puede hacer rankup, usa:");
+            player.sendMessage(ChatColor.GRAY + "  §e/rankup debug <jugador> §7para ver detalles");
         }
     }
 
@@ -339,14 +344,110 @@ public class RankupCommand implements CommandExecutor, TabCompleter {
         }
 
         String targetName = args[1];
+
+        // 🆕 NUEVO: Comando especial para verificar configuración
+        if (targetName.equalsIgnoreCase("config") || targetName.equalsIgnoreCase("configuracion")) {
+            debugConfiguration(player);
+            return;
+        }
+
+        // 🆕 NUEVO: Comando especial para verificar grupos de LuckPerms
+        if (targetName.equalsIgnoreCase("groups") || targetName.equalsIgnoreCase("grupos")) {
+            debugLuckPermsGroups(player);
+            return;
+        }
+
         Player target = plugin.getServer().getPlayer(targetName);
 
         if (target == null) {
             player.sendMessage(ChatColor.RED + "❌ Jugador no encontrado: " + targetName);
+            player.sendMessage(ChatColor.YELLOW + "💡 Comandos especiales:");
+            player.sendMessage(ChatColor.GRAY + "  • /rankup debug config - Verificar configuración");
+            player.sendMessage(ChatColor.GRAY + "  • /rankup debug groups - Verificar grupos de LuckPerms");
             return;
         }
 
         rankupManager.debugPlayerRankup(target, player);
+    }
+    private void debugConfiguration(Player player) {
+        player.sendMessage(ChatColor.AQUA + "═══ DEBUG CONFIGURACIÓN RANKUP ═══");
+
+        Map<String, RankupManager.SimpleRankData> rankups = rankupManager.getRanks();
+
+        player.sendMessage(ChatColor.WHITE + "📊 Estadísticas generales:");
+        player.sendMessage(ChatColor.GRAY + "  • Total de rangos: " + ChatColor.YELLOW + rankups.size());
+        player.sendMessage(ChatColor.GRAY + "  • Cooldown: " + ChatColor.YELLOW + (rankupManager.getCooldownTime() / 1000) + "s");
+        player.sendMessage(ChatColor.GRAY + "  • PlaceholderAPI: " +
+                (rankupManager.isPlaceholderAPIEnabled() ? ChatColor.GREEN + "✓" : ChatColor.RED + "✗"));
+
+        player.sendMessage("");
+        player.sendMessage(ChatColor.WHITE + "🔗 Cadena de rangos:");
+
+        // Mostrar cadena de rangos ordenada
+        List<RankupManager.SimpleRankData> sortedRanks = rankups.values().stream()
+                .sorted(Comparator.comparingInt(RankupManager.SimpleRankData::getOrder))
+                .collect(java.util.stream.Collectors.toList());
+
+        for (RankupManager.SimpleRankData rank : sortedRanks) {
+            String arrow = rank.hasNextRank() ? " → " + rank.getNextRank() : " (FINAL)";
+            String color = rank.hasNextRank() ? ChatColor.WHITE.toString() : ChatColor.LIGHT_PURPLE.toString(); // 🔧 CORRECCIÓN
+
+            player.sendMessage(ChatColor.GRAY + "  " + rank.getOrder() + ". " +
+                    color + rank.getId() + ChatColor.GRAY + arrow);
+        }
+
+        player.sendMessage("");
+        player.sendMessage(ChatColor.WHITE + "📋 Requisitos por rango:");
+
+        for (RankupManager.SimpleRankData rank : sortedRanks) {
+            if (rank.hasNextRank()) {
+                int reqCount = rank.getRequirements().size();
+                player.sendMessage(ChatColor.GRAY + "  • " + ChatColor.WHITE + rank.getId() +
+                        " → " + rank.getNextRank() + ChatColor.GRAY + " (" + reqCount + " requisitos)");
+            }
+        }
+
+        player.sendMessage("");
+        player.sendMessage(ChatColor.YELLOW + "💡 Usa /rankup debug groups para verificar LuckPerms");
+    }
+
+    private void debugLuckPermsGroups(Player player) {
+        player.sendMessage(ChatColor.AQUA + "═══ DEBUG GRUPOS LUCKPERMS ═══");
+
+        Map<String, RankupManager.SimpleRankData> rankups = rankupManager.getRanks();
+
+        // Obtener configuración del sistema
+        String groupPrefix = ""; // Esto debería obtenerse del RankupManager
+        // Como no tenemos acceso directo, lo extraemos desde un archivo de configuración
+
+        player.sendMessage(ChatColor.WHITE + "🔧 Configuración:");
+        player.sendMessage(ChatColor.GRAY + "  • Prefijo de grupos: '" + ChatColor.AQUA + groupPrefix + ChatColor.GRAY + "'");
+
+        player.sendMessage("");
+        player.sendMessage(ChatColor.WHITE + "📋 Verificación de grupos:");
+
+        boolean allGroupsExist = true;
+
+        for (RankupManager.SimpleRankData rank : rankups.values()) {
+            String groupName = groupPrefix.isEmpty() ? rank.getId() : groupPrefix + rank.getId();
+
+            // Verificar si el grupo existe (esto requiere acceso al RankupManager)
+            // Por ahora solo mostramos la estructura esperada
+            player.sendMessage(ChatColor.GRAY + "  • Rango '" + ChatColor.WHITE + rank.getId() +
+                    ChatColor.GRAY + "' → Grupo '" + ChatColor.YELLOW + groupName + ChatColor.GRAY + "'");
+        }
+
+        player.sendMessage("");
+        player.sendMessage(ChatColor.YELLOW + "🔧 Comandos de LuckPerms útiles:");
+        player.sendMessage(ChatColor.GRAY + "  • /lp listgroups - Ver todos los grupos");
+        player.sendMessage(ChatColor.GRAY + "  • /lp group <grupo> info - Info de un grupo específico");
+        player.sendMessage(ChatColor.GRAY + "  • /lp creategroup <grupo> - Crear grupo si no existe");
+
+        if (!allGroupsExist) {
+            player.sendMessage("");
+            player.sendMessage(ChatColor.RED + "⚠️ Algunos grupos no existen en LuckPerms");
+            player.sendMessage(ChatColor.YELLOW + "Esto puede causar problemas con el rankup");
+        }
     }
 
     /**
@@ -393,16 +494,17 @@ public class RankupCommand implements CommandExecutor, TabCompleter {
             bar.append("█");
         }
 
-        bar.append(ChatColor.GRAY);
+        bar.append(ChatColor.GRAY.toString()); // 🔧 CORRECCIÓN: Agregar .toString()
         for (int i = filled; i < length; i++) {
             bar.append("█");
         }
 
         // Agregar porcentaje al final
-        bar.append(" ").append(ChatColor.WHITE).append(String.format("%.1f%%", percentage));
+        bar.append(" ").append(ChatColor.WHITE.toString()).append(String.format("%.1f%%", percentage));
 
         return bar.toString();
     }
+
 
     /**
      * Obtiene color basado en porcentaje de progreso

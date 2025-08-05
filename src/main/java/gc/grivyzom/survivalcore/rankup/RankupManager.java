@@ -47,6 +47,8 @@ public class RankupManager {
     private String groupPrefix;
     private String defaultRank;
 
+
+
     public RankupManager(Main plugin) {
         this.plugin = plugin;
         this.configFile = new File(plugin.getDataFolder(), "rankups.yml");
@@ -1089,4 +1091,69 @@ public class RankupManager {
         public double getPercentage() { return percentage; }
         public boolean isCompleted() { return completed; }
     }
+
+    /**
+     * Obtiene estadísticas del sistema de menús
+     */
+    public Map<String, Object> getMenuStats() {
+        Map<String, Object> stats = new HashMap<>();
+
+        // Estadísticas básicas sin sistema de menús complejo
+        stats.put("cachedMenus", 0);
+        stats.put("playerSettings", 0);
+        stats.put("autoRefreshInterval", 0);
+        stats.put("menuSystemType", "BASIC_COMMANDS");
+
+        return stats;
+    }
+
+    /**
+     * Verifica si el sistema de menús está disponible
+     */
+    public boolean isMenuSystemAvailable() {
+        // Sin MenuManager complejo, solo comandos básicos
+        return false;
+    }
+
+    /**
+     * Limpia datos de menú de un jugador (compatibilidad)
+     */
+    public void cleanupPlayerMenuData(Player player) {
+        // Sin sistema de menús complejo, solo limpiar cooldowns si es necesario
+        // Los cooldowns se mantienen ya que son parte del sistema de rankup
+
+        if (debugMode) {
+            plugin.getLogger().info("🧹 Limpieza básica para jugador: " + player.getName());
+        }
+    }
+
+    /**
+     * Obtiene el MenuManager (null ya que no usamos sistema híbrido)
+     */
+    public Object getMenuManager() {
+        // Sin sistema híbrido, devolver null
+        return null;
+    }
+
+
+    /**
+     * Método de shutdown para limpieza (compatibilidad con Main.java)
+     */
+    public void shutdown() {
+        try {
+            plugin.getLogger().info("🔄 Finalizando sistema de Rankup 2.0...");
+
+            // Limpiar cooldowns
+            cooldowns.clear();
+
+            // Limpiar caché de rangos si existe
+            ranks.clear();
+
+            plugin.getLogger().info("✅ Sistema de Rankup 2.0 finalizado correctamente");
+
+        } catch (Exception e) {
+            plugin.getLogger().warning("Error finalizando sistema de Rankup: " + e.getMessage());
+        }
+    }
+
 }

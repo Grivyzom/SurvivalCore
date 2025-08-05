@@ -14,14 +14,11 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
-import net.luckperms.api.node.NodeEqualityPredicate;
 
 import java.io.File;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import gc.grivyzom.survivalcore.rankup.menu.MenuManager;
-import gc.grivyzom.survivalcore.rankup.menu.BedrockMenuManager;
 
 /**
  * Sistema de Rankup mejorado - Versión 2.0
@@ -41,7 +38,6 @@ public class RankupManager {
     private LuckPerms luckPerms;
     private boolean placeholderAPIEnabled = false;
     private boolean debugMode = false;
-    private BedrockMenuManager bedrockMenuManager;
 
     // Configuración simplificada
     private long cooldownTime;
@@ -50,7 +46,6 @@ public class RankupManager {
     private String detectionMethod;
     private String groupPrefix;
     private String defaultRank;
-    private MenuManager menuManager;
 
     public RankupManager(Main plugin) {
         this.plugin = plugin;
@@ -63,44 +58,9 @@ public class RankupManager {
         checkPlaceholderAPI();
         loadConfiguration();
 
-        // 🆕 MEJORADO: Inicializar MenuManager primero
-        try {
-            plugin.getLogger().info("🔄 Inicializando MenuManager...");
-            this.menuManager = new MenuManager(plugin, this);
-            plugin.getLogger().info("✅ MenuManager inicializado correctamente");
-
-            // 🆕 NUEVO: Inicializar BedrockMenuManager (sistema híbrido)
-            try {
-                plugin.getLogger().info("📱 Inicializando sistema híbrido Bedrock/Java...");
-                this.bedrockMenuManager = new BedrockMenuManager(plugin, this, this.menuManager);
-
-                if (this.bedrockMenuManager.isHybridSystemAvailable()) {
-                    plugin.getLogger().info("✅ Sistema híbrido inicializado - Soporte para Bedrock y Java");
-
-                    // Mostrar estadísticas
-                    Map<String, Object> hybridStats = this.bedrockMenuManager.getHybridStats();
-                    plugin.getLogger().info("📊 Estado híbrido:");
-                    plugin.getLogger().info("  • BedrockGUI: " + (Boolean) hybridStats.get("bedrockGuiAvailable"));
-                    plugin.getLogger().info("  • Menús registrados: " + (Boolean) hybridStats.get("bedrockMenusRegistered"));
-                } else {
-                    plugin.getLogger().info("📱 Sistema híbrido parcial - Solo menús Java disponibles");
-                }
-
-            } catch (Exception e) {
-                plugin.getLogger().warning("⚠️ Error inicializando sistema híbrido: " + e.getMessage());
-                plugin.getLogger().info("🔧 Funcionará solo con menús Java");
-                this.bedrockMenuManager = null;
-            }
-
-        } catch (Exception e) {
-            plugin.getLogger().warning("⚠️ Error inicializando MenuManager: " + e.getMessage());
-            plugin.getLogger().warning("El sistema funcionará en modo básico (solo comandos)");
-            this.menuManager = null;
-            this.bedrockMenuManager = null;
-        }
-
         plugin.getLogger().info("✅ Sistema de Rankup 2.0 inicializado correctamente.");
     }
+
     /**
      * Carga la configuración simplificada
      */
@@ -136,107 +96,6 @@ public class RankupManager {
         } catch (Exception e) {
             plugin.getLogger().severe("❌ Error cargando configuración: " + e.getMessage());
             throw new RuntimeException(e);
-        }
-    }
-
-    public boolean isMenuSystemHealthy() {
-        if (menuManager == null) {
-            return false;
-        }
-
-        try {
-            // Test básico del MenuManager
-            Map<String, Object> stats = menuManager.getMenuStats();
-            return stats != null && (Boolean) stats.getOrDefault("menuEnabled", false);
-        } catch (Exception e) {
-            plugin.getLogger().warning("Error verificando salud del MenuManager: " + e.getMessage());
-            return false;
-        }
-    }
-
-
-    /**
-     * Obtiene el BedrockMenuManager (sistema híbrido)
-     * @return BedrockMenuManager o null si no está disponible
-     */
-    public BedrockMenuManager getBedrockMenuManager() {
-        return bedrockMenuManager;
-    }
-
-    /**
-     * Verifica si el sistema híbrido está disponible
-     * @return true si BedrockMenuManager está inicializado
-     */
-    public boolean isHybridMenuSystemAvailable() {
-        return bedrockMenuManager != null && bedrockMenuManager.isHybridSystemAvailable();
-    }
-
-    /**
-     * Abre el menú principal usando el sistema híbrido
-     * Detecta automáticamente si es Bedrock o Java
-     */
-    public void openMainMenuHybrid(Player player) {
-        if (bedrockMenuManager != null) {
-            // Usar sistema híbrido (detecta automáticamente)
-            bedrockMenuManager.openMainMenu(player);
-        } else if (menuManager != null) {
-            // Fallback a Java únicamente
-            menuManager.openMainMenu(player);
-        } else {
-            // Fallback a comandos
-            player.sendMessage(ChatColor.YELLOW + "⚠ Sistema de menús no disponible");
-            player.sendMessage(ChatColor.GRAY + "Usa: /rankup, /rankup progress, /rankup list");
-        }
-    }
-
-    /**
-     * Abre el menú de progreso usando el sistema híbrido
-     */
-    public void openProgressMenuHybrid(Player player) {
-        if (bedrockMenuManager != null) {
-            bedrockMenuManager.openProgressMenu(player);
-        } else if (menuManager != null) {
-            menuManager.openProgressMenu(player);
-        } else {
-            player.performCommand("rankup progress");
-        }
-    }
-
-    /**
-     * Intenta reinicializar el MenuManager
-     */
-    public boolean reinitializeMenuManager() {
-        try {
-            plugin.getLogger().info("🔄 Reintentando inicializar MenuManager...");
-
-            // Limpiar MenuManager existente si hay alguno
-            if (menuManager != null) {
-                try {
-                    // Limpiar jugadores si es posible
-                    for (org.bukkit.entity.Player player : plugin.getServer().getOnlinePlayers()) {
-                        menuManager.cleanupPlayer(player);
-                    }
-                } catch (Exception e) {
-                    // Ignorar errores de limpieza
-                }
-            }
-
-            // Crear nuevo MenuManager
-            this.menuManager = new MenuManager(plugin, this);
-
-            // Verificar que funciona
-            if (isMenuSystemHealthy()) {
-                plugin.getLogger().info("✅ MenuManager reinicializado exitosamente");
-                return true;
-            } else {
-                plugin.getLogger().warning("⚠️ MenuManager reinicializado pero no está saludable");
-                return false;
-            }
-
-        } catch (Exception e) {
-            plugin.getLogger().severe("❌ Error reinicializando MenuManager: " + e.getMessage());
-            this.menuManager = null;
-            return false;
         }
     }
 
@@ -343,92 +202,37 @@ public class RankupManager {
      */
     private void validateConfiguration() {
         List<String> errors = new ArrayList<>();
-        List<String> warnings = new ArrayList<>();
 
         // Verificar que existe rango por defecto
         if (!ranks.containsKey(defaultRank)) {
-            errors.add("Rango por defecto '" + defaultRank + "' no existe en configuración");
-        } else {
-            // Verificar que el grupo por defecto existe en LuckPerms
-            String defaultGroupName = groupPrefix.isEmpty() ? defaultRank : groupPrefix + defaultRank;
-            if (!groupExists(defaultGroupName)) {
-                errors.add("Grupo por defecto '" + defaultGroupName + "' no existe en LuckPerms");
-            }
+            errors.add("Rango por defecto '" + defaultRank + "' no existe");
         }
 
-        // Verificar cadena de rangos y grupos en LuckPerms
+        // Verificar cadena de rangos
         for (SimpleRankData rank : ranks.values()) {
-            String rankId = rank.getId();
-            String groupName = groupPrefix.isEmpty() ? rankId : groupPrefix + rankId;
-
-            // Verificar que el grupo existe en LuckPerms
-            if (!groupExists(groupName)) {
-                errors.add("Grupo '" + groupName + "' para rango '" + rankId + "' no existe en LuckPerms");
-            }
-
-            // Verificar siguiente rango
             String nextRank = rank.getNextRank();
-            if (nextRank != null) {
-                if (!ranks.containsKey(nextRank)) {
-                    errors.add("Rango '" + rankId + "' apunta a rango inexistente: " + nextRank);
-                } else {
-                    // Verificar que el siguiente grupo existe en LuckPerms
-                    String nextGroupName = groupPrefix.isEmpty() ? nextRank : groupPrefix + nextRank;
-                    if (!groupExists(nextGroupName)) {
-                        errors.add("Siguiente grupo '" + nextGroupName + "' para rango '" + nextRank + "' no existe en LuckPerms");
-                    }
-                }
-            }
-        }
-
-        // Verificar orden de rangos (no debe haber duplicados)
-        Map<Integer, String> orderMap = new HashMap<>();
-        for (SimpleRankData rank : ranks.values()) {
-            int order = rank.getOrder();
-            if (orderMap.containsKey(order)) {
-                warnings.add("Orden " + order + " duplicado entre rangos '" + orderMap.get(order) + "' y '" + rank.getId() + "'");
-            } else {
-                orderMap.put(order, rank.getId());
+            if (nextRank != null && !ranks.containsKey(nextRank)) {
+                errors.add("Rango '" + rank.getId() + "' apunta a rango inexistente: " + nextRank);
             }
         }
 
         // Verificar PlaceholderAPI si es necesario
         List<String> requiresPAPI = config.getStringList("advanced.requires_placeholderapi");
         if (!requiresPAPI.isEmpty() && !placeholderAPIEnabled) {
-            warnings.add("Algunos requisitos requieren PlaceholderAPI pero no está disponible");
+            plugin.getLogger().warning("⚠️ Algunos requisitos requieren PlaceholderAPI pero no está disponible");
         }
 
-        // Mostrar errores
         if (!errors.isEmpty()) {
-            plugin.getLogger().severe("❌ ERRORES CRÍTICOS de configuración:");
+            plugin.getLogger().severe("❌ Errores de configuración:");
             errors.forEach(error -> plugin.getLogger().severe("  • " + error));
-            plugin.getLogger().severe("");
-            plugin.getLogger().severe("🔧 SOLUCIONES SUGERIDAS:");
-            plugin.getLogger().severe("  1. Verifica que todos los grupos estén creados en LuckPerms:");
-            ranks.values().forEach(rank -> {
-                String groupName = groupPrefix.isEmpty() ? rank.getId() : groupPrefix + rank.getId();
-                plugin.getLogger().severe("     /lp creategroup " + groupName);
-            });
-            plugin.getLogger().severe("  2. Verifica que el prefix en rankups.yml coincida con LuckPerms");
-            plugin.getLogger().severe("  3. Usa /score debug rankup [jugador] para más información");
-
-            throw new RuntimeException("Errores críticos en configuración de rangos - revisa los logs");
-        }
-
-        // Mostrar advertencias
-        if (!warnings.isEmpty()) {
-            plugin.getLogger().warning("⚠️ Advertencias de configuración:");
-            warnings.forEach(warning -> plugin.getLogger().warning("  • " + warning));
+            throw new RuntimeException("Configuración inválida");
         }
 
         if (debugMode) {
             plugin.getLogger().info("✅ Configuración validada correctamente");
-            plugin.getLogger().info("📊 Resumen de validación:");
-            plugin.getLogger().info("  • Rangos verificados: " + ranks.size());
-            plugin.getLogger().info("  • Errores: " + errors.size());
-            plugin.getLogger().info("  • Advertencias: " + warnings.size());
         }
     }
+
     /**
      * Intenta hacer rankup de forma simplificada
      */
@@ -555,57 +359,33 @@ public class RankupManager {
 
             if ("primary_group".equals(detectionMethod)) {
                 String primaryGroup = user.getPrimaryGroup();
-
-                // 🔧 CORRECCIÓN: Manejar tanto con prefijo como sin prefijo
-                String rankId;
-                if (groupPrefix.isEmpty()) {
-                    // Sin prefijo: el grupo ES el rango directamente
-                    rankId = primaryGroup;
-                } else {
-                    // Con prefijo: quitar el prefijo del grupo
-                    rankId = primaryGroup.startsWith(groupPrefix) ?
-                            primaryGroup.substring(groupPrefix.length()) : primaryGroup;
-                }
-
-                if (debugMode) {
-                    plugin.getLogger().info("🔍 Debug detección de rango:");
-                    plugin.getLogger().info("  • Grupo primario: " + primaryGroup);
-                    plugin.getLogger().info("  • Prefijo configurado: '" + groupPrefix + "'");
-                    plugin.getLogger().info("  • Rango extraído: " + rankId);
-                    plugin.getLogger().info("  • ¿Existe en configuración? " + ranks.containsKey(rankId));
-                }
+                String rankId = primaryGroup.startsWith(groupPrefix) ?
+                        primaryGroup.substring(groupPrefix.length()) : primaryGroup;
 
                 if (ranks.containsKey(rankId)) {
                     return rankId;
-                } else {
-                    plugin.getLogger().warning("⚠️ Rango '" + rankId + "' no encontrado en configuración. Rangos disponibles: " + ranks.keySet());
                 }
             }
 
-            // Fallback: buscar el rango de mayor orden entre todos los grupos del jugador
+            // Fallback: buscar el rango de mayor orden
             String highestRank = user.getInheritedGroups(user.getQueryOptions())
                     .stream()
                     .map(group -> {
                         String name = group.getName();
-                        if (groupPrefix.isEmpty()) {
-                            return name;
-                        } else {
-                            return name.startsWith(groupPrefix) ? name.substring(groupPrefix.length()) : name;
-                        }
+                        return name.startsWith(groupPrefix) ? name.substring(groupPrefix.length()) : name;
                     })
                     .filter(ranks::containsKey)
                     .max(Comparator.comparingInt(rankId -> ranks.get(rankId).getOrder()))
                     .orElse(defaultRank);
 
             if (debugMode) {
-                plugin.getLogger().info("🎯 Rango final detectado para " + player.getName() + ": " + highestRank);
+                plugin.getLogger().info("🎯 Rango detectado para " + player.getName() + ": " + highestRank);
             }
 
             return highestRank;
 
         } catch (Exception e) {
-            plugin.getLogger().severe("❌ Error detectando rango de " + player.getName() + ": " + e.getMessage());
-            e.printStackTrace();
+            plugin.getLogger().warning("Error detectando rango de " + player.getName() + ": " + e.getMessage());
             return defaultRank;
         }
     }
@@ -651,103 +431,31 @@ public class RankupManager {
     private boolean updatePlayerGroup(Player player, String fromRank, String toRank) {
         try {
             User user = luckPerms.getPlayerAdapter(Player.class).getUser(player);
-            if (user == null) {
-                plugin.getLogger().severe("❌ Usuario LuckPerms no encontrado para " + player.getName());
-                return false;
-            }
+            if (user == null) return false;
 
-            // 🔧 CORRECCIÓN: Construir nombres de grupos correctamente
-            String oldGroup, newGroup;
-
-            if (groupPrefix.isEmpty()) {
-                // Sin prefijo: el grupo ES el rango directamente
-                oldGroup = fromRank;
-                newGroup = toRank;
-            } else {
-                // Con prefijo: agregar prefijo al rango
-                oldGroup = groupPrefix + fromRank;
-                newGroup = groupPrefix + toRank;
-            }
-
-            if (debugMode) {
-                plugin.getLogger().info("🔄 Actualizando grupos de " + player.getName() + ":");
-                plugin.getLogger().info("  • Removiendo: " + oldGroup);
-                plugin.getLogger().info("  • Agregando: " + newGroup);
-                plugin.getLogger().info("  • Prefijo: '" + groupPrefix + "'");
-            }
-
-            // Verificar que los grupos existen en LuckPerms
-            if (!groupExists(oldGroup)) {
-                plugin.getLogger().warning("⚠️ Grupo origen '" + oldGroup + "' no existe en LuckPerms");
-            }
-
-            if (!groupExists(newGroup)) {
-                plugin.getLogger().severe("❌ Grupo destino '" + newGroup + "' no existe en LuckPerms");
-                return false;
-            }
-
-            // 🔧 CORRECCIÓN PRINCIPAL: Usar API actualizada de LuckPerms
-            InheritanceNode oldNode = InheritanceNode.builder(oldGroup).build();
-
-            // ANTES (INCORRECTO):
-            // if (user.data().contains(oldNode).asBoolean()) {
-
-            // DESPUÉS (CORRECTO):
-            if (user.data().contains(oldNode, NodeEqualityPredicate.ONLY_KEY).asBoolean()) {
-                user.data().remove(oldNode);
-                if (debugMode) {
-                    plugin.getLogger().info("✅ Grupo '" + oldGroup + "' removido exitosamente");
-                }
-            } else {
-                plugin.getLogger().warning("⚠️ El jugador no tenía el grupo '" + oldGroup + "'");
-            }
+            // Remover grupo anterior
+            String oldGroup = groupPrefix + fromRank;
+            user.data().remove(InheritanceNode.builder(oldGroup).build());
 
             // Añadir nuevo grupo
-            InheritanceNode newNode = InheritanceNode.builder(newGroup).build();
-            user.data().add(newNode);
+            String newGroup = groupPrefix + toRank;
+            user.data().add(InheritanceNode.builder(newGroup).build());
 
-            // 🆕 NUEVO: Establecer como grupo primario para asegurar detección correcta
-            if ("primary_group".equals(detectionMethod)) {
-                user.setPrimaryGroup(newGroup);
-                if (debugMode) {
-                    plugin.getLogger().info("✅ '" + newGroup + "' establecido como grupo primario");
-                }
-            }
-
-            // Guardar cambios - MEJORADO con verificación
-            try {
-                luckPerms.getUserManager().saveUser(user).join();
-
-                // Verificar que el cambio se aplicó correctamente
-                Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                    User updatedUser = luckPerms.getPlayerAdapter(Player.class).getUser(player);
-                    if (updatedUser != null) {
-                        String verifyRank = getCurrentRank(player);
-                        if (toRank.equals(verifyRank)) {
-                            plugin.getLogger().info("✅ Rankup verificado: " + player.getName() + " ahora es " + toRank);
-                        } else {
-                            plugin.getLogger().warning("⚠️ Verificación fallida: se esperaba " + toRank + " pero se detectó " + verifyRank);
-                        }
-                    }
-                }, 5L); // Verificar después de 5 ticks
-
-            } catch (Exception saveError) {
-                plugin.getLogger().severe("❌ Error guardando cambios en LuckPerms: " + saveError.getMessage());
-                return false;
-            }
+            // Guardar cambios
+            luckPerms.getUserManager().saveUser(user).join();
 
             if (debugMode) {
-                plugin.getLogger().info("✅ Grupos actualizados exitosamente: " + oldGroup + " → " + newGroup);
+                plugin.getLogger().info("✅ Grupo actualizado: " + oldGroup + " -> " + newGroup);
             }
 
             return true;
 
         } catch (Exception e) {
-            plugin.getLogger().severe("❌ Error crítico actualizando grupo de " + player.getName() + ": " + e.getMessage());
-            e.printStackTrace();
+            plugin.getLogger().severe("Error actualizando grupo: " + e.getMessage());
             return false;
         }
     }
+
     // =================== MÉTODOS DE UTILIDAD ===================
 
     private boolean initLuckPerms() {
@@ -771,17 +479,6 @@ public class RankupManager {
             plugin.saveResource("rankups.yml", false);
         } catch (Exception e) {
             plugin.getLogger().warning("No se pudo crear configuración por defecto");
-        }
-    }
-
-    private boolean groupExists(String groupName) {
-        try {
-            return luckPerms.getGroupManager().getGroup(groupName) != null;
-        } catch (Exception e) {
-            if (debugMode) {
-                plugin.getLogger().warning("Error verificando grupo '" + groupName + "': " + e.getMessage());
-            }
-            return false;
         }
     }
 
@@ -1024,104 +721,53 @@ public class RankupManager {
      * Debug de información del jugador (para admins)
      */
     public void debugPlayerRankup(Player player, Player admin) {
-        admin.sendMessage(ChatColor.GOLD + "═══ Debug Rankup MEJORADO - " + player.getName() + " ═══");
+        admin.sendMessage(ChatColor.GOLD + "═══ Debug Rankup - " + player.getName() + " ═══");
 
-        try {
-            User user = luckPerms.getPlayerAdapter(Player.class).getUser(player);
-            if (user == null) {
-                admin.sendMessage(ChatColor.RED + "❌ Usuario LuckPerms no encontrado");
-                return;
-            }
+        String currentRank = getCurrentRank(player);
+        admin.sendMessage(ChatColor.WHITE + "Rango actual: " + ChatColor.YELLOW +
+                (currentRank != null ? currentRank : "NULL"));
 
-            // Información de LuckPerms
-            admin.sendMessage(ChatColor.YELLOW + "🔍 Información de LuckPerms:");
-            admin.sendMessage(ChatColor.WHITE + "  • Grupo primario: " + ChatColor.AQUA + user.getPrimaryGroup());
+        if (currentRank == null) {
+            admin.sendMessage(ChatColor.RED + "❌ Error: No se pudo detectar el rango");
+            return;
+        }
 
-            // Todos los grupos del jugador
-            Set<String> playerGroups = user.getInheritedGroups(user.getQueryOptions())
-                    .stream()
-                    .map(group -> group.getName())
-                    .collect(java.util.stream.Collectors.toSet());
+        SimpleRankData rankData = ranks.get(currentRank);
+        if (rankData == null) {
+            admin.sendMessage(ChatColor.RED + "❌ Error: No hay datos para el rango " + currentRank);
+            return;
+        }
 
-            admin.sendMessage(ChatColor.WHITE + "  • Todos los grupos: " + ChatColor.GRAY + String.join(", ", playerGroups));
+        admin.sendMessage(ChatColor.WHITE + "Display: " + rankData.getDisplayName());
+        admin.sendMessage(ChatColor.WHITE + "Orden: " + ChatColor.YELLOW + rankData.getOrder());
+        admin.sendMessage(ChatColor.WHITE + "Siguiente: " + ChatColor.YELLOW +
+                (rankData.getNextRank() != null ? rankData.getNextRank() : "RANGO MÁXIMO"));
 
-            // Configuración del sistema
-            admin.sendMessage(ChatColor.YELLOW + "⚙️ Configuración del sistema:");
-            admin.sendMessage(ChatColor.WHITE + "  • Prefijo de grupos: '" + ChatColor.AQUA + groupPrefix + ChatColor.WHITE + "'");
-            admin.sendMessage(ChatColor.WHITE + "  • Método de detección: " + ChatColor.AQUA + detectionMethod);
-            admin.sendMessage(ChatColor.WHITE + "  • Rango por defecto: " + ChatColor.AQUA + defaultRank);
+        if (rankData.getNextRank() == null) {
+            admin.sendMessage(ChatColor.GREEN + "✅ El jugador ya tiene el rango máximo");
+            return;
+        }
 
-            // Detección actual
-            String currentRank = getCurrentRank(player);
-            admin.sendMessage(ChatColor.YELLOW + "🎯 Detección de rango:");
-            admin.sendMessage(ChatColor.WHITE + "  • Rango detectado: " + ChatColor.YELLOW +
-                    (currentRank != null ? currentRank : "NULL"));
+        admin.sendMessage(ChatColor.WHITE + "Verificando requisitos:");
+        Map<String, Object> requirements = rankData.getRequirements();
 
-            // Verificar si existe en configuración
-            SimpleRankData rankData = ranks.get(currentRank);
-            if (rankData == null) {
-                admin.sendMessage(ChatColor.RED + "  ❌ Error: No hay datos para el rango " + currentRank);
-                admin.sendMessage(ChatColor.YELLOW + "  📋 Rangos disponibles en configuración:");
-                ranks.keySet().forEach(rank -> admin.sendMessage(ChatColor.GRAY + "    - " + rank));
-                return;
-            }
+        for (Map.Entry<String, Object> req : requirements.entrySet()) {
+            String type = req.getKey();
+            double required = ((Number) req.getValue()).doubleValue();
+            double current = getCurrentRequirementValue(player, type);
+            boolean met = current >= required;
 
-            admin.sendMessage(ChatColor.WHITE + "  • Display: " + rankData.getDisplayName());
-            admin.sendMessage(ChatColor.WHITE + "  • Orden: " + ChatColor.YELLOW + rankData.getOrder());
-            admin.sendMessage(ChatColor.WHITE + "  • Siguiente: " + ChatColor.YELLOW +
-                    (rankData.getNextRank() != null ? rankData.getNextRank() : "RANGO MÁXIMO"));
+            String status = met ? ChatColor.GREEN + "✓" : ChatColor.RED + "✗";
+            admin.sendMessage("  " + status + ChatColor.WHITE + " " + type +
+                    ": " + ChatColor.YELLOW + formatValue(type, current) +
+                    ChatColor.GRAY + "/" + ChatColor.GREEN + formatValue(type, required));
+        }
 
-            // Verificar grupos en LuckPerms
-            admin.sendMessage(ChatColor.YELLOW + "🔧 Verificación de grupos:");
-            String currentGroupName = groupPrefix.isEmpty() ? currentRank : groupPrefix + currentRank;
-            boolean currentGroupExists = groupExists(currentGroupName);
-            admin.sendMessage(ChatColor.WHITE + "  • Grupo actual (" + currentGroupName + "): " +
-                    (currentGroupExists ? ChatColor.GREEN + "EXISTS" : ChatColor.RED + "NO EXISTE"));
-
-            if (rankData.getNextRank() != null) {
-                String nextGroupName = groupPrefix.isEmpty() ? rankData.getNextRank() : groupPrefix + rankData.getNextRank();
-                boolean nextGroupExists = groupExists(nextGroupName);
-                admin.sendMessage(ChatColor.WHITE + "  • Siguiente grupo (" + nextGroupName + "): " +
-                        (nextGroupExists ? ChatColor.GREEN + "EXISTS" : ChatColor.RED + "NO EXISTE"));
-            }
-
-            if (rankData.getNextRank() == null) {
-                admin.sendMessage(ChatColor.GREEN + "✅ El jugador ya tiene el rango máximo");
-                return;
-            }
-
-            // Verificar requisitos
-            admin.sendMessage(ChatColor.YELLOW + "📋 Verificando requisitos:");
-            Map<String, Object> requirements = rankData.getRequirements();
-
-            if (requirements.isEmpty()) {
-                admin.sendMessage(ChatColor.YELLOW + "  ⚠️ No hay requisitos configurados para el siguiente rango");
-            } else {
-                for (Map.Entry<String, Object> req : requirements.entrySet()) {
-                    String type = req.getKey();
-                    double required = ((Number) req.getValue()).doubleValue();
-                    double current = getCurrentRequirementValue(player, type);
-                    boolean met = current >= required;
-
-                    String status = met ? ChatColor.GREEN + "✓" : ChatColor.RED + "✗";
-                    admin.sendMessage("    " + status + ChatColor.WHITE + " " + type +
-                            ": " + ChatColor.YELLOW + formatValue(type, current) +
-                            ChatColor.GRAY + "/" + ChatColor.GREEN + formatValue(type, required));
-                }
-            }
-
-            // Cooldown
-            if (isOnCooldown(player.getUniqueId())) {
-                long remaining = getRemainingCooldown(player.getUniqueId());
-                admin.sendMessage(ChatColor.YELLOW + "⏰ Cooldown: " + (remaining / 1000) + "s restantes");
-            } else {
-                admin.sendMessage(ChatColor.GREEN + "✅ Sin cooldown activo");
-            }
-
-        } catch (Exception e) {
-            admin.sendMessage(ChatColor.RED + "❌ Error en debug: " + e.getMessage());
-            plugin.getLogger().severe("Error en debug de rankup: " + e.getMessage());
-            e.printStackTrace();
+        if (isOnCooldown(player.getUniqueId())) {
+            long remaining = getRemainingCooldown(player.getUniqueId());
+            admin.sendMessage(ChatColor.YELLOW + "⏰ Cooldown: " + (remaining / 1000) + "s restantes");
+        } else {
+            admin.sendMessage(ChatColor.GREEN + "✅ Sin cooldown activo");
         }
     }
 
@@ -1153,9 +799,9 @@ public class RankupManager {
                 // 4. Intentar cargar nueva configuración
                 loadConfiguration();
 
-                long reloadDuration = System.currentTimeMillis() - startTime; // 🔧 RENOMBRAR VARIABLE
+                long duration = System.currentTimeMillis() - startTime;
 
-                plugin.getLogger().info("✅ Configuración de Rankup 2.0 recargada exitosamente en " + reloadDuration + "ms");
+                plugin.getLogger().info("✅ Configuración de Rankup 2.0 recargada exitosamente en " + duration + "ms");
 
                 // Log de estadísticas actualizadas
                 plugin.getLogger().info("📊 Estadísticas actualizadas:");
@@ -1172,22 +818,6 @@ public class RankupManager {
 
                 if (cooldownTime != backupCooldownTime) {
                     plugin.getLogger().info("🔄 Cambio en cooldown: " + (backupCooldownTime / 1000) + "s → " + (cooldownTime / 1000) + "s");
-                }
-
-                // 🆕 NUEVO: Recargar MenuManager si está disponible
-                if (menuManager != null) {
-                    try {
-                        menuManager.reloadConfig();
-                        plugin.getLogger().info("✅ MenuManager recargado correctamente");
-                    } catch (Exception e) {
-                        plugin.getLogger().warning("⚠️ Error recargando MenuManager: " + e.getMessage());
-                    }
-                }
-
-                // 🆕 NUEVO: El BedrockMenuManager no necesita recarga específica
-                // ya que usa la misma configuración base
-                if (bedrockMenuManager != null) {
-                    plugin.getLogger().info("✅ Sistema híbrido verificado correctamente");
                 }
 
                 // Limpiar cooldowns si se cambió la configuración de cooldown
@@ -1248,140 +878,6 @@ public class RankupManager {
             return false;
         }
     }
-
-    // =================== MÉTODO GETTER PARA MENUMANAGER ===================
-    /**
-     * Obtiene el MenuManager asociado
-     * @return MenuManager o null si no está disponible
-     */
-    public MenuManager getMenuManager() {
-        return menuManager;
-    }
-
-    /**
-     * Detecta el tipo de cliente del jugador
-     */
-    public BedrockMenuManager.ClientType detectClientType(Player player) {
-        if (bedrockMenuManager != null) {
-            return bedrockMenuManager.forceDetectClient(player);
-        }
-        return BedrockMenuManager.ClientType.JAVA; // Por defecto Java
-    }
-
-    /**
-     * Obtiene información del sistema híbrido
-     */
-    public Map<String, Object> getHybridSystemInfo() {
-        Map<String, Object> info = new HashMap<>();
-
-        if (bedrockMenuManager != null) {
-            info.putAll(bedrockMenuManager.getHybridStats());
-            info.put("bedrockGuiPluginInstalled",
-                    plugin.getServer().getPluginManager().getPlugin("BedrockGUI") != null);
-            info.put("bedrockGuiEnabled",
-                    plugin.getServer().getPluginManager().isPluginEnabled("BedrockGUI"));
-            info.put("javaMenusAvailable", menuManager != null);
-            info.put("bedrockMenusRegistered", true);
-
-            // Estadísticas de detección
-            Map<String, Object> hybridStats = bedrockMenuManager.getHybridStats();
-            info.put("detectedBedrockPlayers", hybridStats.get("detectedBedrockPlayers"));
-            info.put("detectedJavaPlayers", hybridStats.get("detectedJavaPlayers"));
-            info.put("totalCachedClients", hybridStats.get("cachedClientTypes"));
-        } else {
-            info.put("bedrockGuiDetected", false);
-            info.put("javaMenusAvailable", menuManager != null);
-            info.put("bedrockMenusRegistered", false);
-            info.put("detectedBedrockPlayers", 0);
-            info.put("detectedJavaPlayers", 0);
-            info.put("totalCachedClients", 0);
-        }
-
-        return info;
-    }
-
-    /**
-     * Obtiene la salud del sistema híbrido
-     */
-    public Map<String, String> getHybridSystemHealth() {
-        Map<String, String> health = new HashMap<>();
-
-        // Estado del sistema de rankup
-        health.put("RankupSystem", "HEALTHY");
-
-        // Estado de LuckPerms
-        if (luckPerms != null) {
-            health.put("LuckPerms", "OK");
-        } else {
-            health.put("LuckPerms", "NOT_AVAILABLE");
-        }
-
-        // Estado de MenuManager Java
-        if (menuManager != null) {
-            health.put("JavaMenus", isMenuSystemHealthy() ? "HEALTHY" : "UNHEALTHY");
-        } else {
-            health.put("JavaMenus", "NOT_AVAILABLE");
-        }
-
-        // Estado del sistema híbrido
-        if (bedrockMenuManager != null) {
-            health.put("HybridSystem", "FULLY_AVAILABLE");
-            health.put("BedrockGUI", "OK");
-            health.put("ClientDetection", "ACTIVE");
-        } else if (menuManager != null) {
-            health.put("HybridSystem", "JAVA_ONLY");
-            health.put("BedrockGUI", "NOT_AVAILABLE");
-            health.put("ClientDetection", "INACTIVE");
-        } else {
-            health.put("HybridSystem", "COMMANDS_ONLY");
-            health.put("BedrockGUI", "NOT_AVAILABLE");
-            health.put("ClientDetection", "INACTIVE");
-        }
-
-        // PlaceholderAPI
-        health.put("PlaceholderAPI", placeholderAPIEnabled ? "AVAILABLE" : "NOT_AVAILABLE");
-
-        return health;
-    }
-
-    /**
-     * Verifica si el sistema de menús está disponible
-     * @return true si MenuManager está inicializado
-     */
-    public boolean isMenuSystemAvailable() {
-        return menuManager != null;
-    }
-
-    // =================== MÉTODO SHUTDOWN ===================
-    /**
-     * Limpia recursos del MenuManager al deshabilitar el plugin
-     */
-    public void shutdown() {
-        if (menuManager != null) {
-            try {
-                // Limpiar jugadores conectados en MenuManager
-                for (org.bukkit.entity.Player player : plugin.getServer().getOnlinePlayers()) {
-                    menuManager.cleanupPlayer(player);
-                }
-                plugin.getLogger().info("✅ MenuManager finalizado correctamente");
-            } catch (Exception e) {
-                plugin.getLogger().warning("Error finalizando MenuManager: " + e.getMessage());
-            }
-        }
-
-        if (bedrockMenuManager != null) {
-            try {
-                // Limpiar jugadores conectados en BedrockMenuManager
-                for (org.bukkit.entity.Player player : plugin.getServer().getOnlinePlayers()) {
-                    bedrockMenuManager.cleanupPlayer(player);
-                }
-                plugin.getLogger().info("✅ BedrockMenuManager finalizado correctamente");
-            } catch (Exception e) {
-                plugin.getLogger().warning("Error finalizando BedrockMenuManager: " + e.getMessage());
-            }
-        }
-    }
-
 
     /**
      * Método auxiliar para obtener información detallada del archivo de configuración
@@ -1592,52 +1088,5 @@ public class RankupManager {
         public double getRequired() { return required; }
         public double getPercentage() { return percentage; }
         public boolean isCompleted() { return completed; }
-    }
-
-
-    // =================== MÉTODOS DE INFORMACIÓN ===================
-    /**
-     * Obtiene estadísticas del sistema de menús
-     * @return Map con estadísticas o null si no está disponible
-     */
-    public Map<String, Object> getMenuStats() {
-        Map<String, Object> combinedStats = new HashMap<>();
-
-        // Estadísticas básicas
-        combinedStats.put("menuManagerAvailable", menuManager != null);
-        combinedStats.put("bedrockMenuManagerAvailable", bedrockMenuManager != null);
-        combinedStats.put("hybridSystemEnabled", isHybridMenuSystemAvailable());
-
-        // Estadísticas de MenuManager Java
-        if (menuManager != null) {
-            try {
-                Map<String, Object> javaStats = menuManager.getMenuStats();
-                combinedStats.put("javaMenuStats", javaStats);
-            } catch (Exception e) {
-                combinedStats.put("javaMenuStatsError", e.getMessage());
-            }
-        }
-
-        // Estadísticas del sistema híbrido
-        if (bedrockMenuManager != null) {
-            try {
-                Map<String, Object> hybridStats = bedrockMenuManager.getHybridStats();
-                combinedStats.put("hybridStats", hybridStats);
-            } catch (Exception e) {
-                combinedStats.put("hybridStatsError", e.getMessage());
-            }
-        }
-
-        return combinedStats;
-    }
-
-    /**
-     * Limpia los datos de menú de un jugador específico
-     * Útil cuando un jugador se desconecta
-     */
-    public void cleanupPlayerMenuData(org.bukkit.entity.Player player) {
-        if (menuManager != null) {
-            menuManager.cleanupPlayer(player);
-        }
     }
 }

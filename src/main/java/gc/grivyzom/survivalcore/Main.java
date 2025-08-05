@@ -16,6 +16,7 @@ import gc.grivyzom.survivalcore.sellwand.SellWandManager;
 import gc.grivyzom.survivalcore.util.*;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
+import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 import gc.grivyzom.survivalcore.api.SurvivalCoreAPI;
@@ -35,6 +36,7 @@ import gc.grivyzom.survivalcore.commands.MagicFlowerPotCommand;
 import gc.grivyzom.survivalcore.listeners.MagicFlowerPotListener;
 
 
+import java.io.File;
 import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -131,6 +133,16 @@ public class Main extends JavaPlugin {
         if (magicFlowerPotManager != null) magicFlowerPotManager.shutdown();
         if (flowerIntegration != null) {
             flowerIntegration.shutdown();
+        }
+
+        // 🆕 NUEVO: Limpiar MenuManager del sistema de rankup
+        if (rankupManager != null) {
+            try {
+                rankupManager.shutdown();
+                getLogger().info("✅ Sistema de Rankup 2.0 finalizado correctamente");
+            } catch (Exception e) {
+                getLogger().warning("Error finalizando sistema de Rankup: " + e.getMessage());
+            }
         }
 
         getLogger().info("SurvivalCore deshabilitado.");
@@ -352,6 +364,10 @@ public class Main extends JavaPlugin {
     public void updateInternalConfig() {
         getLogger().info("🔄 Iniciando actualización de configuración interna...");
 
+        // 🔧 CORRECCIÓN: Declarar variables necesarias
+        boolean hasErrors = false;
+        StringBuilder report = new StringBuilder();
+
         try {
             // Recargar configuración básica
             this.cropXpChance = getConfig().getDouble("plugin.cropXpChance", this.cropXpChance);
@@ -362,8 +378,11 @@ public class Main extends JavaPlugin {
                 try {
                     xpTransferManager.reloadConfig();
                     getLogger().info("✓ Configuración de transferencias XP actualizada");
+                    report.append(ChatColor.GREEN + "✓ Transferencias XP\n");
                 } catch (Exception e) {
+                    hasErrors = true;
                     getLogger().warning("Error recargando transferencias XP: " + e.getMessage());
+                    report.append(ChatColor.RED + "✗ Transferencias XP: ").append(e.getMessage()).append("\n");
                 }
             }
 
@@ -372,8 +391,11 @@ public class Main extends JavaPlugin {
                 try {
                     xpChequeCommand.getChequeManager().reloadConfig();
                     getLogger().info("✓ Configuración de cheques XP actualizada");
+                    report.append(ChatColor.GREEN + "✓ Cheques XP\n");
                 } catch (Exception e) {
+                    hasErrors = true;
                     getLogger().warning("Error recargando cheques XP: " + e.getMessage());
+                    report.append(ChatColor.RED + "✗ Cheques XP: ").append(e.getMessage()).append("\n");
                 }
             }
 
@@ -382,8 +404,11 @@ public class Main extends JavaPlugin {
                 try {
                     sellWandManager.reloadConfig();
                     getLogger().info("✓ Configuración de SellWand actualizada");
+                    report.append(ChatColor.GREEN + "✓ SellWand\n");
                 } catch (Exception e) {
+                    hasErrors = true;
                     getLogger().warning("Error recargando SellWand: " + e.getMessage());
+                    report.append(ChatColor.RED + "✗ SellWand: ").append(e.getMessage()).append("\n");
                 }
             }
 
@@ -392,8 +417,11 @@ public class Main extends JavaPlugin {
                 try {
                     miningConfig.reload();
                     getLogger().info("✓ Configuración de minería actualizada");
+                    report.append(ChatColor.GREEN + "✓ Configuración de minería\n");
                 } catch (Exception e) {
+                    hasErrors = true;
                     getLogger().warning("Error recargando configuración de minería: " + e.getMessage());
+                    report.append(ChatColor.RED + "✗ Configuración de minería: ").append(e.getMessage()).append("\n");
                 }
             }
 
@@ -401,8 +429,11 @@ public class Main extends JavaPlugin {
                 try {
                     magicFlowerPotManager.forceUpdate();
                     getLogger().info("✓ Configuración de macetas mágicas actualizada");
+                    report.append(ChatColor.GREEN + "✓ Macetas mágicas\n");
                 } catch (Exception e) {
+                    hasErrors = true;
                     getLogger().warning("Error recargando macetas mágicas: " + e.getMessage());
+                    report.append(ChatColor.RED + "✗ Macetas mágicas: ").append(e.getMessage()).append("\n");
                 }
             }
 
@@ -411,8 +442,11 @@ public class Main extends JavaPlugin {
                 try {
                     cropConfig.reload();
                     getLogger().info("✓ Configuración de cultivos actualizada");
+                    report.append(ChatColor.GREEN + "✓ Configuración de cultivos\n");
                 } catch (Exception e) {
+                    hasErrors = true;
                     getLogger().warning("Error recargando configuración de cultivos: " + e.getMessage());
+                    report.append(ChatColor.RED + "✗ Configuración de cultivos: ").append(e.getMessage()).append("\n");
                 }
             }
 
@@ -422,12 +456,15 @@ public class Main extends JavaPlugin {
                     // Verificar si tiene método de recarga
                     // flowerIntegration.reload(); // Descomenta si implementas este método
                     getLogger().info("✓ Sistema de flores configurables verificado");
+                    report.append(ChatColor.GREEN + "✓ Flores configurables\n");
                 } catch (Exception e) {
+                    hasErrors = true;
                     getLogger().warning("Error verificando sistema de flores: " + e.getMessage());
+                    report.append(ChatColor.RED + "✗ Flores configurables: ").append(e.getMessage()).append("\n");
                 }
             }
 
-            // 🆕 IMPORTANTE: NO recargar Rankup aquí si ya se hizo en handleReload
+            // 🆕 IMPORTANTE: Sistema de Rankup y MenuManager
             // Esta verificación evita recargas duplicadas
             boolean rankupAlreadyReloaded = Thread.currentThread().getStackTrace().length > 15 &&
                     Arrays.stream(Thread.currentThread().getStackTrace())
@@ -448,23 +485,63 @@ public class Main extends JavaPlugin {
                     getLogger().info("  • Cooldown: " + (rankupManager.getCooldownTime() / 1000) + "s");
                     getLogger().info("  • Efectos: " + (rankupManager.areEffectsEnabled() ? "Habilitados" : "Deshabilitados"));
 
+                    report.append(ChatColor.GREEN + "✓ Sistema de Rankup 2.0\n");
+
+                    // 🆕 NUEVO: Sistema de menús
+                    if (rankupManager.isMenuSystemAvailable()) {
+                        try {
+                            Map<String, Object> menuStats = rankupManager.getMenuStats();
+                            if (menuStats != null) {
+                                getLogger().info("✓ Sistema de menús actualizado:");
+                                getLogger().info("  • Menús en caché: " + menuStats.get("cachedMenus"));
+                                getLogger().info("  • Configuraciones de jugador: " + menuStats.get("playerSettings"));
+                                getLogger().info("  • Auto-refresh: " +
+                                        (((Integer) menuStats.get("autoRefreshInterval")) > 0 ? "Habilitado" : "Deshabilitado"));
+                            }
+                            report.append(ChatColor.GREEN + "✓ Sistema de menús de rankup\n");
+                        } catch (Exception e) {
+                            hasErrors = true;
+                            getLogger().warning("Error obteniendo estadísticas de menús: " + e.getMessage());
+                            report.append(ChatColor.YELLOW + "⚠ Sistema de menús: Funcionando con advertencias\n");
+                        }
+                    } else {
+                        report.append(ChatColor.YELLOW + "⚠ Sistema de menús: No disponible (solo comandos básicos)\n");
+                    }
+
                 } catch (Exception e) {
+                    hasErrors = true;
                     getLogger().severe("❌ Error recargando configuración de Rankup 2.0: " + e.getMessage());
                     e.printStackTrace();
+                    report.append(ChatColor.RED + "✗ Sistema de Rankup 2.0: ").append(e.getMessage()).append("\n");
                 }
             } else if (rankupManager != null && rankupAlreadyReloaded) {
                 getLogger().info("ℹ️ Sistema de Rankup 2.0 ya fue recargado previamente");
+                report.append(ChatColor.YELLOW + "ℹ️ Sistema de Rankup: Ya recargado\n");
             } else {
                 getLogger().info("ℹ️ Sistema de Rankup 2.0 no está disponible");
+                report.append(ChatColor.GRAY + "- Sistema de Rankup: No disponible\n");
             }
 
-            getLogger().info("✅ Configuración interna actualizada correctamente.");
+            // 🔧 CORRECCIÓN: Mostrar reporte final si hay contenido
+            if (report.length() > 0) {
+                getLogger().info("📊 Reporte de actualización:");
+                getLogger().info(ChatColor.stripColor(report.toString()));
+            }
+
+            if (hasErrors) {
+                getLogger().warning("⚠️ Configuración interna actualizada con advertencias");
+                getLogger().warning("Revisa los logs anteriores para más detalles");
+            } else {
+                getLogger().info("✅ Configuración interna actualizada correctamente.");
+            }
 
         } catch (Exception e) {
             getLogger().severe("❌ Error crítico actualizando configuración interna: " + e.getMessage());
             e.printStackTrace();
         }
     }
+
+
     // =================== EVENTOS PERSONALIZADOS ===================
 
     /**
@@ -665,12 +742,34 @@ public class Main extends JavaPlugin {
             try {
                 int ranksCount = rankupManager.getRanks().size();
                 boolean papiEnabled = rankupManager.isPlaceholderAPIEnabled();
-                status.put("RankupManager", "OK (" + ranksCount + " rangos, PAPI: " + (papiEnabled ? "✓" : "✗") + ")");
+                boolean menuSystemEnabled = rankupManager.isMenuSystemAvailable();
+
+                StringBuilder rankupStatus = new StringBuilder();
+                rankupStatus.append("OK (").append(ranksCount).append(" rangos, ");
+                rankupStatus.append("PAPI: ").append(papiEnabled ? "✓" : "✗").append(", ");
+                rankupStatus.append("Menús: ").append(menuSystemEnabled ? "✓" : "✗").append(")");
+
+                status.put("RankupManager", rankupStatus.toString());
+
+                // Detalles del sistema de menús si está disponible
+                if (menuSystemEnabled) {
+                    Map<String, Object> menuStats = rankupManager.getMenuStats();
+                    if (menuStats != null) {
+                        status.put("MenuSystem", "OK (" +
+                                "Cache: " + menuStats.get("cachedMenus") + ", " +
+                                "Players: " + menuStats.get("playerSettings") + ")");
+                    }
+                } else {
+                    status.put("MenuSystem", "BASIC (Solo comandos)");
+                }
+
             } catch (Exception e) {
                 status.put("RankupManager", "ERROR: " + e.getMessage());
+                status.put("MenuSystem", "ERROR: " + e.getMessage());
             }
         } else {
             status.put("RankupManager", "NULL (LuckPerms requerido)");
+            status.put("MenuSystem", "NULL");
         }
 
         // Base de datos
@@ -733,16 +832,30 @@ public class Main extends JavaPlugin {
             }
 
             // Verificar sistema de rankup
-            if (rankupManager == null && isLuckPermsAvailable()) {
+            if (rankupManager != null) {
                 try {
-                    if (initRankupSystem()) {
-                        getLogger().info("✓ Sistema de Rankup reinicializado");
+                    boolean hadMenuSystem = rankupManager.isMenuSystemAvailable();
+
+                    // Intentar reinicializar MenuManager si no está disponible
+                    if (!hadMenuSystem) {
+                        getLogger().info("🔄 Intentando reinicializar MenuManager...");
+
+                        // El MenuManager se inicializa automáticamente en RankupManager
+                        // Si falló antes, intentamos recargar la configuración completa
+                        rankupManager.reloadConfig();
+
+                        if (rankupManager.isMenuSystemAvailable()) {
+                            getLogger().info("✓ MenuManager reinicializado exitosamente");
+                        } else {
+                            getLogger().warning("⚠️ MenuManager sigue no disponible - funcionará en modo básico");
+                            allSuccess = false;
+                        }
                     } else {
-                        getLogger().warning("⚠️ No se pudo reinicializar el sistema de Rankup");
-                        allSuccess = false;
+                        getLogger().info("✓ MenuManager ya estaba funcionando correctamente");
                     }
+
                 } catch (Exception e) {
-                    getLogger().severe("❌ Error reinicializando Rankup: " + e.getMessage());
+                    getLogger().severe("❌ Error reinicializando MenuManager: " + e.getMessage());
                     allSuccess = false;
                 }
             }
@@ -778,4 +891,125 @@ public class Main extends JavaPlugin {
         return luckPermsPlugin != null && luckPermsPlugin.isEnabled();
     }
 
+    /**
+     * Obtiene información detallada sobre el sistema de menús
+     * MÉTODO YA IMPLEMENTADO en Main.java - verificar que esté presente
+     */
+    public Map<String, Object> getMenuSystemInfo() {
+        Map<String, Object> info = new LinkedHashMap<>();
+
+        try {
+            if (!isRankupSystemEnabled()) {
+                info.put("status", "RANKUP_SYSTEM_DISABLED");
+                info.put("description", "Sistema de rankup no disponible");
+                return info;
+            }
+
+            if (rankupManager.isMenuSystemAvailable()) {
+                info.put("status", "AVAILABLE");
+                info.put("description", "Sistema de menús completo disponible");
+
+                // Estadísticas del MenuManager
+                Map<String, Object> stats = rankupManager.getMenuStats();
+                if (stats != null) {
+                    info.putAll(stats);
+                }
+
+                // Verificar archivo de configuración
+                File menuConfigFile = new File(getDataFolder(), "menus/rankup_menu.yml");
+                info.put("config_file_exists", menuConfigFile.exists());
+                if (menuConfigFile.exists()) {
+                    info.put("config_file_size", menuConfigFile.length());
+                    info.put("config_last_modified", menuConfigFile.lastModified());
+                }
+
+            } else {
+                info.put("status", "BASIC_MODE");
+                info.put("description", "Solo comandos básicos disponibles");
+                info.put("reason", "MenuManager no pudo inicializarse");
+            }
+
+        } catch (Exception e) {
+            info.put("status", "ERROR");
+            info.put("description", "Error obteniendo información");
+            info.put("error", e.getMessage());
+        }
+
+        return info;
+    }
+
+
+    /**
+     * Debug específico del sistema de menús
+     * AÑADIR este método público a Main.java
+     */
+    public void debugMenuSystem(CommandSender sender) {
+        sender.sendMessage(ChatColor.AQUA + "═══ DEBUG SISTEMA DE MENÚS ═══");
+
+        Map<String, Object> menuInfo = getMenuSystemInfo();
+
+        String status = (String) menuInfo.get("status");
+        String description = (String) menuInfo.get("description");
+
+        sender.sendMessage(ChatColor.WHITE + "Estado: " + getStatusColor(status) + status);
+        sender.sendMessage(ChatColor.WHITE + "Descripción: " + ChatColor.GRAY + description);
+
+        if ("AVAILABLE".equals(status)) {
+            sender.sendMessage(ChatColor.GREEN + "✅ Sistema de menús completamente funcional");
+
+            // Mostrar estadísticas
+            sender.sendMessage(ChatColor.YELLOW + "Estadísticas:");
+            sender.sendMessage(ChatColor.WHITE + "  • Menús en caché: " + ChatColor.YELLOW + menuInfo.get("cachedMenus"));
+            sender.sendMessage(ChatColor.WHITE + "  • Configuraciones de jugador: " + ChatColor.YELLOW + menuInfo.get("playerSettings"));
+            sender.sendMessage(ChatColor.WHITE + "  • Auto-refresh: " + ChatColor.YELLOW +
+                    (((Integer) menuInfo.getOrDefault("autoRefreshInterval", 0)) > 0 ? "Habilitado" : "Deshabilitado"));
+
+            // Información del archivo
+            boolean configExists = (Boolean) menuInfo.getOrDefault("config_file_exists", false);
+            sender.sendMessage(ChatColor.WHITE + "  • Archivo de config: " +
+                    (configExists ? ChatColor.GREEN + "EXISTS" : ChatColor.RED + "NOT FOUND"));
+
+            if (configExists) {
+                long size = (Long) menuInfo.getOrDefault("config_file_size", 0L);
+                sender.sendMessage(ChatColor.WHITE + "  • Tamaño del archivo: " + ChatColor.YELLOW + size + " bytes");
+            }
+
+        } else if ("BASIC_MODE".equals(status)) {
+            sender.sendMessage(ChatColor.YELLOW + "⚠️ Funcionando en modo básico");
+            sender.sendMessage(ChatColor.GRAY + "Solo comandos /rankup, /rankup progress, etc. están disponibles");
+            sender.sendMessage(ChatColor.GRAY + "Los menús interactivos no están disponibles");
+
+        } else if ("RANKUP_SYSTEM_DISABLED".equals(status)) {
+            sender.sendMessage(ChatColor.RED + "❌ Sistema de rankup completamente deshabilitado");
+            sender.sendMessage(ChatColor.GRAY + "Instala y configura LuckPerms para habilitar el sistema");
+
+        } else {
+            sender.sendMessage(ChatColor.RED + "❌ Error en el sistema de menús");
+            String error = (String) menuInfo.get("error");
+            if (error != null) {
+                sender.sendMessage(ChatColor.RED + "Error: " + error);
+            }
+        }
+
+        sender.sendMessage("");
+        sender.sendMessage(ChatColor.YELLOW + "Comandos útiles:");
+        sender.sendMessage(ChatColor.GRAY + "  • /score reload - Recargar configuración completa");
+        sender.sendMessage(ChatColor.GRAY + "  • /score reloadrankup - Recargar solo rankup y menús");
+        sender.sendMessage(ChatColor.GRAY + "  • /score emergency - Reinicio de emergencia");
+    }
+
+
+    /**
+     * Obtiene color según el estado
+     * MÉTODO YA IMPLEMENTADO en Main.java - verificar que esté presente
+     */
+    private String getStatusColor(String status) {
+        return switch (status) {
+            case "AVAILABLE" -> ChatColor.GREEN.toString();
+            case "BASIC_MODE" -> ChatColor.YELLOW.toString();
+            case "RANKUP_SYSTEM_DISABLED" -> ChatColor.RED.toString();
+            case "ERROR" -> ChatColor.DARK_RED.toString();
+            default -> ChatColor.GRAY.toString();
+        };
+    }
 }

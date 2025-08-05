@@ -3,11 +3,11 @@ version: '${project.version}'
 main: gc.grivyzom.survivalcore.Main
 api-version: '1.20'
 authors: [ Brocolitx ]
-description: Plugin principal para el servidor de supervivencia
+description: Plugin principal para el servidor de supervivencia con soporte híbrido Bedrock/Java
 website: https://grivyzom.gc/
 
-# Dependencias opcionales
-softdepend: [LuckPerms, PlaceholderAPI, Vault]
+# Dependencias opcionales - ACTUALIZADO
+softdepend: [LuckPerms, PlaceholderAPI, Vault, BedrockGUI]
 
 commands:
   # Comandos básicos existentes
@@ -53,10 +53,15 @@ commands:
     description: Crear cheques de experiencia
     usage: /cheque <cantidad>
     permission: survivalcore.cheque.create
-  # ========== COMANDOS DE RANKUP ==========
+  # ========== COMANDOS DE RANKUP HÍBRIDOS ==========
   rankup:
-    description: Comando principal del sistema de rankup
-    usage: /rankup [subcomando]
+    description: Comando principal del sistema de rankup híbrido
+    usage: |
+      /rankup - Intentar hacer rankup
+      /rankup info - Ver información de tu rango
+      /rankup progress - Ver progreso detallado
+      /rankup list - Ver lista de rangos
+      /rankup help - Mostrar ayuda
     aliases: [ru]
     permission-message: "§cNo tienes permisos para usar este comando."
   prestige:
@@ -69,13 +74,16 @@ commands:
     aliases: [prestigio, prest]
     permission-message: "§cNo tienes permisos para usar este comando."
   ranks:
-    description: Menú de rangos y gestión del sistema
+    description: Menú híbrido de rangos (detecta automáticamente Bedrock/Java)
     usage: |
-      /ranks - Abrir menú principal de rangos
-      /ranks gui - Abrir interfaz gráfica
-      /ranks list - Ver lista de rangos
+      /ranks - Abrir menú automático (Bedrock/Java)
+      /ranks gui - Forzar interfaz gráfica
+      /ranks list - Ver lista de rangos en chat
       /ranks top - Ver ranking de jugadores
-      /ranks history - Ver historial de rankups
+      /ranks client - Ver información de tu cliente
+      /ranks debug - Debug del sistema (admin)
+      /ranks fix - Reparar sistema de menús (admin)
+      /ranks status - Ver estado del sistema
     aliases: [rangos, ranking]
     permission-message: "§cNo tienes permisos para usar este comando."
   xpbank:
@@ -117,7 +125,8 @@ commands:
     aliases: [flor, flower, mflower]
     permission: survivalcore.magicflower.use
     permission-message: "§cNo tienes permisos para usar este comando."
-# Permisos del sistema
+
+# Permisos del sistema - ACTUALIZADO
 permissions:
   # Permisos básicos existentes
   survivalcore.repair:
@@ -188,21 +197,9 @@ permissions:
     description: Permisos administrativos de cheques
     default: op
 
-  # ========== PERMISOS DE RANKUP ==========
+  # ========== PERMISOS DE RANKUP HÍBRIDO ==========
 
   # Permisos básicos de rankup - Todos los jugadores pueden usar
-  survivalcore.rankup:
-    description: Permite usar comandos básicos de rankup
-    default: true
-
-  survivalcore.rankup.use:
-    description: Permite intentar hacer rankup
-    default: true
-
-  survivalcore.rankup.info:
-    description: Permite ver información de rangos
-    default: true
-
   survivalcore.rankup.progress:
     description: Permite ver progreso de rankup
     default: true
@@ -212,11 +209,28 @@ permissions:
     default: true
 
   survivalcore.rankup.gui:
-    description: Permite abrir el menú de rangos
+    description: Permite abrir menús de rangos (Bedrock/Java)
     default: true
 
   survivalcore.rankup.history:
     description: Permite ver historial de rankups
+    default: true
+
+  # 🆕 NUEVOS PERMISOS HÍBRIDOS
+  survivalcore.rankup.bedrock:
+    description: Permite usar menús optimizados para Bedrock
+    default: true
+
+  survivalcore.rankup.java:
+    description: Permite usar menús interactivos de Java
+    default: true
+
+  survivalcore.rankup.hybrid:
+    description: Permite detección automática y menús híbridos
+    default: true
+
+  survivalcore.rankup.client.info:
+    description: Permite ver información del tipo de cliente
     default: true
 
   # Permisos de prestige
@@ -249,6 +263,19 @@ permissions:
     description: Permite hacer rankup a otros jugadores
     default: op
 
+  # 🆕 NUEVOS PERMISOS ADMINISTRATIVOS HÍBRIDOS
+  survivalcore.rankup.debug.hybrid:
+    description: Permite debug del sistema híbrido
+    default: op
+
+  survivalcore.rankup.fix:
+    description: Permite reparar sistema de menús
+    default: op
+
+  survivalcore.rankup.force.client:
+    description: Permite forzar tipo de cliente para jugadores
+    default: op
+
   # Permisos consolidados para facilitar gestión
   survivalcore.rankup.*:
     description: Todos los permisos de rankup (jugadores)
@@ -261,12 +288,16 @@ permissions:
       survivalcore.rankup.list: true
       survivalcore.rankup.gui: true
       survivalcore.rankup.history: true
+      survivalcore.rankup.bedrock: true
+      survivalcore.rankup.java: true
+      survivalcore.rankup.hybrid: true
+      survivalcore.rankup.client.info: true
       survivalcore.prestige: true
       survivalcore.prestige.use: true
       survivalcore.prestige.info: true
 
   survivalcore.rankup.admin.*:
-    description: Todos los permisos administrativos de rankup
+    description: Todos los permisos administrativos de rankup híbrido
     default: op
     children:
       survivalcore.rankup.*: true
@@ -274,10 +305,13 @@ permissions:
       survivalcore.rankup.reload: true
       survivalcore.rankup.bypass: true
       survivalcore.rankup.others: true
+      survivalcore.rankup.debug.hybrid: true
+      survivalcore.rankup.fix: true
+      survivalcore.rankup.force.client: true
 
-  # Permiso general del plugin
+  # Permiso general del plugin - ACTUALIZADO
   survivalcore.*:
-    description: Todos los permisos del plugin
+    description: Todos los permisos del plugin (incluyendo sistema híbrido)
     default: op
     children:
       survivalcore.repair: true
@@ -302,7 +336,7 @@ permissions:
     description: Permite obtener ánforas de experiencia
     default: op
 
-
+  # Permisos de macetas mágicas
   survivalcore.flowerpot.use:
     description: Permite usar comandos básicos de macetas mágicas
     default: true
@@ -319,7 +353,7 @@ permissions:
     description: Permite interactuar con macetas mágicas (plantar flores)
     default: true
 
-  # Permisos administrativos
+  # Permisos administrativos de macetas
   survivalcore.flowerpot.give:
     description: Permite dar macetas mágicas a otros jugadores
     default: op
@@ -355,12 +389,18 @@ permissions:
       survivalcore.flowerpot.admin: true
       survivalcore.flowerpot.unlimited: true
       survivalcore.flowerpot.bypass: true
+
+  # Permisos de flores mágicas
   survivalcore.magicflower.*:
     description: Todos los permisos de flores mágicas
     default: op
     children:
       survivalcore.magicflower.give: true
 
-  survivalcore.magicflower.give:
-    description: Permite dar flores mágicas a otros jugadores
-    default: op
+  survivalcore.rankup.use:
+    description: Permite intentar hacer rankup
+    default: true
+
+  survivalcore.rankup.info:
+    description: Permite ver información de rangos
+    default: true

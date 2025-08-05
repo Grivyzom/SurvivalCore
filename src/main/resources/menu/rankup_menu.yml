@@ -1,0 +1,455 @@
+# =======================================================
+#           MENÚ INTERACTIVO DE RANKUP - CONFIGURACIÓN
+# =======================================================
+
+# =================== CONFIGURACIÓN GENERAL ===================
+menu_settings:
+  # Habilitar/deshabilitar el menú
+  enabled: true
+
+  # Intervalo de actualización automática (segundos, -1 para deshabilitar)
+  auto_refresh_interval: 30
+
+  # Mostrar efectos de sonido
+  enable_sounds: true
+
+  # Mostrar partículas en el menú
+  enable_particles: true
+
+  # Cerrar menú automáticamente después de rankup exitoso
+  close_after_rankup: false
+
+# =================== CONFIGURACIÓN DE MENÚS ===================
+menus:
+  # MENÚ PRINCIPAL
+  main:
+    title: "&5&l⭐ Sistema de Rangos ⭐"
+    size: 45  # 5 filas
+    background:
+      enabled: true
+      material: "BLACK_STAINED_GLASS_PANE"
+      name: "&r"
+
+    items:
+      # Información del jugador
+      player_info:
+        slot: 13
+        material: "PLAYER_HEAD"
+        skull_owner: "%player%"
+        name: "&e&l%player%"
+        lore:
+          - ""
+          - "&7▶ Rango actual: %score_rank_display%"
+          - "&7▶ Siguiente rango: %score_next_rank%"
+          - "&7▶ Progreso: &e%score_rankup_progress%"
+          - "&7▶ Orden: &a#%score_rank_order%"
+          - ""
+          - "&8⌚ Desde: %join_date%"
+        sound: "BLOCK_NOTE_BLOCK_BELL:0.8:1.2"
+
+      # Botón de Rankup
+      rankup_button:
+        slot: 20
+        material: "DIAMOND"
+        name: "&a&l⬆ HACER RANKUP"
+        lore:
+          - ""
+          - "&fHaz clic para intentar subir de rango"
+          - ""
+          - "&7Estado: %rankup_status%"
+          - "&7Progreso: &e%score_rankup_progress%"
+          - "%score_rankup_progress_bar%"
+          - ""
+          - "&a✓ Haz clic para rankup"
+        enchanted: true
+        sound: "ENTITY_PLAYER_LEVELUP:1.0:1.0"
+        cooldown_material: "CLOCK"
+        cooldown_name: "&c&l⏰ RANKUP EN COOLDOWN"
+        cooldown_lore:
+          - ""
+          - "&cDirigíndose esperar para hacer rankup"
+          - "&cTiempo restante: &e%cooldown_time%"
+          - ""
+          - "&7Intenta de nuevo en unos momentos"
+        blocked_material: "BARRIER"
+        blocked_name: "&c&l❌ RANKUP NO DISPONIBLE"
+        blocked_lore:
+          - ""
+          - "&cNo cumples los requisitos necesarios"
+          - "&cRevisa tu progreso para más detalles"
+          - ""
+          - "&7Usa &e/rankup progress &7para ver qué te falta"
+
+      # Ver Progreso
+      progress_button:
+        slot: 22
+        material: "BOOK"
+        name: "&b&l📊 VER MI PROGRESO"
+        lore:
+          - ""
+          - "&fMuestra tu progreso detallado"
+          - "&ftowards el siguiente rango"
+          - ""
+          - "&7Progreso actual: &e%score_rankup_progress%"
+          - "&8Requisitos, logros y más..."
+          - ""
+          - "&b✓ Haz clic para ver detalles"
+        sound: "BLOCK_ENCHANTMENT_TABLE_USE:0.8:1.0"
+
+      # Lista de Rangos
+      ranks_list_button:
+        slot: 24
+        material: "ENCHANTED_BOOK"
+        name: "&2&l📋 LISTA DE RANGOS"
+        lore:
+          - ""
+          - "&fVe todos los rangos disponibles"
+          - "&fen el servidor y sus requisitos"
+          - ""
+          - "&7Total de rangos: &a%score_total_ranks%"
+          - "&7Tu posición: &e#%score_rank_order%"
+          - ""
+          - "&2✓ Haz clic para explorar"
+        sound: "BLOCK_NOTE_BLOCK_CHIME:0.8:1.0"
+
+      # Sistema de Prestige (si está habilitado)
+      prestige_button:
+        slot: 31
+        enabled_condition: "prestige_enabled"
+        material: "NETHER_STAR"
+        name: "&d&l✨ SISTEMA PRESTIGE"
+        lore:
+          - ""
+          - "&f¿Has alcanzado el rango máximo?"
+          - "&f¡Haz prestige para reiniciar con"
+          - "&fbeneficios adicionales!"
+          - ""
+          - "&7Estado: %prestige_status%"
+          - "&7Prestiges: &d%player_prestiges%"
+          - ""
+          - "&d✓ Haz clic para más información"
+        sound: "BLOCK_BEACON_POWER_SELECT:1.0:1.5"
+        disabled_material: "GRAY_DYE"
+        disabled_name: "&8&l✨ Prestige Deshabilitado"
+        disabled_lore:
+          - ""
+          - "&7El sistema de prestige está"
+          - "&7deshabilitado en este servidor"
+
+      # Historial Personal
+      history_button:
+        slot: 40
+        material: "WRITABLE_BOOK"
+        name: "&6&l📜 MI HISTORIAL"
+        lore:
+          - ""
+          - "&fVe tu historial de rankups"
+          - "&fy logros conseguidos"
+          - ""
+          - "&7Último rankup: %last_rankup_date%"
+          - "&7Total rankups: &e%total_rankups%"
+          - ""
+          - "&6✓ Haz clic para ver historial"
+        sound: "ITEM_BOOK_PAGE_TURN:1.0:1.0"
+
+      # Configuración Personal
+      settings_button:
+        slot: 36
+        material: "COMPARATOR"
+        name: "&7&l⚙ CONFIGURACIÓN"
+        lore:
+          - ""
+          - "&fPersonaliza tu experiencia"
+          - "&fcon el sistema de rangos"
+          - ""
+          - "&7▶ Notificaciones: %notifications_status%"
+          - "&7▶ Efectos: %effects_status%"
+          - "&7▶ Sonidos: %sounds_status%"
+          - ""
+          - "&7✓ Haz clic para configurar"
+        sound: "UI_BUTTON_CLICK:0.8:1.0"
+
+  # MENÚ DE PROGRESO DETALLADO
+  progress:
+    title: "&b&l📊 Mi Progreso Detallado"
+    size: 54  # 6 filas
+    background:
+      enabled: true
+      material: "BLUE_STAINED_GLASS_PANE"
+      name: "&r"
+
+    items:
+      # Información General
+      progress_info:
+        slot: 22
+        material: "EXPERIENCE_BOTTLE"
+        name: "&b&l📊 Tu Progreso General"
+        lore:
+          - ""
+          - "&7Rango actual: &e%score_rank_display%"
+          - "&7Siguiente rango: &a%score_next_rank%"
+          - ""
+          - "&7Progreso: &e%score_rankup_progress%"
+          - "%score_rankup_progress_bar%"
+          - ""
+          - "&7Estado: %progress_status%"
+        enchanted: true
+        sound: "ENTITY_EXP_ORB_PICKUP:1.0:1.0"
+
+      # Botón Volver
+      back_button:
+        slot: 49
+        material: "ARROW"
+        name: "&e&l⬅ VOLVER"
+        lore:
+          - ""
+          - "&7Regresa al menú principal"
+        sound: "UI_BUTTON_CLICK:0.8:1.0"
+
+      # Requisitos dinámicos (se generan automáticamente)
+      requirements_start_slot: 28
+      requirements_pattern: "horizontal"  # horizontal, vertical, grid
+
+      requirement_template:
+        completed_material: "LIME_STAINED_GLASS_PANE"
+        incomplete_material: "RED_STAINED_GLASS_PANE"
+        completed_name: "&a&l✓ %requirement_name%"
+        incomplete_name: "&c&l✗ %requirement_name%"
+        completed_lore:
+          - ""
+          - "&7Progreso: &a%current_value%/%required_value%"
+          - "&a✓ Requisito completado"
+        incomplete_lore:
+          - ""
+          - "&7Progreso: &c%current_value%/%required_value%"
+          - "&7Te faltan: &e%missing_value%"
+          - ""
+          - "&c✗ Requisito pendiente"
+
+  # MENÚ DE LISTA DE RANGOS
+  ranks_list:
+    title: "&2&l📋 Lista de Rangos"
+    size: 54  # 6 filas
+    background:
+      enabled: true
+      material: "GREEN_STAINED_GLASS_PANE"
+      name: "&r"
+
+    items:
+      # Botón Volver
+      back_button:
+        slot: 49
+        material: "ARROW"
+        name: "&e&l⬅ VOLVER"
+        lore:
+          - ""
+          - "&7Regresa al menú principal"
+        sound: "UI_BUTTON_CLICK:0.8:1.0"
+
+      # Rangos dinámicos (se generan automáticamente)
+      ranks_start_slot: 10
+      ranks_pattern: "grid"  # grid, horizontal, vertical
+
+      rank_template:
+        current_material: "EMERALD"
+        completed_material: "DIAMOND"
+        locked_material: "IRON_INGOT"
+        current_name: "&a&l► %rank_display_name%"
+        completed_name: "&e&l✓ %rank_display_name%"
+        locked_name: "&7%rank_display_name%"
+        current_lore:
+          - ""
+          - "&a▶ Tu rango actual"
+          - "&7Orden: &e#%rank_order%"
+          - ""
+          - "&7Siguiente: %next_rank%"
+          - "&7Progreso hacia siguiente: &e%progress%"
+        completed_lore:
+          - ""
+          - "&e✓ Rango ya superado"
+          - "&7Orden: &e#%rank_order%"
+          - ""
+          - "&7Completado el: %completion_date%"
+        locked_lore:
+          - ""
+          - "&7Rango bloqueado"
+          - "&7Orden: &e#%rank_order%"
+          - ""
+          - "&7Requisitos principales:"
+          - "&8• %main_requirements%"
+        enchanted_current: true
+        enchanted_completed: false
+        enchanted_locked: false
+
+  # MENÚ DE CONFIGURACIÓN PERSONAL
+  settings:
+    title: "&7&l⚙ Configuración Personal"
+    size: 27  # 3 filas
+    background:
+      enabled: true
+      material: "GRAY_STAINED_GLASS_PANE"
+      name: "&r"
+
+    items:
+      # Notificaciones
+      notifications_toggle:
+        slot: 11
+        enabled_material: "LIME_DYE"
+        disabled_material: "RED_DYE"
+        enabled_name: "&a&l🔔 Notificaciones: ON"
+        disabled_name: "&c&l🔕 Notificaciones: OFF"
+        enabled_lore:
+          - ""
+          - "&7Las notificaciones están &aactivadas"
+          - "&7Recibirás mensajes sobre tu progreso"
+          - ""
+          - "&a✓ Haz clic para desactivar"
+        disabled_lore:
+          - ""
+          - "&7Las notificaciones están &cdesactivadas"
+          - "&7No recibirás mensajes de progreso"
+          - ""
+          - "&c✓ Haz clic para activar"
+        sound: "UI_BUTTON_CLICK:1.0:1.2"
+
+      # Efectos Visuales
+      effects_toggle:
+        slot: 13
+        enabled_material: "FIREWORK_ROCKET"
+        disabled_material: "GUNPOWDER"
+        enabled_name: "&a&l✨ Efectos: ON"
+        disabled_name: "&c&l✨ Efectos: OFF"
+        enabled_lore:
+          - ""
+          - "&7Los efectos visuales están &aactivados"
+          - "&7Verás partículas y efectos especiales"
+          - ""
+          - "&a✓ Haz clic para desactivar"
+        disabled_lore:
+          - ""
+          - "&7Los efectos visuales están &cdesactivados"
+          - "&7No verás partículas ni efectos"
+          - ""
+          - "&c✓ Haz clic para activar"
+        sound: "ENTITY_FIREWORK_ROCKET_LAUNCH:0.8:1.0"
+
+      # Sonidos
+      sounds_toggle:
+        slot: 15
+        enabled_material: "MUSIC_DISC_CAT"
+        disabled_material: "BARRIER"
+        enabled_name: "&a&l🔊 Sonidos: ON"
+        disabled_name: "&c&l🔇 Sonidos: OFF"
+        enabled_lore:
+          - ""
+          - "&7Los sonidos están &aactivados"
+          - "&7Escucharás efectos de sonido"
+          - ""
+          - "&a✓ Haz clic para desactivar"
+        disabled_lore:
+          - ""
+          - "&7Los sonidos están &cdesactivados"
+          - "&7No escucharás efectos de sonido"
+          - ""
+          - "&c✓ Haz clic para activar"
+        sound: "BLOCK_NOTE_BLOCK_PLING:1.0:1.0"
+
+      # Botón Volver
+      back_button:
+        slot: 22
+        material: "ARROW"
+        name: "&e&l⬅ VOLVER"
+        lore:
+          - ""
+          - "&7Regresa al menú principal"
+        sound: "UI_BUTTON_CLICK:0.8:1.0"
+
+# =================== CONFIGURACIÓN DE MATERIALES POR REQUISITO ===================
+requirement_materials:
+  money: "GOLD_INGOT"
+  level: "EXPERIENCE_BOTTLE"
+  playtime_hours: "CLOCK"
+  mob_kills: "IRON_SWORD"
+  blocks_mined: "DIAMOND_PICKAXE"
+  farming_level: "WHEAT"
+  mining_level: "STONE_PICKAXE"
+  animals_bred: "WHEAT_SEEDS"
+  fish_caught: "FISHING_ROD"
+  ender_dragon_kills: "DRAGON_HEAD"
+  wither_kills: "WITHER_SKELETON_SKULL"
+  permission: "PAPER"
+  default: "ITEM_FRAME"
+
+# =================== CONFIGURACIÓN DE SONIDOS ===================
+sounds:
+  menu_open: "BLOCK_ENDER_CHEST_OPEN:0.8:1.0"
+  menu_close: "BLOCK_ENDER_CHEST_CLOSE:0.5:1.0"
+  button_click: "UI_BUTTON_CLICK:0.8:1.0"
+  rankup_success: "UI_TOAST_CHALLENGE_COMPLETE:1.0:1.0"
+  rankup_fail: "BLOCK_NOTE_BLOCK_BASS:1.0:0.5"
+  page_turn: "ITEM_BOOK_PAGE_TURN:1.0:1.0"
+  toggle_on: "BLOCK_LEVER_CLICK:1.0:1.2"
+  toggle_off: "BLOCK_LEVER_CLICK:1.0:0.8"
+
+# =================== MENSAJES PERSONALIZABLES ===================
+messages:
+  menu_opened: "&a✓ Menú de rangos abierto"
+  menu_closed: "&7Menú cerrado"
+  setting_changed: "&a✓ Configuración actualizada: &f%setting% &7→ &e%value%"
+  feature_not_available: "&c❌ Esta característica no está disponible"
+  coming_soon: "&e⚠ Próximamente disponible..."
+
+  # Mensajes de estado
+  status:
+    ready_for_rankup: "&a¡Listo para rankup!"
+    requirements_pending: "&e%pending% requisitos pendientes"
+    max_rank_reached: "&d¡Rango máximo alcanzado!"
+    cooldown_active: "&cEn cooldown: %time%"
+    notifications_on: "&aActivadas"
+    notifications_off: "&cDesactivadas"
+    effects_on: "&aActivados"
+    effects_off: "&cDesactivados"
+    sounds_on: "&aActivados"
+    sounds_off: "&cDesactivados"
+
+# =================== CONFIGURACIÓN DE PARTÍCULAS ===================
+particles:
+  menu_open:
+    type: "ENCHANTMENT_TABLE"
+    count: 10
+    offset_x: 0.5
+    offset_y: 0.5
+    offset_z: 0.5
+
+  rankup_success:
+    type: "FIREWORK"
+    count: 20
+    offset_x: 1.0
+    offset_y: 1.0
+    offset_z: 1.0
+
+  button_click:
+    type: "VILLAGER_HAPPY"
+    count: 3
+    offset_x: 0.2
+    offset_y: 0.2
+    offset_z: 0.2
+
+# =================== CONFIGURACIÓN AVANZADA ===================
+advanced:
+  # Caché de menús por jugador (mejora el rendimiento)
+  cache_menus: true
+  cache_duration_seconds: 60
+
+  # Actualización automática de placeholders
+  auto_update_placeholders: true
+  placeholder_update_interval: 5  # segundos
+
+  # Validación de configuración al cargar
+  validate_config: true
+
+  # Debug del sistema de menús
+  debug_menus: false
+
+  # Máximo de menús abiertos simultáneamente (seguridad)
+  max_concurrent_menus: 50

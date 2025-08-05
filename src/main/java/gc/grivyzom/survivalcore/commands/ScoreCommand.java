@@ -306,6 +306,7 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
     /**
      * Maneja comandos de debug del sistema
      */
+
     private void handleDebug(CommandSender sender, String[] args) {
         if (!sender.hasPermission("survivalcore.debug")) {
             sender.sendMessage(ChatColor.RED + "No tienes permisos para usar comandos de debug.");
@@ -317,6 +318,7 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage(ChatColor.WHITE + "  /score debug rankup - Estado del sistema de rankup");
             sender.sendMessage(ChatColor.WHITE + "  /score debug placeholders - Verificar placeholders");
             sender.sendMessage(ChatColor.WHITE + "  /score debug systems - Estado de todos los sistemas");
+            sender.sendMessage(ChatColor.WHITE + "  /score debug menus - Debug del sistema de menús"); // 🆕 NUEVO
             if (sender instanceof Player) {
                 sender.sendMessage(ChatColor.WHITE + "  /score debug player - Debug de tu información");
             }
@@ -329,6 +331,9 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
             case "rankup" -> debugRankupSystem(sender);
             case "placeholders" -> debugPlaceholders(sender);
             case "systems" -> debugAllSystems(sender);
+            case "menus", "menu" -> {  // 🆕 NUEVO CASE
+                plugin.debugMenuSystem(sender);
+            }
             case "player" -> {
                 if (sender instanceof Player) {
                     debugPlayerInfo((Player) sender);
@@ -799,6 +804,7 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(ChatColor.GOLD + "═══════════════════════════════════");
     }
 
+
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
@@ -830,9 +836,9 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
                     .toList();
         }
 
-        // Tab completion para debug
+        // Tab completion para debug - 🆕 ACTUALIZADO
         if (args.length == 2 && args[0].equalsIgnoreCase("debug")) {
-            List<String> debugCommands = new ArrayList<>(Arrays.asList("rankup", "placeholders", "systems"));
+            List<String> debugCommands = new ArrayList<>(Arrays.asList("rankup", "placeholders", "systems", "menus")); // 🆕 Añadido "menus"
             if (sender instanceof Player) {
                 debugCommands.add("player");
             }
@@ -850,7 +856,6 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
 
         return new ArrayList<>();
     }
-
     /**
      * 🆕 NUEVO: Maneja la recarga específica del sistema de rankup
      */
@@ -1029,6 +1034,5 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
                     ChatColor.GRAY + " → " + ChatColor.GREEN + newStr;
         }
     }
-
 
 }

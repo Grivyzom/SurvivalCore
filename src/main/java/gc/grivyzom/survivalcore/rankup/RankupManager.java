@@ -20,6 +20,8 @@ import java.io.File;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import gc.grivyzom.survivalcore.rankup.menu.MenuManager;
+import gc.grivyzom.survivalcore.rankup.menu.BedrockMenuManager;
 
 /**
  * Sistema de Rankup mejorado - Versión 2.0
@@ -47,6 +49,7 @@ public class RankupManager {
     private String detectionMethod;
     private String groupPrefix;
     private String defaultRank;
+    private MenuManager menuManager;
 
     public RankupManager(Main plugin) {
         this.plugin = plugin;
@@ -59,9 +62,44 @@ public class RankupManager {
         checkPlaceholderAPI();
         loadConfiguration();
 
+        // 🆕 MEJORADO: Inicializar MenuManager primero
+        try {
+            plugin.getLogger().info("🔄 Inicializando MenuManager...");
+            this.menuManager = new MenuManager(plugin, this);
+            plugin.getLogger().info("✅ MenuManager inicializado correctamente");
+
+            // 🆕 NUEVO: Inicializar BedrockMenuManager (sistema híbrido)
+            try {
+                plugin.getLogger().info("📱 Inicializando sistema híbrido Bedrock/Java...");
+                this.bedrockMenuManager = new BedrockMenuManager(plugin, this, this.menuManager);
+
+                if (this.bedrockMenuManager.isHybridSystemAvailable()) {
+                    plugin.getLogger().info("✅ Sistema híbrido inicializado - Soporte para Bedrock y Java");
+
+                    // Mostrar estadísticas
+                    Map<String, Object> hybridStats = this.bedrockMenuManager.getHybridStats();
+                    plugin.getLogger().info("📊 Estado híbrido:");
+                    plugin.getLogger().info("  • BedrockGUI: " + (Boolean) hybridStats.get("bedrockGuiAvailable"));
+                    plugin.getLogger().info("  • Menús registrados: " + (Boolean) hybridStats.get("bedrockMenusRegistered"));
+                } else {
+                    plugin.getLogger().info("📱 Sistema híbrido parcial - Solo menús Java disponibles");
+                }
+
+            } catch (Exception e) {
+                plugin.getLogger().warning("⚠️ Error inicializando sistema híbrido: " + e.getMessage());
+                plugin.getLogger().info("🔧 Funcionará solo con menús Java");
+                this.bedrockMenuManager = null;
+            }
+
+        } catch (Exception e) {
+            plugin.getLogger().warning("⚠️ Error inicializando MenuManager: " + e.getMessage());
+            plugin.getLogger().warning("El sistema funcionará en modo básico (solo comandos)");
+            this.menuManager = null;
+            this.bedrockMenuManager = null;
+        }
+
         plugin.getLogger().info("✅ Sistema de Rankup 2.0 inicializado correctamente.");
     }
-
     /**
      * Carga la configuración simplificada
      */
@@ -97,6 +135,115 @@ public class RankupManager {
         } catch (Exception e) {
             plugin.getLogger().severe("❌ Error cargando configuración: " + e.getMessage());
             throw new RuntimeException(e);
+        }
+    }
+
+    public boolean isMenuSystemHealthy() {
+        if (menuManager == null) {
+            return false;
+        }
+
+        try {
+            // Test básico del MenuManager
+            Map<String, Object> stats = menuManager.getMenuStats();
+            return stats != null && (Boolean) stats.getOrDefault("menuEnabled", false);
+        } catch (Exception e) {
+            plugin.getLogger().warning("Error verificando salud del MenuManager: " + e.getMessage());
+            return false;
+        }
+    }
+
+
+    /**
+     * Obtiene el BedrockMenuManager (sistema híbrido)
+     * @return BedrockMenuManager o null si no está disponible
+     */
+    public BedrockMenuManager getBedrockMenuManager() {
+        return bedrockMenuManager;
+    }
+
+    /**
+     * Verifica si el sistema de menús está disponible (híbrido o Java)
+     * @return true si hay al menos un sistema de menús disponible
+     */
+    public boolean isMenuSystemAvailable() {
+        return menuManager != null || bedrockMenuManager != null;
+    }
+
+    /**
+     * Verifica si el sistema híbrido está disponible
+     * @return true si BedrockMenuManager está inicializado
+     */
+    public boolean isHybridMenuSystemAvailable() {
+        return bedrockMenuManager != null && bedrockMenuManager.isHybridSystemAvailable();
+    }
+
+    /**
+     * Abre el menú principal usando el sistema híbrido
+     * Detecta automáticamente si es Bedrock o Java
+     */
+    public void openMainMenuHybrid(Player player) {
+        if (bedrockMenuManager != null) {
+            // Usar sistema híbrido (detecta automáticamente)
+            bedrockMenuManager.openMainMenu(player);
+        } else if (menuManager != null) {
+            // Fallback a Java únicamente
+            menuManager.openMainMenu(player);
+        } else {
+            // Fallback a comandos
+            player.sendMessage(ChatColor.YELLOW + "⚠ Sistema de menús no disponible");
+            player.sendMessage(ChatColor.GRAY + "Usa: /rankup, /rankup progress, /rankup list");
+        }
+    }
+
+    /**
+     * Abre el menú de progreso usando el sistema híbrido
+     */
+    public void openProgressMenuHybrid(Player player) {
+        if (bedrockMenuManager != null) {
+            bedrockMenuManager.openProgressMenu(player);
+        } else if (menuManager != null) {
+            menuManager.openProgressMenu(player);
+        } else {
+            player.performCommand("rankup progress");
+        }
+    }
+
+    /**
+     * Intenta reinicializar el MenuManager
+     */
+    public boolean reinitializeMenuManager() {
+        try {
+            plugin.getLogger().info("🔄 Reintentando inicializar MenuManager...");
+
+            // Limpiar MenuManager existente si hay alguno
+            if (menuManager != null) {
+                try {
+                    // Limpiar jugadores si es posible
+                    for (org.bukkit.entity.Player player : plugin.getServer().getOnlinePlayers()) {
+                        menuManager.cleanupPlayer(player);
+                    }
+                } catch (Exception e) {
+                    // Ignorar errores de limpieza
+                }
+            }
+
+            // Crear nuevo MenuManager
+            this.menuManager = new MenuManager(plugin, this);
+
+            // Verificar que funciona
+            if (isMenuSystemHealthy()) {
+                plugin.getLogger().info("✅ MenuManager reinicializado exitosamente");
+                return true;
+            } else {
+                plugin.getLogger().warning("⚠️ MenuManager reinicializado pero no está saludable");
+                return false;
+            }
+
+        } catch (Exception e) {
+            plugin.getLogger().severe("❌ Error reinicializando MenuManager: " + e.getMessage());
+            this.menuManager = null;
+            return false;
         }
     }
 
@@ -1377,6 +1524,35 @@ public class RankupManager {
                     plugin.getLogger().info("🔄 Cambio en cooldown: " + (backupCooldownTime / 1000) + "s → " + (cooldownTime / 1000) + "s");
                 }
 
+                if (menuManager != null) {
+                    try {
+                        menuManager.reloadConfig();
+                        plugin.getLogger().info("✅ MenuManager recargado correctamente");
+                    } catch (Exception e) {
+                        plugin.getLogger().warning("⚠️ Error recargando MenuManager: " + e.getMessage());
+                    }
+                }
+
+                // 🆕 NUEVO: Recargar MenuManager si está disponible
+                if (menuManager != null) {
+                    try {
+                        menuManager.reloadConfig();
+                        plugin.getLogger().info("✅ MenuManager recargado correctamente");
+                    } catch (Exception e) {
+                        plugin.getLogger().warning("⚠️ Error recargando MenuManager: " + e.getMessage());
+                    }
+                }
+
+                // 🆕 NUEVO: El BedrockMenuManager no necesita recarga específica
+                // ya que usa la misma configuración base
+                if (bedrockMenuManager != null) {
+                    plugin.getLogger().info("✅ Sistema híbrido verificado correctamente");
+                }
+
+                long duration = System.currentTimeMillis() - startTime;
+                plugin.getLogger().info("✅ Configuración de Rankup 2.0 recargada exitosamente en " + duration + "ms");
+
+
                 // Limpiar cooldowns si se cambió la configuración de cooldown
                 if (cooldownTime != backupCooldownTime) {
                     cooldowns.clear();
@@ -1435,6 +1611,54 @@ public class RankupManager {
             return false;
         }
     }
+
+    // =================== MÉTODO GETTER PARA MENUMANAGER ===================
+    /**
+     * Obtiene el MenuManager asociado
+     * @return MenuManager o null si no está disponible
+     */
+    public MenuManager getMenuManager() {
+        return menuManager;
+    }
+
+    /**
+     * Verifica si el sistema de menús está disponible
+     * @return true si MenuManager está inicializado
+     */
+    public boolean isMenuSystemAvailable() {
+        return menuManager != null;
+    }
+
+    // =================== MÉTODO SHUTDOWN ===================
+    /**
+     * Limpia recursos del MenuManager al deshabilitar el plugin
+     */
+    public void shutdown() {
+        if (menuManager != null) {
+            try {
+                // Limpiar jugadores conectados en MenuManager
+                for (org.bukkit.entity.Player player : plugin.getServer().getOnlinePlayers()) {
+                    menuManager.cleanupPlayer(player);
+                }
+                plugin.getLogger().info("✅ MenuManager finalizado correctamente");
+            } catch (Exception e) {
+                plugin.getLogger().warning("Error finalizando MenuManager: " + e.getMessage());
+            }
+        }
+
+        if (bedrockMenuManager != null) {
+            try {
+                // Limpiar jugadores conectados en BedrockMenuManager
+                for (org.bukkit.entity.Player player : plugin.getServer().getOnlinePlayers()) {
+                    bedrockMenuManager.cleanupPlayer(player);
+                }
+                plugin.getLogger().info("✅ BedrockMenuManager finalizado correctamente");
+            } catch (Exception e) {
+                plugin.getLogger().warning("Error finalizando BedrockMenuManager: " + e.getMessage());
+            }
+        }
+    }
+
 
     /**
      * Método auxiliar para obtener información detallada del archivo de configuración
@@ -1648,4 +1872,49 @@ public class RankupManager {
     }
 
 
+    // =================== MÉTODOS DE INFORMACIÓN ===================
+    /**
+     * Obtiene estadísticas del sistema de menús
+     * @return Map con estadísticas o null si no está disponible
+     */
+    public Map<String, Object> getMenuStats() {
+        Map<String, Object> combinedStats = new HashMap<>();
+
+        // Estadísticas básicas
+        combinedStats.put("menuManagerAvailable", menuManager != null);
+        combinedStats.put("bedrockMenuManagerAvailable", bedrockMenuManager != null);
+        combinedStats.put("hybridSystemEnabled", isHybridMenuSystemAvailable());
+
+        // Estadísticas de MenuManager Java
+        if (menuManager != null) {
+            try {
+                Map<String, Object> javaStats = menuManager.getMenuStats();
+                combinedStats.put("javaMenuStats", javaStats);
+            } catch (Exception e) {
+                combinedStats.put("javaMenuStatsError", e.getMessage());
+            }
+        }
+
+        // Estadísticas del sistema híbrido
+        if (bedrockMenuManager != null) {
+            try {
+                Map<String, Object> hybridStats = bedrockMenuManager.getHybridStats();
+                combinedStats.put("hybridStats", hybridStats);
+            } catch (Exception e) {
+                combinedStats.put("hybridStatsError", e.getMessage());
+            }
+        }
+
+        return combinedStats;
+    }
+
+    /**
+     * Limpia los datos de menú de un jugador específico
+     * Útil cuando un jugador se desconecta
+     */
+    public void cleanupPlayerMenuData(org.bukkit.entity.Player player) {
+        if (menuManager != null) {
+            menuManager.cleanupPlayer(player);
+        }
+    }
 }

@@ -9,6 +9,7 @@ import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.BiConsumer; // 🔧 IMPORT NECESARIO
 
 /**
  * Gestor de menús híbrido que detecta automáticamente el tipo de cliente
@@ -34,6 +35,7 @@ public class BedrockMenuManager {
     private Class<?> formPlayerClass;
     private Class<?> formMenuTypeClass;
     private boolean bedrockGuiAvailable = false;
+    private boolean debugMode = false;
 
     // Estados de menús registrados
     private boolean bedrockMenusRegistered = false;
@@ -43,10 +45,19 @@ public class BedrockMenuManager {
         this.rankupManager = rankupManager;
         this.javaMenuManager = javaMenuManager;
 
+        // Habilitar debug si está configurado
+        this.debugMode = plugin.getConfig().getBoolean("rankups.settings.debug_mode", false);
+
         initBedrockGUI();
 
         if (bedrockGuiAvailable) {
-            registerBedrockMenus();
+            try {
+                registerBedrockMenus();
+                plugin.getLogger().info("✅ Menús de Bedrock registrados correctamente");
+            } catch (Exception e) {
+                plugin.getLogger().severe("❌ Error registrando menús de Bedrock: " + e.getMessage());
+                bedrockGuiAvailable = false;
+            }
         }
     }
 
@@ -123,48 +134,82 @@ public class BedrockMenuManager {
 
     /**
      * Registra callbacks personalizados para acciones de Bedrock
+     * 🔧 CORRIGIDO: Usar BiConsumer explícitamente
      */
     private void registerBedrockCallbacks() throws Exception {
-        // Callback para rankup
-        registerCallback("rankup_action", (player, actionValue) -> {
-            Player bukkitPlayer = plugin.getServer().getPlayer(getPlayerName(player));
-            if (bukkitPlayer != null) {
-                performRankup(bukkitPlayer);
+        // 🔧 Callback para rankup - CORREGIDO
+        BiConsumer<Object, Object> rankupCallback = (player, actionValue) -> {
+            try {
+                String playerName = getPlayerName(player);
+                Player bukkitPlayer = plugin.getServer().getPlayer(playerName);
+                if (bukkitPlayer != null) {
+                    performRankup(bukkitPlayer);
+                }
+            } catch (Exception e) {
+                plugin.getLogger().warning("Error en callback rankup_action: " + e.getMessage());
             }
-        });
+        };
+        registerCallback("rankup_action", rankupCallback);
 
-        // Callback para ver progreso
-        registerCallback("progress_action", (player, actionValue) -> {
-            Player bukkitPlayer = plugin.getServer().getPlayer(getPlayerName(player));
-            if (bukkitPlayer != null) {
-                openProgressMenu(bukkitPlayer);
+        // 🔧 Callback para ver progreso - CORREGIDO
+        BiConsumer<Object, Object> progressCallback = (player, actionValue) -> {
+            try {
+                String playerName = getPlayerName(player);
+                Player bukkitPlayer = plugin.getServer().getPlayer(playerName);
+                if (bukkitPlayer != null) {
+                    openProgressMenu(bukkitPlayer);
+                }
+            } catch (Exception e) {
+                plugin.getLogger().warning("Error en callback progress_action: " + e.getMessage());
             }
-        });
+        };
+        registerCallback("progress_action", progressCallback);
 
-        // Callback para lista de rangos
-        registerCallback("ranks_list_action", (player, actionValue) -> {
-            Player bukkitPlayer = plugin.getServer().getPlayer(getPlayerName(player));
-            if (bukkitPlayer != null) {
-                showRanksList(bukkitPlayer);
+        // 🔧 Callback para lista de rangos - CORREGIDO
+        BiConsumer<Object, Object> ranksListCallback = (player, actionValue) -> {
+            try {
+                String playerName = getPlayerName(player);
+                Player bukkitPlayer = plugin.getServer().getPlayer(playerName);
+                if (bukkitPlayer != null) {
+                    showRanksList(bukkitPlayer);
+                }
+            } catch (Exception e) {
+                plugin.getLogger().warning("Error en callback ranks_list_action: " + e.getMessage());
             }
-        });
+        };
+        registerCallback("ranks_list_action", ranksListCallback);
 
-        // Callback para volver al menú principal
-        registerCallback("back_to_main", (player, actionValue) -> {
-            Player bukkitPlayer = plugin.getServer().getPlayer(getPlayerName(player));
-            if (bukkitPlayer != null) {
-                openMainMenu(bukkitPlayer);
+        // 🔧 Callback para volver al menú principal - CORREGIDO
+        BiConsumer<Object, Object> backToMainCallback = (player, actionValue) -> {
+            try {
+                String playerName = getPlayerName(player);
+                Player bukkitPlayer = plugin.getServer().getPlayer(playerName);
+                if (bukkitPlayer != null) {
+                    openMainMenu(bukkitPlayer);
+                }
+            } catch (Exception e) {
+                plugin.getLogger().warning("Error en callback back_to_main: " + e.getMessage());
             }
-        });
+        };
+        registerCallback("back_to_main", backToMainCallback);
     }
 
     /**
      * Registra un callback usando reflexión
+     * 🔧 CORREGIDO: Aceptar BiConsumer directamente
      */
-    private void registerCallback(String name, Object callback) throws Exception {
-        Method registerMethod = bedrockGuiApi.getClass().getMethod("registerButtonCallback", String.class,
-                Class.forName("java.util.function.BiConsumer"));
-        registerMethod.invoke(bedrockGuiApi, name, callback);
+    private void registerCallback(String name, BiConsumer<Object, Object> callback) throws Exception {
+        try {
+            Method registerMethod = bedrockGuiApi.getClass().getMethod("registerButtonCallback", String.class,
+                    BiConsumer.class);
+            registerMethod.invoke(bedrockGuiApi, name, callback);
+
+            plugin.getLogger().info("✓ Callback '" + name + "' registrado exitosamente");
+
+        } catch (Exception e) {
+            plugin.getLogger().warning("Error registrando callback '" + name + "': " + e.getMessage());
+            throw e;
+        }
     }
 
     /**
@@ -308,7 +353,7 @@ public class BedrockMenuManager {
     /**
      * Detecta el tipo de cliente del jugador
      */
-    private ClientType detectClientType(Player player) {
+    public ClientType detectClientType(Player player) {
         UUID uuid = player.getUniqueId();
 
         // Verificar cache
@@ -401,13 +446,47 @@ public class BedrockMenuManager {
     }
 
     /**
-     * Obtiene el nombre de un FormPlayer
+     * Obtiene el nombre de un FormPlayer de forma segura
      */
     private String getPlayerName(Object formPlayer) {
         try {
-            Method getNameMethod = formPlayer.getClass().getMethod("getName");
-            return (String) getNameMethod.invoke(formPlayer);
+            if (formPlayer == null) {
+                return "Unknown";
+            }
+
+            // Intentar varios métodos comunes para obtener el nombre
+            Method getNameMethod = null;
+            Class<?> playerClass = formPlayer.getClass();
+
+            // Intentar getDisplayName() primero
+            try {
+                getNameMethod = playerClass.getMethod("getDisplayName");
+            } catch (NoSuchMethodException ignored) {}
+
+            // Si no existe, intentar getName()
+            if (getNameMethod == null) {
+                try {
+                    getNameMethod = playerClass.getMethod("getName");
+                } catch (NoSuchMethodException ignored) {}
+            }
+
+            // Si no existe, intentar getUsername()
+            if (getNameMethod == null) {
+                try {
+                    getNameMethod = playerClass.getMethod("getUsername");
+                } catch (NoSuchMethodException ignored) {}
+            }
+
+            if (getNameMethod != null) {
+                Object result = getNameMethod.invoke(formPlayer);
+                return result != null ? result.toString() : "Unknown";
+            } else {
+                plugin.getLogger().warning("No se pudo encontrar método para obtener nombre del FormPlayer");
+                return "Unknown";
+            }
+
         } catch (Exception e) {
+            plugin.getLogger().warning("Error obteniendo nombre del FormPlayer: " + e.getMessage());
             return "Unknown";
         }
     }
@@ -466,7 +545,9 @@ public class BedrockMenuManager {
      */
     public void cleanupPlayer(Player player) {
         clientTypeCache.remove(player.getUniqueId());
-        javaMenuManager.cleanupPlayer(player);
+        if (javaMenuManager != null) {
+            javaMenuManager.cleanupPlayer(player);
+        }
     }
 
     /**
@@ -509,8 +590,21 @@ public class BedrockMenuManager {
      * Fuerza la detección de un jugador
      */
     public ClientType forceDetectClient(Player player) {
+        if (player == null) {
+            return ClientType.UNKNOWN;
+        }
+
+        // Limpiar caché para forzar nueva detección
         clientTypeCache.remove(player.getUniqueId());
-        return detectClientType(player);
+
+        // Detectar de nuevo
+        ClientType detected = detectClientType(player);
+
+        if (debugMode) {
+            plugin.getLogger().info("🔍 Detección forzada para " + player.getName() + ": " + detected);
+        }
+
+        return detected;
     }
 
     /**

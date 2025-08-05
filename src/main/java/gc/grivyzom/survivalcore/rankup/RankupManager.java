@@ -41,6 +41,7 @@ public class RankupManager {
     private LuckPerms luckPerms;
     private boolean placeholderAPIEnabled = false;
     private boolean debugMode = false;
+    private BedrockMenuManager bedrockMenuManager;
 
     // Configuración simplificada
     private long cooldownTime;
@@ -160,14 +161,6 @@ public class RankupManager {
      */
     public BedrockMenuManager getBedrockMenuManager() {
         return bedrockMenuManager;
-    }
-
-    /**
-     * Verifica si el sistema de menús está disponible (híbrido o Java)
-     * @return true si hay al menos un sistema de menús disponible
-     */
-    public boolean isMenuSystemAvailable() {
-        return menuManager != null || bedrockMenuManager != null;
     }
 
     /**
@@ -1503,9 +1496,9 @@ public class RankupManager {
                 // 4. Intentar cargar nueva configuración
                 loadConfiguration();
 
-                long duration = System.currentTimeMillis() - startTime;
+                long reloadDuration = System.currentTimeMillis() - startTime; // 🔧 RENOMBRAR VARIABLE
 
-                plugin.getLogger().info("✅ Configuración de Rankup 2.0 recargada exitosamente en " + duration + "ms");
+                plugin.getLogger().info("✅ Configuración de Rankup 2.0 recargada exitosamente en " + reloadDuration + "ms");
 
                 // Log de estadísticas actualizadas
                 plugin.getLogger().info("📊 Estadísticas actualizadas:");
@@ -1524,15 +1517,6 @@ public class RankupManager {
                     plugin.getLogger().info("🔄 Cambio en cooldown: " + (backupCooldownTime / 1000) + "s → " + (cooldownTime / 1000) + "s");
                 }
 
-                if (menuManager != null) {
-                    try {
-                        menuManager.reloadConfig();
-                        plugin.getLogger().info("✅ MenuManager recargado correctamente");
-                    } catch (Exception e) {
-                        plugin.getLogger().warning("⚠️ Error recargando MenuManager: " + e.getMessage());
-                    }
-                }
-
                 // 🆕 NUEVO: Recargar MenuManager si está disponible
                 if (menuManager != null) {
                     try {
@@ -1548,10 +1532,6 @@ public class RankupManager {
                 if (bedrockMenuManager != null) {
                     plugin.getLogger().info("✅ Sistema híbrido verificado correctamente");
                 }
-
-                long duration = System.currentTimeMillis() - startTime;
-                plugin.getLogger().info("✅ Configuración de Rankup 2.0 recargada exitosamente en " + duration + "ms");
-
 
                 // Limpiar cooldowns si se cambió la configuración de cooldown
                 if (cooldownTime != backupCooldownTime) {
@@ -1619,6 +1599,92 @@ public class RankupManager {
      */
     public MenuManager getMenuManager() {
         return menuManager;
+    }
+
+    /**
+     * Detecta el tipo de cliente del jugador
+     */
+    public BedrockMenuManager.ClientType detectClientType(Player player) {
+        if (bedrockMenuManager != null) {
+            return bedrockMenuManager.forceDetectClient(player);
+        }
+        return BedrockMenuManager.ClientType.JAVA; // Por defecto Java
+    }
+
+    /**
+     * Obtiene información del sistema híbrido
+     */
+    public Map<String, Object> getHybridSystemInfo() {
+        Map<String, Object> info = new HashMap<>();
+
+        if (bedrockMenuManager != null) {
+            info.putAll(bedrockMenuManager.getHybridStats());
+            info.put("bedrockGuiPluginInstalled",
+                    plugin.getServer().getPluginManager().getPlugin("BedrockGUI") != null);
+            info.put("bedrockGuiEnabled",
+                    plugin.getServer().getPluginManager().isPluginEnabled("BedrockGUI"));
+            info.put("javaMenusAvailable", menuManager != null);
+            info.put("bedrockMenusRegistered", true);
+
+            // Estadísticas de detección
+            Map<String, Object> hybridStats = bedrockMenuManager.getHybridStats();
+            info.put("detectedBedrockPlayers", hybridStats.get("detectedBedrockPlayers"));
+            info.put("detectedJavaPlayers", hybridStats.get("detectedJavaPlayers"));
+            info.put("totalCachedClients", hybridStats.get("cachedClientTypes"));
+        } else {
+            info.put("bedrockGuiDetected", false);
+            info.put("javaMenusAvailable", menuManager != null);
+            info.put("bedrockMenusRegistered", false);
+            info.put("detectedBedrockPlayers", 0);
+            info.put("detectedJavaPlayers", 0);
+            info.put("totalCachedClients", 0);
+        }
+
+        return info;
+    }
+
+    /**
+     * Obtiene la salud del sistema híbrido
+     */
+    public Map<String, String> getHybridSystemHealth() {
+        Map<String, String> health = new HashMap<>();
+
+        // Estado del sistema de rankup
+        health.put("RankupSystem", "HEALTHY");
+
+        // Estado de LuckPerms
+        if (luckPerms != null) {
+            health.put("LuckPerms", "OK");
+        } else {
+            health.put("LuckPerms", "NOT_AVAILABLE");
+        }
+
+        // Estado de MenuManager Java
+        if (menuManager != null) {
+            health.put("JavaMenus", isMenuSystemHealthy() ? "HEALTHY" : "UNHEALTHY");
+        } else {
+            health.put("JavaMenus", "NOT_AVAILABLE");
+        }
+
+        // Estado del sistema híbrido
+        if (bedrockMenuManager != null) {
+            health.put("HybridSystem", "FULLY_AVAILABLE");
+            health.put("BedrockGUI", "OK");
+            health.put("ClientDetection", "ACTIVE");
+        } else if (menuManager != null) {
+            health.put("HybridSystem", "JAVA_ONLY");
+            health.put("BedrockGUI", "NOT_AVAILABLE");
+            health.put("ClientDetection", "INACTIVE");
+        } else {
+            health.put("HybridSystem", "COMMANDS_ONLY");
+            health.put("BedrockGUI", "NOT_AVAILABLE");
+            health.put("ClientDetection", "INACTIVE");
+        }
+
+        // PlaceholderAPI
+        health.put("PlaceholderAPI", placeholderAPIEnabled ? "AVAILABLE" : "NOT_AVAILABLE");
+
+        return health;
     }
 
     /**

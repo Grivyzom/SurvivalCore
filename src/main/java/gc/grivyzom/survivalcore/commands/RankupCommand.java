@@ -10,6 +10,7 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
+import gc.grivyzom.survivalcore.rankup.menu.BedrockMenuManager;
 
 import java.io.File;
 import java.util.*;
@@ -178,12 +179,12 @@ public class RankupCommand implements CommandExecutor, TabCompleter {
         }
 
         try {
-            var clientType = rankupManager.detectClientType(player);
+            BedrockMenuManager.ClientType clientType = rankupManager.detectClientType(player); // 🔧 USAR MÉTODO CORRECTO
 
             player.sendMessage(ChatColor.AQUA + "═══ INFORMACIÓN DE CLIENTE ═══");
 
             switch (clientType) {
-                case BEDROCK -> {
+                case BEDROCK -> { // 🔧 AHORA FUNCIONA CON EL IMPORT
                     player.sendMessage(ChatColor.GREEN + "📱 Tipo: " + ChatColor.YELLOW + "Minecraft Bedrock Edition");
                     player.sendMessage(ChatColor.WHITE + "• Plataforma: Móvil, Consola o Windows 10");
                     player.sendMessage(ChatColor.WHITE + "• Menús: Optimizados para táctil");
@@ -194,7 +195,7 @@ public class RankupCommand implements CommandExecutor, TabCompleter {
                     player.sendMessage(ChatColor.WHITE + "  ✓ Detección automática");
                     player.sendMessage(ChatColor.WHITE + "  ✓ Compatibilidad total con comandos");
                 }
-                case JAVA -> {
+                case JAVA -> { // 🔧 AHORA FUNCIONA CON EL IMPORT
                     player.sendMessage(ChatColor.GREEN + "💻 Tipo: " + ChatColor.YELLOW + "Minecraft Java Edition");
                     player.sendMessage(ChatColor.WHITE + "• Plataforma: PC (Windows, Mac, Linux)");
                     player.sendMessage(ChatColor.WHITE + "• Menús: Interactivos completos");
@@ -205,7 +206,7 @@ public class RankupCommand implements CommandExecutor, TabCompleter {
                     player.sendMessage(ChatColor.WHITE + "  ✓ Configuración personalizable");
                     player.sendMessage(ChatColor.WHITE + "  ✓ Efectos visuales y sonoros");
                 }
-                case UNKNOWN -> {
+                case UNKNOWN -> { // 🔧 AHORA FUNCIONA CON EL IMPORT
                     player.sendMessage(ChatColor.GRAY + "❓ Tipo: " + ChatColor.YELLOW + "No detectado");
                     player.sendMessage(ChatColor.WHITE + "• Usando configuración por defecto");
                     player.sendMessage(ChatColor.WHITE + "• Menús básicos disponibles");
@@ -241,7 +242,7 @@ public class RankupCommand implements CommandExecutor, TabCompleter {
                     (hybridAvailable ? ChatColor.GREEN + "DISPONIBLE" : ChatColor.RED + "NO DISPONIBLE"));
 
             if (hybridAvailable) {
-                Map<String, Object> hybridInfo = rankupManager.getHybridSystemInfo();
+                Map<String, Object> hybridInfo = rankupManager.getHybridSystemInfo(); // 🔧 AHORA FUNCIONA
 
                 // Información de BedrockGUI
                 boolean bedrockGuiInstalled = (Boolean) hybridInfo.getOrDefault("bedrockGuiPluginInstalled", false);
@@ -290,7 +291,7 @@ public class RankupCommand implements CommandExecutor, TabCompleter {
             }
 
             // Salud del sistema
-            Map<String, String> health = rankupManager.getHybridSystemHealth();
+            Map<String, String> health = rankupManager.getHybridSystemHealth(); // 🔧 AHORA FUNCIONA
             player.sendMessage("");
             player.sendMessage(ChatColor.YELLOW + "Salud del sistema:");
             for (Map.Entry<String, String> entry : health.entrySet()) {
@@ -383,7 +384,7 @@ public class RankupCommand implements CommandExecutor, TabCompleter {
      */
     private boolean openRanksMenuHybrid(Player player) {
         try {
-            if (!rankupManager.isMenuSystemAvailable()) {
+            if (!rankupManager.isMenuSystemAvailable()) { // 🔧 USAR MÉTODO CORRECTO
                 player.sendMessage(ChatColor.RED + "❌ Sistema de menús no disponible");
                 showFallbackCommands(player);
                 return true;

@@ -318,7 +318,7 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage(ChatColor.WHITE + "  /score debug rankup - Estado del sistema de rankup");
             sender.sendMessage(ChatColor.WHITE + "  /score debug placeholders - Verificar placeholders");
             sender.sendMessage(ChatColor.WHITE + "  /score debug systems - Estado de todos los sistemas");
-            sender.sendMessage(ChatColor.WHITE + "  /score debug menus - Debug del sistema de menús"); // 🆕 NUEVO
+            sender.sendMessage(ChatColor.WHITE + "  /score debug menus - Debug del sistema de menús");
             if (sender instanceof Player) {
                 sender.sendMessage(ChatColor.WHITE + "  /score debug player - Debug de tu información");
             }
@@ -331,8 +331,8 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
             case "rankup" -> debugRankupSystem(sender);
             case "placeholders" -> debugPlaceholders(sender);
             case "systems" -> debugAllSystems(sender);
-            case "menus", "menu" -> {  // 🆕 NUEVO CASE
-                plugin.debugMenuSystem(sender);
+            case "menus", "menu" -> {
+                plugin.debugMenuSystemDetailed(sender); // 🔧 USAR MÉTODO RENOMBRADO
             }
             case "player" -> {
                 if (sender instanceof Player) {

@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Comando principal /score actualizado para Rankup 2.0
@@ -331,6 +332,50 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
             case "rankup" -> debugRankupSystem(sender);
             case "placeholders" -> debugPlaceholders(sender);
             case "systems" -> debugAllSystems(sender);
+            case "rankup_detection", "rd" -> {
+                if (args.length < 3) {
+                    sender.sendMessage(ChatColor.YELLOW + "Uso: /score debug rankup_detection <jugador>");
+                    return;
+                }
+
+                String targetName = args[2];
+                Player target = plugin.getServer().getPlayer(targetName);
+
+                if (target == null) {
+                    sender.sendMessage(ChatColor.RED + "❌ Jugador no encontrado: " + targetName);
+                    return;
+                }
+
+                if (!plugin.isRankupSystemEnabled()) {
+                    sender.sendMessage(ChatColor.RED + "❌ Sistema de rankup no disponible");
+                    return;
+                }
+
+                sender.sendMessage(ChatColor.YELLOW + "🔍 Iniciando debug detallado de detección de rango para " + target.getName());
+                sender.sendMessage(ChatColor.GRAY + "Revisa la consola para información completa...");
+
+                // Ejecutar debug detallado
+                plugin.getRankupManager().debugPlayerRankDetection(target);
+
+                // Información básica para el admin
+                String currentRank = plugin.getRankupManager().getCurrentRank(target);
+                sender.sendMessage("");
+                sender.sendMessage(ChatColor.AQUA + "📊 Resumen para " + target.getName() + ":");
+                sender.sendMessage(ChatColor.WHITE + "  • Rango detectado: " + ChatColor.YELLOW + currentRank);
+
+                if (currentRank != null) {
+                    var rankData = plugin.getRankupManager().getRanks().get(currentRank);
+                    if (rankData != null) {
+                        sender.sendMessage(ChatColor.WHITE + "  • Display: " + rankData.getDisplayName());
+                        sender.sendMessage(ChatColor.WHITE + "  • Orden: " + ChatColor.YELLOW + rankData.getOrder());
+                        sender.sendMessage(ChatColor.WHITE + "  • Siguiente: " + ChatColor.YELLOW +
+                                (rankData.hasNextRank() ? rankData.getNextRank() : "RANGO MÁXIMO"));
+                    }
+                }
+
+                sender.sendMessage("");
+                sender.sendMessage(ChatColor.GREEN + "✅ Debug completo en consola");
+            }
             case "menus", "menu" -> {
                 plugin.debugMenuSystemDetailed(sender); // 🔧 USAR MÉTODO RENOMBRADO
             }
@@ -343,6 +388,8 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
             }
             default -> sender.sendMessage(ChatColor.RED + "Tipo de debug desconocido: " + debugType);
         }
+
+
     }
 
     /**
@@ -835,6 +882,28 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
                     .sorted()
                     .toList();
         }
+
+        if (args.length == 2 && args[0].equalsIgnoreCase("debug")) {
+            List<String> debugCommands = new ArrayList<>(Arrays.asList(
+                    "rankup", "placeholders", "systems", "menus",
+                    "rankup_detection", "rd"  // 🆕 NUEVOS COMANDOS
+            ));
+            if (sender instanceof Player) {
+                debugCommands.add("player");
+            }
+            return debugCommands.stream()
+                    .filter(completion -> completion.startsWith(args[1].toLowerCase()))
+                    .toList();
+        }
+
+        if (args.length == 3 &&
+                (args[1].equalsIgnoreCase("rankup_detection") || args[1].equalsIgnoreCase("rd"))) {
+            return plugin.getServer().getOnlinePlayers().stream()
+                    .map(Player::getName)
+                    .filter(name -> name.toLowerCase().startsWith(args[2].toLowerCase()))
+                    .collect(Collectors.toList());
+        }
+
 
         // Tab completion para debug - 🆕 ACTUALIZADO
         if (args.length == 2 && args[0].equalsIgnoreCase("debug")) {

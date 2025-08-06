@@ -1,8 +1,8 @@
 # =======================================================
-#           RANKUP SYSTEM 2.0 - CONFIGURACIÓN FINAL
+#           RANKUP SYSTEM 2.0 - CONFIGURACIÓN MODERNIZADA
 # =======================================================
+# Sistema de mensajes compactos con paginación inteligente
 # Rangos: default > aprendiz > usuario > miembro > veterano
-# Sistema de mensajes personalizable integrado
 # =======================================================
 
 # =================== CONFIGURACIÓN GENERAL ===================
@@ -17,6 +17,27 @@ settings:
 
   # Modo debug (mantener en true hasta que funcione perfectamente)
   debug_mode: true
+
+# =================== CONFIGURACIÓN DE PAGINACIÓN ===================
+pagination:
+  # Número máximo de requisitos por página en /rankup progress
+  max_requirements_per_page: 4
+
+  # Número máximo de rangos por página en /rankup list
+  max_ranks_per_page: 5
+
+  # Activar modo compacto (mensajes más cortos y concisos)
+  enable_compact_mode: true
+
+  # Mostrar comandos de navegación entre páginas
+  enable_navigation: true
+
+  # Configuración de barras de progreso
+  progress_bar:
+    length: 20
+    filled_char: "█"
+    empty_char: "▓"
+    show_percentage: true
 
 # =================== INTEGRACIÓN CON LUCKPERMS ===================
 luckperms:
@@ -128,24 +149,12 @@ ranks:
         - "title %player% title &5&l¡VETERANO!"
         - "title %player% subtitle &d¡Has alcanzado la cima!"
 
-# =================== SISTEMA DE MENSAJES PERSONALIZABLE ===================
+# =================== SISTEMA DE MENSAJES COMPACTOS ===================
 messages:
-  # ========== MENSAJES PRINCIPALES ==========
+  # ========== MENSAJES PRINCIPALES COMPACTOS ==========
   success:
-    text: |
-      &a╔══════════════════════════════════╗
-      &a║ &2&l🎉 ¡RANKUP EXITOSO! 🎉&a         ║
-      &a╠══════════════════════════════════╣
-      &a║ &f¡Felicidades {player}!&a          ║
-      &a║ &fHas ascendido a&a                ║
-      &a║ &f{new_rank}&a                     ║
-      &a║                                  ║
-      &a║ &7Recompensas obtenidas:&a         ║
-      &a║ &e• {xp_reward} puntos de XP&a     ║
-      &a║ &e• Comandos ejecutados&a          ║
-      &a║                                  ║
-      &a║ &8¡Sigue así para el siguiente!&a ║
-      &a╚══════════════════════════════════╝
+    # Los mensajes compactos se manejan directamente en el código
+    # pero mantenemos la configuración de títulos
     show_title: true
     title:
       main: "&6&l🎉 ¡RANKUP! 🎉"
@@ -155,105 +164,51 @@ messages:
       fade_out: 20
 
   failed:
-    text: |
-      &c╔══════════════════════════════════╗
-      &c║ &4&l❌ RANKUP NO DISPONIBLE ❌&c    ║
-      &c╠══════════════════════════════════╣
-      &c║ &fNo cumples todos los requisitos&c║
-      &c║ &fpara ascender de rango.&c        ║
-      &c║                                  ║
-      &c║ &7Ve los detalles abajo:&c         ║
-      &c║                                  ║
-      &c║ &e💡 Tip: Usa &f/rankup progress&c ║
-      &c║ &epara ver tu progreso detallado&c ║
-      &c╚══════════════════════════════════╝
+    # Los mensajes compactos se manejan directamente en el código
+    show_tips: true
+    max_displayed_requirements: 3
 
   cooldown:
-    text: |
-      &e╔══════════════════════════════════╗
-      &e║ &6&l⏰ RANKUP EN COOLDOWN ⏰&e      ║
-      &e╠══════════════════════════════════╣
-      &e║ &fDebes esperar &c{seconds} segundos&e    ║
-      &e║ &fantes de intentar hacer rankup&e ║
-      &e║ &fde nuevo.&e                     ║
-      &e║                                  ║
-      &e║ &7Usa este tiempo para conseguir&e ║
-      &e║ &7más recursos y experiencia.&e   ║
-      &e╚══════════════════════════════════╝
+    # Los mensajes compactos se manejan directamente en el código
+    show_remaining_time: true
 
   max_rank:
-    text: |
-      &d╔══════════════════════════════════╗
-      &d║ &5&l⭐ RANGO MÁXIMO ALCANZADO ⭐&d  ║
-      &d╠══════════════════════════════════╣
-      &d║ &f¡Felicidades {player}!&d        ║
-      &d║ &fYa has alcanzado el rango&d     ║
-      &d║ &fmáximo del servidor:&d          ║
-      &d║ &f{current_rank}&d                ║
-      &d║                                  ║
-      &d║ &7Eres una leyenda en este&d      ║
-      &d║ &7servidor. ¡Sigue disfrutando!&d ║
-      &d╚══════════════════════════════════╝
+    # Los mensajes compactos se manejan directamente en el código
     show_title: true
     title:
       main: "&5&l⭐ LEYENDA ⭐"
       subtitle: "&dHas alcanzado la cima"
+      fade_in: 10
+      stay: 80
+      fade_out: 20
 
-  # ========== MENSAJES DE COMANDOS ==========
+  # ========== MENSAJES DE COMANDOS MODERNIZADOS ==========
   command_help:
-    text: |
-      &6╔════════════════════════════════════╗
-      &6║ &e&l📖 AYUDA DEL SISTEMA RANKUP 📖&6  ║
-      &6╠════════════════════════════════════╣
-      &6║ &f/rankup &7- Intentar hacer rankup&6    ║
-      &6║ &f/rankup info &7- Ver tu rango actual&6 ║
-      &6║ &f/rankup progress &7- Ver progreso&6    ║
-      &6║ &f/rankup list &7- Ver todos los rangos&6║
-      &6║ &f/ranks &7- Abrir menú interactivo&6    ║
-      &6║                                    ║
-      &6║ &8💡 Tip: Los rangos se basan en&6    ║
-      &6║ &8dinero, nivel, tiempo jugado y&6     ║
-      &6║ &8estadísticas del juego.&6           ║
-      &6╚════════════════════════════════════╝
+    show_pagination_info: true
+    show_tips: true
 
   progress_header:
-    text: |
-      &b╔════════════════════════════════════╗
-      &b║ &3&l📊 TU PROGRESO DE RANKUP 📊&b     ║
-      &b╠════════════════════════════════════╣
-      &b║ &fRango actual: {current_rank}&b      ║
-      &b║ &fSiguiente rango: {next_rank}&b      ║
-      &b║ &fProgreso general: &e{progress}%&b   ║
-      &b║ {progress_bar}&b                      ║
-      &b╠════════════════════════════════════╣
+    show_overall_progress: true
+    show_progress_bar: true
+    compact_format: true
 
   progress_footer:
-    text: |
-      &b╠════════════════════════════════════╣
-      &b║ &7Estado: {status}&b                  ║
-      &b║ &7Requisitos completados: &a{completed}&b ║
-      &b║ &7Requisitos faltantes: &c{missing}&b     ║
-      &b╚════════════════════════════════════╝
+    show_summary: true
+    show_next_steps: true
 
   rank_list_header:
-    text: |
-      &2╔════════════════════════════════════╗
-      &2║ &a&l📋 LISTA DE RANGOS DEL SERVIDOR&2 ║
-      &2╠════════════════════════════════════╣
+    show_server_info: true
+    show_total_ranks: true
 
   rank_list_footer:
-    text: |
-      &2╠════════════════════════════════════╣
-      &2║ &7Tu rango actual: {current_rank}&2   ║
-      &2║ &7Tu posición: &e#{rank_position}&2   ║
-      &2║ &7Total rangos: &a{total_ranks}&2     ║
-      &2╚════════════════════════════════════╝
+    show_player_position: true
+    show_current_rank: true
 
-  # ========== MENSAJES DE ERROR ==========
-  error_system_disabled: "&c❌ El sistema de rankup está deshabilitado"
-  error_no_rank_detected: "&c❌ No se pudo detectar tu rango actual"
-  error_database: "&c❌ Error de base de datos. Contacta a un administrador"
-  error_luckperms: "&c❌ Integración con LuckPerms no disponible"
+  # ========== MENSAJES DE ERROR COMPACTOS ==========
+  error_system_disabled: "&c❌ Sistema de rankup deshabilitado"
+  error_no_rank_detected: "&c❌ No se pudo detectar tu rango"
+  error_database: "&c❌ Error de base de datos"
+  error_luckperms: "&c❌ LuckPerms no disponible"
   error_invalid_rank: "&c❌ Configuración de rango inválida"
 
   # ========== MENSAJES DE ESTADO ==========
@@ -263,19 +218,30 @@ messages:
   status_max_rank_reached: "&d¡Rango máximo!"
   status_error: "&cError del sistema"
 
-  # ========== FORMATOS DE REQUISITOS ==========
-  requirements:
-    money: "&7• Dinero: &c${current}&7/&a${required}"
-    level: "&7• Nivel de experiencia: &c{current}&7/&a{required}"
-    playtime_hours: "&7• Tiempo jugado: &c{current}h&7/&a{required}h"
-    mob_kills: "&7• Mobs matados: &c{current}&7/&a{required}"
-    blocks_mined: "&7• Bloques minados: &c{current}&7/&a{required}"
-    farming_level: "&7• Nivel de farming: &cLv.{current}&7/&aLv.{required}"
-    mining_level: "&7• Nivel de minería: &cLv.{current}&7/&aLv.{required}"
-    animals_bred: "&7• Animales criados: &c{current}&7/&a{required}"
-    fish_caught: "&7• Peces pescados: &c{current}&7/&a{required}"
-    ender_dragon_kills: "&7• Ender Dragons eliminados: &c{current}&7/&a{required}"
-    wither_kills: "&7• Withers eliminados: &c{current}&7/&a{required}"
+  # ========== MENSAJES DE NAVEGACIÓN ==========
+  navigation:
+    previous_page: "&7(anterior)"
+    next_page: "&7(siguiente)"
+    page_indicator: "&7Página &f{current}&7/&f{total}"
+    separator: "&7──────────────────────────────"
+    no_more_pages: "&7No hay más páginas"
+
+  # ========== MENSAJES DE PROGRESO ==========
+  progress:
+    all_completed: "&a✅ ¡Todos los requisitos completados! Usa &f/rankup &apara ascender"
+    summary_format: "&f📋 Estado: &a{completed}&7/&f{total} &7completados, &c{missing} &7pendientes"
+    requirement_completed: "&a✅"
+    requirement_missing: "&c❌"
+    missing_indicator: "&c(faltan {amount})"
+
+  # ========== MENSAJES DE RANGOS ==========
+  ranks:
+    current_indicator: "&a► "
+    completed_indicator: "&e✓ "
+    locked_indicator: "&7• "
+    max_rank_suffix: "&d(máximo)"
+    next_rank_arrow: "&7 → "
+    position_format: "&7(#{position})"
 
 # =================== EFECTOS Y SONIDOS ===================
 effects:
@@ -341,3 +307,97 @@ advanced:
 
     # Validar mensajes esenciales al cargar
     validate_essential_messages: true
+
+    # Configuración específica para modo compacto
+    compact_mode:
+      # Máximo número de líneas para mensajes compactos
+      max_lines: 8
+
+      # Usar iconos Unicode para mejor visualización
+      use_unicode_icons: true
+
+      # Separadores para secciones
+      section_separator: "──────────────────────────────"
+
+      # Prefijos para diferentes tipos de mensajes
+      prefixes:
+        success: "&a🎉 "
+        error: "&c❌ "
+        warning: "&e⚠️ "
+        info: "&b📋 "
+        tip: "&7💡 "
+
+# =================== BARRAS DE PROGRESO ===================
+progress_bars:
+  # Longitud de las barras de progreso
+  length: 20
+
+  # Caracteres para barras de progreso
+  complete_char: "█"
+  incomplete_char: "▓"
+
+  # Colores según porcentaje
+  colors:
+    "100": "&a"      # Verde para 100%
+    "75-99": "&e"    # Amarillo para 75-99%
+    "50-74": "&6"    # Naranja para 50-74%
+    "25-49": "&c"    # Rojo para 25-49%
+    "0-24": "&4"     # Rojo oscuro para 0-24%
+
+# =================== FORMATOS DE REQUISITOS ===================
+requirements:
+  # Formatos personalizados para diferentes tipos de requisitos
+  money:
+    name: "Dinero"
+    format_short: "${value}"
+    format_long: "${value} de dinero"
+
+  level:
+    name: "Nivel de experiencia"
+    format_short: "Lv.{value}"
+    format_long: "Nivel {value} de experiencia"
+
+  playtime_hours:
+    name: "Tiempo jugado"
+    format_short: "{value}h"
+    format_long: "{value} horas jugadas"
+
+  mob_kills:
+    name: "Mobs eliminados"
+    format_short: "{value}"
+    format_long: "{value} mobs eliminados"
+
+  blocks_mined:
+    name: "Bloques minados"
+    format_short: "{value}"
+    format_long: "{value} bloques minados"
+
+  farming_level:
+    name: "Nivel de farming"
+    format_short: "Lv.{value}"
+    format_long: "Nivel {value} de farming"
+
+  mining_level:
+    name: "Nivel de minería"
+    format_short: "Lv.{value}"
+    format_long: "Nivel {value} de minería"
+
+  animals_bred:
+    name: "Animales criados"
+    format_short: "{value}"
+    format_long: "{value} animales criados"
+
+  fish_caught:
+    name: "Peces pescados"
+    format_short: "{value}"
+    format_long: "{value} peces pescados"
+
+  ender_dragon_kills:
+    name: "Ender Dragons eliminados"
+    format_short: "{value}"
+    format_long: "{value} Ender Dragons eliminados"
+
+  wither_kills:
+    name: "Withers eliminados"
+    format_short: "{value}"
+    format_long: "{value} Withers eliminados"

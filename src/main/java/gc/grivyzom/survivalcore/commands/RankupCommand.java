@@ -2,7 +2,6 @@ package gc.grivyzom.survivalcore.commands;
 
 import gc.grivyzom.survivalcore.Main;
 import gc.grivyzom.survivalcore.rankup.*;
-import gc.grivyzom.survivalcore.rankup.RankupManager.*;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
@@ -15,11 +14,11 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * Comando de rankup simplificado - Versión 2.0
- * Más intuitivo y fácil de usar
+ * Comando de rankup modernizado - Versión 2.1
+ * Con sistema de paginación integrado y mensajes compactos
  *
  * @author Brocolitx
- * @version 2.0
+ * @version 2.1 - Con paginación
  */
 public class RankupCommand implements CommandExecutor, TabCompleter {
 
@@ -49,7 +48,7 @@ public class RankupCommand implements CommandExecutor, TabCompleter {
     }
 
     /**
-     * Maneja el comando /rankup con sintaxis simplificada
+     * Maneja el comando /rankup con sintaxis simplificada y paginación
      */
     private boolean handleRankup(Player player, String[] args) {
         if (args.length == 0) {
@@ -61,9 +60,33 @@ public class RankupCommand implements CommandExecutor, TabCompleter {
         String subcommand = args[0].toLowerCase();
         switch (subcommand) {
             case "info", "i" -> showRankInfo(player);
-            case "progress", "p", "progreso" -> showProgress(player);
+            case "progress", "p", "progreso" -> {
+                // 🆕 NUEVO: Soporte para paginación en progreso
+                int page = 1;
+                if (args.length > 1) {
+                    try {
+                        page = Integer.parseInt(args[1]);
+                    } catch (NumberFormatException e) {
+                        player.sendMessage(ChatColor.RED + "❌ Página inválida. Usa un número.");
+                        return true;
+                    }
+                }
+                showProgressWithPagination(player, page);
+            }
+            case "list", "l", "lista" -> {
+                // 🆕 NUEVO: Soporte para paginación en lista de rangos
+                int page = 1;
+                if (args.length > 1) {
+                    try {
+                        page = Integer.parseInt(args[1]);
+                    } catch (NumberFormatException e) {
+                        player.sendMessage(ChatColor.RED + "❌ Página inválida. Usa un número.");
+                        return true;
+                    }
+                }
+                showRanksListWithPagination(player, page);
+            }
             case "help", "h", "ayuda" -> showHelp(player);
-            case "list", "l", "lista" -> showRankList(player);
             case "debug", "d" -> {
                 if (!player.hasPermission("survivalcore.rankup.admin")) {
                     player.sendMessage(ChatColor.RED + "❌ Sin permisos para debug");
@@ -77,6 +100,14 @@ public class RankupCommand implements CommandExecutor, TabCompleter {
                     return true;
                 }
                 reloadConfig(player);
+            }
+            case "compact" -> {
+                // 🆕 NUEVO: Comando para alternar modo compacto
+                if (!player.hasPermission("survivalcore.rankup.admin")) {
+                    player.sendMessage(ChatColor.RED + "❌ Sin permisos para cambiar modo");
+                    return true;
+                }
+                toggleCompactMode(player);
             }
             default -> {
                 player.sendMessage(ChatColor.RED + "❌ Subcomando desconocido. Usa §e/rankup help");
@@ -111,7 +142,18 @@ public class RankupCommand implements CommandExecutor, TabCompleter {
         String subcommand = args[0].toLowerCase();
         switch (subcommand) {
             case "gui", "menu" -> RankupGUI.openMainMenu(player, plugin);
-            case "list", "lista" -> showRankList(player);
+            case "list", "lista" -> {
+                int page = 1;
+                if (args.length > 1) {
+                    try {
+                        page = Integer.parseInt(args[1]);
+                    } catch (NumberFormatException e) {
+                        player.sendMessage(ChatColor.RED + "❌ Página inválida. Usa un número.");
+                        return true;
+                    }
+                }
+                showRanksListWithPagination(player, page);
+            }
             case "top", "leaderboard" -> showTopRanks(player);
             default -> {
                 player.sendMessage(ChatColor.RED + "❌ Subcomando desconocido para /ranks");
@@ -155,12 +197,12 @@ public class RankupCommand implements CommandExecutor, TabCompleter {
             return;
         }
 
-        // 📋 INFO COMPACTA Y CLARA
+        // 📋 INFO COMPACTA Y CLARA - VERSIÓN MODERNIZADA
         player.sendMessage("");
         player.sendMessage(ChatColor.AQUA + "📋 " + ChatColor.BOLD + "INFORMACIÓN DE RANGO");
         player.sendMessage("");
         player.sendMessage(ChatColor.WHITE + "🎯 Rango actual: " + rankData.getDisplayName());
-        player.sendMessage(ChatColor.WHITE + "📊 Orden: " + ChatColor.YELLOW + rankData.getOrder());
+        player.sendMessage(ChatColor.WHITE + "📊 Posición: " + ChatColor.YELLOW + "#" + (rankData.getOrder() + 1));
 
         if (rankData.hasNextRank()) {
             RankupManager.SimpleRankData nextRankData = rankups.get(rankData.getNextRank());
@@ -171,48 +213,86 @@ public class RankupCommand implements CommandExecutor, TabCompleter {
         }
 
         player.sendMessage("");
-        player.sendMessage(ChatColor.GRAY + "💡 Comandos:");
+        player.sendMessage(ChatColor.GRAY + "💡 Comandos útiles:");
         player.sendMessage(ChatColor.GRAY + "  • §e/rankup §7- Intentar rankup");
-        player.sendMessage(ChatColor.GRAY + "  • §e/rankup progress §7- Ver progreso");
+        player.sendMessage(ChatColor.GRAY + "  • §e/rankup progress §7- Ver progreso detallado");
+        player.sendMessage(ChatColor.GRAY + "  • §e/ranks §7- Abrir menú interactivo");
         player.sendMessage("");
     }
 
     /**
-     * Muestra progreso con formato más limpio
+     * 🆕 NUEVO: Muestra progreso con paginación inteligente
      */
-    private void showProgress(Player player) {
+    private void showProgressWithPagination(Player player, int page) {
         player.sendMessage(ChatColor.YELLOW + "🔄 Cargando tu progreso...");
-        rankupManager.showPlayerProgress(player);
+
+        rankupManager.getPlayerProgress(player).thenAccept(progress -> {
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                try {
+                    // Usar el nuevo sistema de paginación del MessageManager
+                    rankupManager.getMessageManager().sendProgressWithPagination(player, progress, page);
+                } catch (Exception e) {
+                    plugin.getLogger().severe("Error mostrando progreso paginado: " + e.getMessage());
+                    player.sendMessage(ChatColor.RED + "❌ Error cargando progreso. Intenta de nuevo.");
+                }
+            });
+        }).exceptionally(throwable -> {
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                plugin.getLogger().severe("Error obteniendo progreso: " + throwable.getMessage());
+                player.sendMessage(ChatColor.RED + "❌ Error obteniendo progreso. Contacta a un administrador.");
+            });
+            return null;
+        });
     }
+
     /**
-     * Muestra ayuda simplificada
+     * 🆕 NUEVO: Muestra lista de rangos con paginación
+     */
+    private void showRanksListWithPagination(Player player, int page) {
+        try {
+            Map<String, RankupManager.SimpleRankData> allRanks = rankupManager.getRanks();
+            String currentRank = rankupManager.getCurrentRank(player);
+
+            // Usar el nuevo sistema de paginación del MessageManager
+            rankupManager.getMessageManager().sendRanksListWithPagination(player, allRanks, currentRank, page);
+
+        } catch (Exception e) {
+            plugin.getLogger().severe("Error mostrando lista de rangos: " + e.getMessage());
+            player.sendMessage(ChatColor.RED + "❌ Error cargando lista de rangos. Intenta de nuevo.");
+        }
+    }
+
+    /**
+     * Muestra ayuda modernizada
      */
     private void showHelp(Player player) {
         rankupManager.getMessageManager().sendHelpMessage(player);
     }
 
     /**
-     * Lista de rangos simplificada
-     */
-    private void showRankList(Player player) {
-        rankupManager.showRanksList(player);
-    }
-
-    /**
-     * Muestra top de rangos (placeholder)
+     * Muestra top de rangos (placeholder mejorado)
      */
     private void showTopRanks(Player player) {
-        player.sendMessage(ChatColor.YELLOW + "🚧 Top de rangos en desarrollo...");
+        player.sendMessage("");
+        player.sendMessage(ChatColor.GOLD + "🏆 " + ChatColor.BOLD + "TOP RANGOS");
+        player.sendMessage("");
+        player.sendMessage(ChatColor.YELLOW + "🚧 Función en desarrollo...");
         player.sendMessage(ChatColor.GRAY + "Esta función estará disponible próximamente.");
+        player.sendMessage(ChatColor.GRAY + "Incluirá ranking de jugadores por tiempo en rangos,");
+        player.sendMessage(ChatColor.GRAY + "estadísticas de progreso y logros especiales.");
+        player.sendMessage("");
+        player.sendMessage(ChatColor.GRAY + "💡 Mientras tanto, usa " + ChatColor.WHITE + "/rankup list" +
+                ChatColor.GRAY + " para ver todos los rangos");
+        player.sendMessage("");
     }
 
     /**
-     * Maneja comandos de debug
+     * Maneja comandos de debug con información mejorada
      */
     private void handleDebug(Player player, String[] args) {
         if (args.length < 2) {
-            // Debug del propio jugador
-            rankupManager.debugPlayerRankup(player, player);
+            // Debug del propio jugador con información extendida
+            debugPlayerRankupExtended(player, player);
             return;
         }
 
@@ -224,11 +304,43 @@ public class RankupCommand implements CommandExecutor, TabCompleter {
             return;
         }
 
-        rankupManager.debugPlayerRankup(target, player);
+        debugPlayerRankupExtended(target, player);
     }
 
     /**
-     * Recarga la configuración
+     * 🆕 NUEVO: Debug extendido con más información
+     */
+    private void debugPlayerRankupExtended(Player target, Player admin) {
+        admin.sendMessage("");
+        admin.sendMessage(ChatColor.GOLD + "🔍 " + ChatColor.BOLD + "DEBUG RANKUP - " + target.getName());
+        admin.sendMessage(ChatColor.GRAY + "════════════════════════════════════════");
+
+        // Usar el debug del RankupManager pero con formato mejorado
+        rankupManager.debugPlayerRankup(target, admin);
+
+        // Información adicional sobre el sistema de mensajes
+        try {
+            Map<String, Object> messageStats = rankupManager.getMessageManager().getStats();
+
+            admin.sendMessage("");
+            admin.sendMessage(ChatColor.AQUA + "📊 Estadísticas del Sistema de Mensajes:");
+            admin.sendMessage(ChatColor.WHITE + "  • Mensajes cargados: " + ChatColor.YELLOW + messageStats.get("total_messages"));
+            admin.sendMessage(ChatColor.WHITE + "  • Modo compacto: " +
+                    (((Boolean) messageStats.get("compact_mode_enabled")) ? ChatColor.GREEN + "Habilitado" : ChatColor.RED + "Deshabilitado"));
+            admin.sendMessage(ChatColor.WHITE + "  • Navegación: " +
+                    (((Boolean) messageStats.get("navigation_enabled")) ? ChatColor.GREEN + "Habilitada" : ChatColor.RED + "Deshabilitada"));
+            admin.sendMessage(ChatColor.WHITE + "  • Requisitos por página: " + ChatColor.YELLOW + messageStats.get("max_requirements_per_page"));
+            admin.sendMessage(ChatColor.WHITE + "  • Rangos por página: " + ChatColor.YELLOW + messageStats.get("max_ranks_per_page"));
+
+        } catch (Exception e) {
+            admin.sendMessage(ChatColor.RED + "Error obteniendo estadísticas: " + e.getMessage());
+        }
+
+        admin.sendMessage(ChatColor.GRAY + "════════════════════════════════════════");
+    }
+
+    /**
+     * Recarga la configuración con información mejorada
      */
     private void reloadConfig(Player player) {
         try {
@@ -240,98 +352,76 @@ public class RankupCommand implements CommandExecutor, TabCompleter {
 
             long duration = System.currentTimeMillis() - startTime;
 
-            player.sendMessage(ChatColor.GREEN + "✅ Configuración recargada en " + duration + "ms");
+            player.sendMessage("");
+            player.sendMessage(ChatColor.GREEN + "✅ Configuración recargada exitosamente");
+            player.sendMessage(ChatColor.GRAY + "Tiempo: " + duration + "ms");
 
-            // Mostrar estadísticas
+            // Mostrar estadísticas actualizadas
             int ranksCount = rankupManager.getRanks().size();
             boolean papiEnabled = rankupManager.isPlaceholderAPIEnabled();
 
-            player.sendMessage(ChatColor.GRAY + "📊 Estadísticas:");
-            player.sendMessage(ChatColor.GRAY + "  • Rangos: " + ranksCount);
-            player.sendMessage(ChatColor.GRAY + "  • PlaceholderAPI: " + (papiEnabled ? "✓" : "✗"));
+            player.sendMessage("");
+            player.sendMessage(ChatColor.AQUA + "📊 Estadísticas actualizadas:");
+            player.sendMessage(ChatColor.WHITE + "  • Rangos cargados: " + ChatColor.GREEN + ranksCount);
+            player.sendMessage(ChatColor.WHITE + "  • PlaceholderAPI: " +
+                    (papiEnabled ? ChatColor.GREEN + "✓ Disponible" : ChatColor.RED + "✗ No disponible"));
+            player.sendMessage(ChatColor.WHITE + "  • Cooldown: " + ChatColor.YELLOW + (rankupManager.getCooldownTime() / 1000) + "s");
+            player.sendMessage(ChatColor.WHITE + "  • Efectos: " +
+                    (rankupManager.areEffectsEnabled() ? ChatColor.GREEN + "Habilitados" : ChatColor.RED + "Deshabilitados"));
+            player.sendMessage(ChatColor.WHITE + "  • Broadcast: " +
+                    (rankupManager.isBroadcastEnabled() ? ChatColor.GREEN + "Habilitado" : ChatColor.RED + "Deshabilitado"));
+
+            // Verificar sistema de mensajes
+            try {
+                Map<String, Object> messageStats = rankupManager.getMessageManager().getStats();
+                player.sendMessage(ChatColor.WHITE + "  • Mensajes: " + ChatColor.GREEN + messageStats.get("total_messages") + " cargados");
+                player.sendMessage(ChatColor.WHITE + "  • Modo compacto: " +
+                        (((Boolean) messageStats.get("compact_mode_enabled")) ? ChatColor.GREEN + "Activo" : ChatColor.YELLOW + "Inactivo"));
+            } catch (Exception e) {
+                player.sendMessage(ChatColor.YELLOW + "  • Sistema de mensajes: Error obteniendo estadísticas");
+            }
+
+            player.sendMessage("");
 
         } catch (Exception e) {
-            player.sendMessage(ChatColor.RED + "❌ Error recargando: " + e.getMessage());
-            plugin.getLogger().severe("Error en reload de rankup: " + e.getMessage());
+            player.sendMessage("");
+            player.sendMessage(ChatColor.RED + "❌ Error recargando configuración:");
+            player.sendMessage(ChatColor.RED + e.getMessage());
+            player.sendMessage("");
+            player.sendMessage(ChatColor.YELLOW + "💡 Consejos:");
+            player.sendMessage(ChatColor.GRAY + "• Verifica que rankups.yml tenga sintaxis YAML válida");
+            player.sendMessage(ChatColor.GRAY + "• Asegúrate de que LuckPerms esté funcionando");
+            player.sendMessage(ChatColor.GRAY + "• Usa /score debug rankup para más información");
+
+            plugin.getLogger().severe("Error en reload de rankup solicitado por " + player.getName() + ": " + e.getMessage());
         }
     }
 
     /**
-     * Crea una barra de progreso visual mejorada
+     * 🆕 NUEVO: Alterna el modo compacto del sistema de mensajes
      */
-    private String createProgressBar(double percentage, int length) {
-        int filled = (int) Math.ceil(percentage / 100.0 * length);
-        StringBuilder bar = new StringBuilder();
+    private void toggleCompactMode(Player player) {
+        try {
+            rankupManager.getMessageManager().toggleCompactMode();
 
-        // Agregar color basado en porcentaje
-        String color = getProgressColor(percentage);
+            Map<String, Object> stats = rankupManager.getMessageManager().getStats();
+            boolean isCompact = (Boolean) stats.get("compact_mode_enabled");
 
-        bar.append(color);
-        for (int i = 0; i < filled; i++) {
-            bar.append("█");
+            player.sendMessage("");
+            if (isCompact) {
+                player.sendMessage(ChatColor.GREEN + "✅ Modo compacto " + ChatColor.BOLD + "HABILITADO");
+                player.sendMessage(ChatColor.WHITE + "   Los mensajes de rankup serán más cortos y concisos");
+            } else {
+                player.sendMessage(ChatColor.YELLOW + "📜 Modo compacto " + ChatColor.BOLD + "DESHABILITADO");
+                player.sendMessage(ChatColor.WHITE + "   Los mensajes de rankup usarán formato extendido");
+            }
+            player.sendMessage("");
+            player.sendMessage(ChatColor.GRAY + "💡 Este cambio afecta a todos los jugadores del servidor");
+            player.sendMessage("");
+
+        } catch (Exception e) {
+            player.sendMessage(ChatColor.RED + "❌ Error alternando modo compacto: " + e.getMessage());
         }
-
-        bar.append(ChatColor.GRAY);
-        for (int i = filled; i < length; i++) {
-            bar.append("█");
-        }
-
-        // Agregar porcentaje al final
-        bar.append(" ").append(ChatColor.WHITE).append(String.format("%.1f%%", percentage));
-
-        return bar.toString();
-    }
-
-    /**
-     * Obtiene color basado en porcentaje de progreso
-     */
-    private String getProgressColor(double percentage) {
-        if (percentage >= 100.0) return ChatColor.GREEN.toString();
-        if (percentage >= 75.0) return ChatColor.YELLOW.toString();
-        if (percentage >= 50.0) return ChatColor.GOLD.toString();
-        if (percentage >= 25.0) return ChatColor.RED.toString();
-        return ChatColor.DARK_RED.toString();
-    }
-
-    /**
-     * Formatea el nombre de un requisito para mostrar
-     */
-    private String formatRequirementName(String type) {
-        return switch (type.toLowerCase()) {
-            case "money" -> "Dinero";
-            case "level" -> "Nivel";
-            case "playtime_hours" -> "Tiempo jugado";
-            case "mob_kills" -> "Mobs matados";
-            case "blocks_mined" -> "Bloques minados";
-            case "farming_level" -> "Nivel farming";
-            case "mining_level" -> "Nivel minería";
-            case "animals_bred" -> "Animales criados";
-            case "fish_caught" -> "Peces pescados";
-            case "ender_dragon_kills" -> "Ender Dragons";
-            case "wither_kills" -> "Withers matados";
-            default -> type.replace("_", " ");
-        };
-    }
-
-    /**
-     * Formatea el valor de un requisito para mostrar
-     */
-    private String formatRequirementValue(RequirementProgress progress) {
-        String type = progress.getType().toLowerCase();
-        double current = progress.getCurrent();
-        double required = progress.getRequired();
-
-        return switch (type) {
-            case "money" -> String.format("$%,.0f/$%,.0f", current, required);
-            case "level" -> String.format("%.0f/%.0f", current, required);
-            case "playtime_hours" -> String.format("%.1f/%.1fh", current, required);
-            case "mob_kills", "blocks_mined", "animals_bred", "fish_caught",
-                 "ender_dragon_kills", "wither_kills" ->
-                    String.format("%,.0f/%,.0f", current, required);
-            case "farming_level", "mining_level" ->
-                    String.format("Lv.%.0f/%.0f", current, required);
-            default -> String.format("%.1f/%.1f", current, required);
-        };
     }
 
     @Override
@@ -344,7 +434,7 @@ public class RankupCommand implements CommandExecutor, TabCompleter {
                 case "rankup" -> {
                     completions.addAll(Arrays.asList("info", "progress", "help", "list"));
                     if (sender.hasPermission("survivalcore.rankup.admin")) {
-                        completions.addAll(Arrays.asList("reload", "debug"));
+                        completions.addAll(Arrays.asList("reload", "debug", "compact"));
                     }
                 }
                 case "prestige" -> {
@@ -360,6 +450,13 @@ public class RankupCommand implements CommandExecutor, TabCompleter {
                     .collect(Collectors.toList());
         }
 
+        // Tab completion para páginas en progress y list
+        if (args.length == 2 && (args[0].equalsIgnoreCase("progress") || args[0].equalsIgnoreCase("list"))) {
+            return Arrays.asList("1", "2", "3", "4", "5").stream()
+                    .filter(page -> page.startsWith(args[1]))
+                    .collect(Collectors.toList());
+        }
+
         // Tab completion para debug de jugadores
         if (args.length == 2 && args[0].equalsIgnoreCase("debug") &&
                 sender.hasPermission("survivalcore.rankup.admin")) {
@@ -372,4 +469,5 @@ public class RankupCommand implements CommandExecutor, TabCompleter {
 
         return Collections.emptyList();
     }
+
 }

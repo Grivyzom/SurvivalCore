@@ -50,7 +50,6 @@ public class RankupManager {
     private String defaultRank;
 
 
-
     public RankupManager(Main plugin) {
         this.plugin = plugin;
         this.configFile = new File(plugin.getDataFolder(), "rankups.yml");
@@ -329,6 +328,7 @@ public class RankupManager {
             }
         });
     }
+
     /**
      * Verifica todos los requisitos de forma eficiente
      */
@@ -371,6 +371,7 @@ public class RankupManager {
 
         return new RequirementCheckResult(failedRequirements.isEmpty(), failedRequirements);
     }
+
     private String formatRequirementValue(String type, double value) {
         return switch (type) {
             case "money" -> String.format("$%,.0f", value);
@@ -1099,25 +1100,57 @@ public class RankupManager {
         private Map<String, Object> rewards = new HashMap<>();
 
         // Getters y Setters
-        public String getId() { return id; }
-        public void setId(String id) { this.id = id; }
+        public String getId() {
+            return id;
+        }
 
-        public String getDisplayName() { return displayName; }
-        public void setDisplayName(String displayName) { this.displayName = displayName; }
+        public void setId(String id) {
+            this.id = id;
+        }
 
-        public String getNextRank() { return nextRank; }
-        public void setNextRank(String nextRank) { this.nextRank = nextRank; }
+        public String getDisplayName() {
+            return displayName;
+        }
 
-        public int getOrder() { return order; }
-        public void setOrder(int order) { this.order = order; }
+        public void setDisplayName(String displayName) {
+            this.displayName = displayName;
+        }
 
-        public Map<String, Object> getRequirements() { return requirements; }
-        public void setRequirements(Map<String, Object> requirements) { this.requirements = requirements; }
+        public String getNextRank() {
+            return nextRank;
+        }
 
-        public Map<String, Object> getRewards() { return rewards; }
-        public void setRewards(Map<String, Object> rewards) { this.rewards = rewards; }
+        public void setNextRank(String nextRank) {
+            this.nextRank = nextRank;
+        }
 
-        public boolean hasNextRank() { return nextRank != null && !nextRank.isEmpty(); }
+        public int getOrder() {
+            return order;
+        }
+
+        public void setOrder(int order) {
+            this.order = order;
+        }
+
+        public Map<String, Object> getRequirements() {
+            return requirements;
+        }
+
+        public void setRequirements(Map<String, Object> requirements) {
+            this.requirements = requirements;
+        }
+
+        public Map<String, Object> getRewards() {
+            return rewards;
+        }
+
+        public void setRewards(Map<String, Object> rewards) {
+            this.rewards = rewards;
+        }
+
+        public boolean hasNextRank() {
+            return nextRank != null && !nextRank.isEmpty();
+        }
     }
 
     // =================== CLASES DE RESULTADO ===================
@@ -1131,8 +1164,13 @@ public class RankupManager {
             this.message = message;
         }
 
-        public boolean isSuccess() { return success; }
-        public String getMessage() { return message; }
+        public boolean isSuccess() {
+            return success;
+        }
+
+        public String getMessage() {
+            return message;
+        }
     }
 
     public static class RequirementCheckResult {
@@ -1144,8 +1182,14 @@ public class RankupManager {
             this.failedRequirements = failedRequirements != null ? failedRequirements : new ArrayList<>();
         }
 
-        public boolean isSuccess() { return success; }
-        public List<String> getFailedRequirements() { return failedRequirements; }
+        public boolean isSuccess() {
+            return success;
+        }
+
+        public List<String> getFailedRequirements() {
+            return failedRequirements;
+        }
+
         public String getFailureMessage() {
             return String.join("\n", failedRequirements);
         }
@@ -1165,10 +1209,21 @@ public class RankupManager {
             this.overallProgress = overallProgress;
         }
 
-        public String getCurrentRank() { return currentRank; }
-        public String getNextRank() { return nextRank; }
-        public Map<String, RequirementProgress> getRequirements() { return requirements; }
-        public double getOverallProgress() { return overallProgress; }
+        public String getCurrentRank() {
+            return currentRank;
+        }
+
+        public String getNextRank() {
+            return nextRank;
+        }
+
+        public Map<String, RequirementProgress> getRequirements() {
+            return requirements;
+        }
+
+        public double getOverallProgress() {
+            return overallProgress;
+        }
     }
 
 
@@ -1188,96 +1243,204 @@ public class RankupManager {
             this.completed = completed;
         }
 
-        public String getType() { return type; }
-        public double getCurrent() { return current; }
-        public double getRequired() { return required; }
-        public double getPercentage() { return percentage; }
-        public boolean isCompleted() { return completed; }
+        public String getType() {
+            return type;
+        }
+
+        public double getCurrent() {
+            return current;
+        }
+
+        public double getRequired() {
+            return required;
+        }
+
+        public double getPercentage() {
+            return percentage;
+        }
+
+        public boolean isCompleted() {
+            return completed;
+        }
     }
 
     public void showPlayerProgress(Player player) {
+        showPlayerProgressWithPage(player, 1);
+    }
+
+    public void showPlayerProgressWithPage(Player player, int page) {
         getPlayerProgress(player).thenAccept(progress -> {
             Bukkit.getScheduler().runTask(plugin, () -> {
-                // Enviar cabecera
-                messageManager.sendProgressHeader(player,
-                        progress.getCurrentRank(),
-                        progress.getNextRank(),
-                        progress.getOverallProgress());
+                try {
+                    messageManager.sendProgressWithPagination(player, progress, page);
+                } catch (Exception e) {
+                    plugin.getLogger().severe("Error mostrando progreso paginado: " + e.getMessage());
 
-                if (progress.getNextRank() == null) {
-                    // Rango máximo alcanzado
-                    messageManager.sendMaxRankMessage(player, progress.getCurrentRank());
-                    return;
+                    // Fallback a mensaje simple
+                    player.sendMessage(ChatColor.RED + "❌ Error mostrando progreso detallado");
+                    showSimpleProgress(player, progress);
                 }
-
-                // Mostrar requisitos
-                int completed = 0;
-                int total = progress.getRequirements().size();
-
-                for (Map.Entry<String, RequirementProgress> entry : progress.getRequirements().entrySet()) {
-                    RequirementProgress reqProgress = entry.getValue();
-                    String reqName = messageManager.getRequirementName(entry.getKey());
-
-                    messageManager.sendProgressRequirement(player,
-                            reqName,
-                            reqProgress.getCurrent(),
-                            reqProgress.getRequired(),
-                            reqProgress.isCompleted());
-
-                    if (reqProgress.isCompleted()) completed++;
-                }
-
-                // Enviar pie
-                String status = completed == total ?
-                        messageManager.getStatusMessage("ready") :
-                        messageManager.getStatusMessage("missing_requirements")
-                                .replace("{count}", String.valueOf(total - completed));
-
-                messageManager.sendProgressFooter(player, status, completed, total - completed);
             });
+        }).exceptionally(throwable -> {
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                plugin.getLogger().severe("Error obteniendo progreso del jugador: " + throwable.getMessage());
+                player.sendMessage(ChatColor.RED + "❌ Error obteniendo tu progreso. Contacta a un administrador.");
+            });
+            return null;
         });
     }
 
     public void showRanksList(Player player) {
+        showRanksListWithPage(player, 1);
+    }
+
+    public void showRanksListWithPage(Player player, int page) {
+        try {
+            String currentRank = getCurrentRank(player);
+            Map<String, SimpleRankData> allRanks = getRanks();
+
+            messageManager.sendRanksListWithPagination(player, allRanks, currentRank, page);
+
+        } catch (Exception e) {
+            plugin.getLogger().severe("Error mostrando lista de rangos: " + e.getMessage());
+
+            // Fallback a mensaje simple
+            player.sendMessage(ChatColor.RED + "❌ Error mostrando lista de rangos");
+            showSimpleRanksList(player);
+        }
+    }
+
+    private void showSimpleProgress(Player player, RankupProgress progress) {
+        player.sendMessage("");
+        player.sendMessage(ChatColor.AQUA + "📊 " + ChatColor.BOLD + "TU PROGRESO (MODO SIMPLE)");
+        player.sendMessage("");
+
+        if (progress.getCurrentRank() != null) {
+            player.sendMessage(ChatColor.WHITE + "🎯 Rango actual: " + ChatColor.YELLOW + progress.getCurrentRank());
+        }
+
+        if (progress.getNextRank() != null) {
+            player.sendMessage(ChatColor.WHITE + "⬆️ Siguiente: " + ChatColor.GREEN + progress.getNextRank());
+
+            double overallProgress = progress.getOverallProgress();
+            String progressBar = createSimpleProgressBar(overallProgress);
+            player.sendMessage(ChatColor.WHITE + "📈 Progreso: " + progressBar +
+                    ChatColor.WHITE + " " + String.format("%.1f%%", overallProgress));
+
+            player.sendMessage("");
+
+            // Mostrar solo los primeros 3 requisitos
+            int count = 0;
+            for (Map.Entry<String, RequirementProgress> entry : progress.getRequirements().entrySet()) {
+                if (count >= 3) break;
+
+                RequirementProgress req = entry.getValue();
+                String icon = req.isCompleted() ? ChatColor.GREEN + "✅" : ChatColor.RED + "❌";
+                String name = messageManager.getRequirementName(entry.getKey());
+
+                player.sendMessage(icon + ChatColor.WHITE + " " + name + ": " +
+                        formatSimpleProgress(req.getCurrent(), req.getRequired()));
+                count++;
+            }
+
+            if (progress.getRequirements().size() > 3) {
+                int remaining = progress.getRequirements().size() - 3;
+                player.sendMessage(ChatColor.GRAY + "... y " + remaining + " requisitos más");
+            }
+
+        } else {
+            player.sendMessage(ChatColor.LIGHT_PURPLE + "🏆 ¡Rango máximo alcanzado!");
+        }
+
+        player.sendMessage("");
+        player.sendMessage(ChatColor.GRAY + "💡 El sistema de paginación no está disponible temporalmente");
+        player.sendMessage("");
+    }
+
+    private void showSimpleRanksList(Player player) {
         String currentRank = getCurrentRank(player);
         Map<String, SimpleRankData> allRanks = getRanks();
 
-        // Enviar cabecera
-        messageManager.sendRankListHeader(player);
+        player.sendMessage("");
+        player.sendMessage(ChatColor.GREEN + "📋 " + ChatColor.BOLD + "RANGOS DEL SERVIDOR (MODO SIMPLE)");
+        player.sendMessage("");
 
-        // Ordenar rangos
+        // Mostrar solo los primeros 5 rangos
         List<SimpleRankData> sortedRanks = allRanks.values().stream()
-                .sorted(Comparator.comparingInt(SimpleRankData::getOrder))
-                .collect(Collectors.toList());
+                .sorted((a, b) -> Integer.compare(a.getOrder(), b.getOrder()))
+                .limit(5)
+                .toList();
 
-        // Mostrar cada rango
         for (SimpleRankData rank : sortedRanks) {
-            MessageManager.RankStatus status;
+            String prefix;
+            ChatColor nameColor;
 
             if (rank.getId().equals(currentRank)) {
-                status = MessageManager.RankStatus.CURRENT;
+                prefix = ChatColor.GREEN + "► ";
+                nameColor = ChatColor.GREEN;
             } else if (currentRank != null) {
                 SimpleRankData currentRankData = allRanks.get(currentRank);
                 if (currentRankData != null && rank.getOrder() < currentRankData.getOrder()) {
-                    status = MessageManager.RankStatus.COMPLETED;
+                    prefix = ChatColor.YELLOW + "✓ ";
+                    nameColor = ChatColor.YELLOW;
                 } else {
-                    status = MessageManager.RankStatus.LOCKED;
+                    prefix = ChatColor.GRAY + "• ";
+                    nameColor = ChatColor.GRAY;
                 }
             } else {
-                status = MessageManager.RankStatus.LOCKED;
+                prefix = ChatColor.GRAY + "• ";
+                nameColor = ChatColor.GRAY;
             }
 
-            messageManager.sendRankLine(player, rank.getDisplayName(), rank.getOrder(), status);
+            player.sendMessage(prefix + nameColor + rank.getDisplayName() +
+                    ChatColor.GRAY + " (#" + (rank.getOrder() + 1) + ")");
         }
 
-        // Enviar pie
-        int currentPosition = currentRank != null && allRanks.containsKey(currentRank) ?
-                allRanks.get(currentRank).getOrder() + 1 : 1;
+        if (allRanks.size() > 5) {
+            player.sendMessage(ChatColor.GRAY + "... y " + (allRanks.size() - 5) + " rangos más");
+        }
 
-        messageManager.sendRankListFooter(player,
-                currentRank != null ? getDisplayName(currentRank) : "Desconocido",
-                currentPosition,
-                allRanks.size());
+        player.sendMessage("");
+        player.sendMessage(ChatColor.WHITE + "🎯 Tu rango: " +
+                (currentRank != null ? getDisplayName(currentRank) : "Desconocido"));
+        player.sendMessage("");
+        player.sendMessage(ChatColor.GRAY + "💡 El sistema de paginación no está disponible temporalmente");
+        player.sendMessage("");
+    }
+
+    private String createSimpleProgressBar(double percentage) {
+        int length = 20;
+        int filled = (int) Math.round(percentage / 100.0 * length);
+        filled = Math.max(0, Math.min(filled, length));
+
+        StringBuilder bar = new StringBuilder();
+
+        // Color según porcentaje
+        if (percentage >= 100) bar.append(ChatColor.GREEN);
+        else if (percentage >= 75) bar.append(ChatColor.YELLOW);
+        else if (percentage >= 50) bar.append(ChatColor.GOLD);
+        else if (percentage >= 25) bar.append(ChatColor.RED);
+        else bar.append(ChatColor.DARK_RED);
+
+        for (int i = 0; i < filled; i++) {
+            bar.append("█");
+        }
+
+        bar.append(ChatColor.GRAY);
+        for (int i = filled; i < length; i++) {
+            bar.append("▓");
+        }
+
+        return bar.toString();
+    }
+
+    private String formatSimpleProgress(double current, double required) {
+        if (current >= required) {
+            return ChatColor.GREEN + String.format("%.0f/%.0f", current, required);
+        } else {
+            return ChatColor.GRAY + String.format("%.0f", current) + ChatColor.RED + "/" +
+                    ChatColor.GRAY + String.format("%.0f", required);
+        }
     }
 
     /**
@@ -1342,6 +1505,98 @@ public class RankupManager {
         } catch (Exception e) {
             plugin.getLogger().warning("Error finalizando sistema de Rankup: " + e.getMessage());
         }
+    }
+
+    /**
+     * 🆕 NUEVO: Método para configurar paginación dinámicamente
+     */
+    public void configurePagination(int requirementsPerPage, int ranksPerPage) {
+        if (messageManager != null) {
+            messageManager.setMaxRequirementsPerPage(requirementsPerPage);
+            messageManager.setMaxRanksPerPage(ranksPerPage);
+
+            plugin.getLogger().info("📄 Paginación configurada: " +
+                    requirementsPerPage + " requisitos, " +
+                    ranksPerPage + " rangos por página");
+        }
+    }
+
+    /**
+     * 🆕 NUEVO: Método para obtener información de paginación
+     */
+    public Map<String, Object> getPaginationInfo() {
+        Map<String, Object> info = new HashMap<>();
+
+        if (messageManager != null) {
+            Map<String, Object> messageStats = messageManager.getStats();
+            info.put("requirements_per_page", messageStats.get("max_requirements_per_page"));
+            info.put("ranks_per_page", messageStats.get("max_ranks_per_page"));
+            info.put("compact_mode", messageStats.get("compact_mode_enabled"));
+            info.put("navigation_enabled", messageStats.get("navigation_enabled"));
+        } else {
+            info.put("status", "MESSAGE_MANAGER_NOT_AVAILABLE");
+        }
+
+        return info;
+    }
+
+    /**
+     * 🆕 NUEVO: Debug específico para el sistema de paginación
+     */
+    public void debugPaginationSystem(Player admin) {
+        admin.sendMessage("");
+        admin.sendMessage(ChatColor.AQUA + "🔍 " + ChatColor.BOLD + "DEBUG SISTEMA DE PAGINACIÓN");
+        admin.sendMessage(ChatColor.GRAY + "════════════════════════════════════════");
+
+        try {
+            Map<String, Object> paginationInfo = getPaginationInfo();
+
+            if (paginationInfo.containsKey("status")) {
+                admin.sendMessage(ChatColor.RED + "❌ MessageManager no disponible");
+                return;
+            }
+
+            admin.sendMessage(ChatColor.WHITE + "📄 Configuración de paginación:");
+            admin.sendMessage(ChatColor.WHITE + "  • Requisitos por página: " +
+                    ChatColor.YELLOW + paginationInfo.get("requirements_per_page"));
+            admin.sendMessage(ChatColor.WHITE + "  • Rangos por página: " +
+                    ChatColor.YELLOW + paginationInfo.get("ranks_per_page"));
+            admin.sendMessage(ChatColor.WHITE + "  • Modo compacto: " +
+                    (((Boolean) paginationInfo.get("compact_mode")) ?
+                            ChatColor.GREEN + "Activo" : ChatColor.RED + "Inactivo"));
+            admin.sendMessage(ChatColor.WHITE + "  • Navegación: " +
+                    (((Boolean) paginationInfo.get("navigation_enabled")) ?
+                            ChatColor.GREEN + "Habilitada" : ChatColor.RED + "Deshabilitada"));
+
+            // Test de paginación
+            admin.sendMessage("");
+            admin.sendMessage(ChatColor.AQUA + "🧪 Test de paginación:");
+
+            // Simular progreso con muchos requisitos
+            int totalRequirements = 8; // Simular 8 requisitos
+            int reqsPerPage = (Integer) paginationInfo.get("requirements_per_page");
+            int totalPages = (int) Math.ceil((double) totalRequirements / reqsPerPage);
+
+            admin.sendMessage(ChatColor.WHITE + "  • Total requisitos simulados: " + ChatColor.YELLOW + totalRequirements);
+            admin.sendMessage(ChatColor.WHITE + "  • Páginas necesarias: " + ChatColor.YELLOW + totalPages);
+
+            // Simular rangos
+            int totalRanks = ranks.size();
+            int ranksPerPage = (Integer) paginationInfo.get("ranks_per_page");
+            int rankPages = (int) Math.ceil((double) totalRanks / ranksPerPage);
+
+            admin.sendMessage(ChatColor.WHITE + "  • Total rangos: " + ChatColor.YELLOW + totalRanks);
+            admin.sendMessage(ChatColor.WHITE + "  • Páginas de rangos: " + ChatColor.YELLOW + rankPages);
+
+            admin.sendMessage("");
+            admin.sendMessage(ChatColor.GREEN + "✅ Sistema de paginación funcionando correctamente");
+
+        } catch (Exception e) {
+            admin.sendMessage(ChatColor.RED + "❌ Error en debug de paginación: " + e.getMessage());
+            e.printStackTrace();
+        }
+
+        admin.sendMessage(ChatColor.GRAY + "════════════════════════════════════════");
     }
 
 }

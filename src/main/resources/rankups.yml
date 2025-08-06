@@ -1,7 +1,8 @@
 # =======================================================
-#           RANKUP SYSTEM 2.0 - CONFIGURACIÓN CORREGIDA
+#           RANKUP SYSTEM 2.0 - CONFIGURACIÓN FINAL
 # =======================================================
 # Rangos: default > aprendiz > usuario > miembro > veterano
+# Sistema de mensajes personalizable integrado
 # =======================================================
 
 # =================== CONFIGURACIÓN GENERAL ===================
@@ -10,11 +11,11 @@ settings:
   cooldown: 5
 
   # Activar sistemas opcionales
-  enable_prestige: false  # Deshabilitado por ahora
+  enable_prestige: false
   enable_effects: true
   enable_broadcast: true
 
-  # Modo debug (mantener en true hasta que funcione)
+  # Modo debug (mantener en true hasta que funcione perfectamente)
   debug_mode: true
 
 # =================== INTEGRACIÓN CON LUCKPERMS ===================
@@ -22,7 +23,7 @@ luckperms:
   # Cómo detectar el rango actual del jugador
   detection_method: "primary_group"
 
-  # Prefijo para grupos - CORREGIDO: Sin prefijo si tus grupos son directos
+  # Prefijo para grupos - IMPORTANTE: vacío si tus grupos son directos (default, aprendiz, etc.)
   group_prefix: ""
 
   # Rango por defecto si no se puede detectar
@@ -127,14 +128,142 @@ ranks:
         - "title %player% title &5&l¡VETERANO!"
         - "title %player% subtitle &d¡Has alcanzado la cima!"
 
-# =================== MENSAJES PERSONALIZADOS ===================
+# =================== SISTEMA DE MENSAJES PERSONALIZABLE ===================
 messages:
-  success: "&a✅ ¡Has ascendido a {new_rank}!"
-  failed: "&c❌ No cumples los requisitos para ascender:"
-  cooldown: "&c⏰ Espera {seconds} segundos antes de intentar de nuevo"
-  max_rank: "&e⭐ ¡Ya has alcanzado el rango máximo!"
+  # ========== MENSAJES PRINCIPALES ==========
+  success:
+    text: |
+      &a╔══════════════════════════════════╗
+      &a║ &2&l🎉 ¡RANKUP EXITOSO! 🎉&a         ║
+      &a╠══════════════════════════════════╣
+      &a║ &f¡Felicidades {player}!&a          ║
+      &a║ &fHas ascendido a&a                ║
+      &a║ &f{new_rank}&a                     ║
+      &a║                                  ║
+      &a║ &7Recompensas obtenidas:&a         ║
+      &a║ &e• {xp_reward} puntos de XP&a     ║
+      &a║ &e• Comandos ejecutados&a          ║
+      &a║                                  ║
+      &a║ &8¡Sigue así para el siguiente!&a ║
+      &a╚══════════════════════════════════╝
+    show_title: true
+    title:
+      main: "&6&l🎉 ¡RANKUP! 🎉"
+      subtitle: "&fAhora eres {new_rank}"
+      fade_in: 10
+      stay: 60
+      fade_out: 20
 
-  # Mensajes de requisitos no cumplidos
+  failed:
+    text: |
+      &c╔══════════════════════════════════╗
+      &c║ &4&l❌ RANKUP NO DISPONIBLE ❌&c    ║
+      &c╠══════════════════════════════════╣
+      &c║ &fNo cumples todos los requisitos&c║
+      &c║ &fpara ascender de rango.&c        ║
+      &c║                                  ║
+      &c║ &7Ve los detalles abajo:&c         ║
+      &c║                                  ║
+      &c║ &e💡 Tip: Usa &f/rankup progress&c ║
+      &c║ &epara ver tu progreso detallado&c ║
+      &c╚══════════════════════════════════╝
+
+  cooldown:
+    text: |
+      &e╔══════════════════════════════════╗
+      &e║ &6&l⏰ RANKUP EN COOLDOWN ⏰&e      ║
+      &e╠══════════════════════════════════╣
+      &e║ &fDebes esperar &c{seconds} segundos&e    ║
+      &e║ &fantes de intentar hacer rankup&e ║
+      &e║ &fde nuevo.&e                     ║
+      &e║                                  ║
+      &e║ &7Usa este tiempo para conseguir&e ║
+      &e║ &7más recursos y experiencia.&e   ║
+      &e╚══════════════════════════════════╝
+
+  max_rank:
+    text: |
+      &d╔══════════════════════════════════╗
+      &d║ &5&l⭐ RANGO MÁXIMO ALCANZADO ⭐&d  ║
+      &d╠══════════════════════════════════╣
+      &d║ &f¡Felicidades {player}!&d        ║
+      &d║ &fYa has alcanzado el rango&d     ║
+      &d║ &fmáximo del servidor:&d          ║
+      &d║ &f{current_rank}&d                ║
+      &d║                                  ║
+      &d║ &7Eres una leyenda en este&d      ║
+      &d║ &7servidor. ¡Sigue disfrutando!&d ║
+      &d╚══════════════════════════════════╝
+    show_title: true
+    title:
+      main: "&5&l⭐ LEYENDA ⭐"
+      subtitle: "&dHas alcanzado la cima"
+
+  # ========== MENSAJES DE COMANDOS ==========
+  command_help:
+    text: |
+      &6╔════════════════════════════════════╗
+      &6║ &e&l📖 AYUDA DEL SISTEMA RANKUP 📖&6  ║
+      &6╠════════════════════════════════════╣
+      &6║ &f/rankup &7- Intentar hacer rankup&6    ║
+      &6║ &f/rankup info &7- Ver tu rango actual&6 ║
+      &6║ &f/rankup progress &7- Ver progreso&6    ║
+      &6║ &f/rankup list &7- Ver todos los rangos&6║
+      &6║ &f/ranks &7- Abrir menú interactivo&6    ║
+      &6║                                    ║
+      &6║ &8💡 Tip: Los rangos se basan en&6    ║
+      &6║ &8dinero, nivel, tiempo jugado y&6     ║
+      &6║ &8estadísticas del juego.&6           ║
+      &6╚════════════════════════════════════╝
+
+  progress_header:
+    text: |
+      &b╔════════════════════════════════════╗
+      &b║ &3&l📊 TU PROGRESO DE RANKUP 📊&b     ║
+      &b╠════════════════════════════════════╣
+      &b║ &fRango actual: {current_rank}&b      ║
+      &b║ &fSiguiente rango: {next_rank}&b      ║
+      &b║ &fProgreso general: &e{progress}%&b   ║
+      &b║ {progress_bar}&b                      ║
+      &b╠════════════════════════════════════╣
+
+  progress_footer:
+    text: |
+      &b╠════════════════════════════════════╣
+      &b║ &7Estado: {status}&b                  ║
+      &b║ &7Requisitos completados: &a{completed}&b ║
+      &b║ &7Requisitos faltantes: &c{missing}&b     ║
+      &b╚════════════════════════════════════╝
+
+  rank_list_header:
+    text: |
+      &2╔════════════════════════════════════╗
+      &2║ &a&l📋 LISTA DE RANGOS DEL SERVIDOR&2 ║
+      &2╠════════════════════════════════════╣
+
+  rank_list_footer:
+    text: |
+      &2╠════════════════════════════════════╣
+      &2║ &7Tu rango actual: {current_rank}&2   ║
+      &2║ &7Tu posición: &e#{rank_position}&2   ║
+      &2║ &7Total rangos: &a{total_ranks}&2     ║
+      &2╚════════════════════════════════════╝
+
+  # ========== MENSAJES DE ERROR ==========
+  error_system_disabled: "&c❌ El sistema de rankup está deshabilitado"
+  error_no_rank_detected: "&c❌ No se pudo detectar tu rango actual"
+  error_database: "&c❌ Error de base de datos. Contacta a un administrador"
+  error_luckperms: "&c❌ Integración con LuckPerms no disponible"
+  error_invalid_rank: "&c❌ Configuración de rango inválida"
+
+  # ========== MENSAJES DE ESTADO ==========
+  status_ready: "&a¡Listo para rankup!"
+  status_missing_requirements: "&e{count} requisitos pendientes"
+  status_on_cooldown: "&cEn cooldown ({time}s)"
+  status_max_rank_reached: "&d¡Rango máximo!"
+  status_error: "&cError del sistema"
+
+  # ========== FORMATOS DE REQUISITOS ==========
   requirements:
     money: "&7• Dinero: &c${current}&7/&a${required}"
     level: "&7• Nivel de experiencia: &c{current}&7/&a{required}"
@@ -147,21 +276,6 @@ messages:
     fish_caught: "&7• Peces pescados: &c{current}&7/&a{required}"
     ender_dragon_kills: "&7• Ender Dragons eliminados: &c{current}&7/&a{required}"
     wither_kills: "&7• Withers eliminados: &c{current}&7/&a{required}"
-
-# =================== REQUISITOS PERSONALIZADOS ===================
-custom_requirements:
-  # Para integración con Vault Economy
-  vault_balance: "%vault_eco_balance%"
-
-  # Para integración con McMMO (si está instalado)
-  mcmmo_mining: "%mcmmo_level_mining%"
-  mcmmo_power: "%mcmmo_power_level%"
-
-  # Para integración con Jobs (si está instalado)
-  jobs_total: "%jobs_total_level%"
-
-  # Para tiempo jugado más preciso con CMI (si está instalado)
-  playtime: "%cmi_user_playtime_hoursf%"
 
 # =================== EFECTOS Y SONIDOS ===================
 effects:
@@ -178,6 +292,21 @@ effects:
       title: "&6&l¡RANKUP!"
       subtitle: "&fAhora eres {new_rank}"
       duration: 60
+
+# =================== REQUISITOS PERSONALIZADOS ===================
+custom_requirements:
+  # Para integración con Vault Economy
+  vault_balance: "%vault_eco_balance%"
+
+  # Para integración con McMMO (si está instalado)
+  mcmmo_mining: "%mcmmo_level_mining%"
+  mcmmo_power: "%mcmmo_power_level%"
+
+  # Para integración con Jobs (si está instalado)
+  jobs_total: "%jobs_total_level%"
+
+  # Para tiempo jugado más preciso con CMI (si está instalado)
+  playtime: "%cmi_user_playtime_hoursf%"
 
 # =================== CONFIGURACIÓN AVANZADA ===================
 advanced:
@@ -198,3 +327,17 @@ advanced:
 
   # Log detallado de rankups
   detailed_logging: true
+
+  # Configuración del sistema de mensajes
+  message_system:
+    # Habilitar procesamiento de mensajes multilínea
+    enable_multiline: true
+
+    # Procesar placeholders automáticamente
+    auto_process_placeholders: true
+
+    # Caché de mensajes procesados
+    cache_processed_messages: true
+
+    # Validar mensajes esenciales al cargar
+    validate_essential_messages: true

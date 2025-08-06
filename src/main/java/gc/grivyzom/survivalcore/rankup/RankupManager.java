@@ -19,6 +19,7 @@ import java.io.File;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 /**
  * Sistema de Rankup mejorado - Versión 2.0
@@ -38,6 +39,7 @@ public class RankupManager {
     private LuckPerms luckPerms;
     private boolean placeholderAPIEnabled = false;
     private boolean debugMode = false;
+    private MessageManager messageManager;
 
     // Configuración simplificada
     private long cooldownTime;
@@ -82,12 +84,15 @@ public class RankupManager {
 
             // Configuración de LuckPerms
             detectionMethod = config.getString("luckperms.detection_method", "primary_group");
-            groupPrefix = config.getString("luckperms.group_prefix", "group.");
+            groupPrefix = config.getString("luckperms.group_prefix", "");  // 🔧 CORREGIDO: vacío por defecto
             defaultRank = config.getString("luckperms.default_rank", "default");
 
             // Limpiar y cargar rangos
             ranks.clear();
             loadSimpleRanks();
+
+            // 🔧 INICIALIZAR MessageManager AQUÍ
+            this.messageManager = new MessageManager(plugin, config);
 
             if (config.getBoolean("advanced.validate_config", true)) {
                 validateConfiguration();
@@ -236,7 +241,7 @@ public class RankupManager {
     }
 
     /**
-     * Intenta hacer rankup de forma simplificada
+     * Intenta hacer rankup con mensajes personalizables
      */
     public CompletableFuture<RankupResult> attemptRankup(Player player) {
         return CompletableFuture.supplyAsync(() -> {
@@ -245,44 +250,91 @@ public class RankupManager {
             // Verificar cooldown
             if (isOnCooldown(uuid)) {
                 long remaining = getRemainingCooldown(uuid);
-                return new RankupResult(false, formatMessage("cooldown",
-                        Map.of("seconds", String.valueOf(remaining / 1000))));
+
+                Bukkit.getScheduler().runTask(plugin, () -> {
+                    if (messageManager != null) {
+                        messageManager.sendCooldownMessage(player, remaining / 1000);
+                    } else {
+                        player.sendMessage(ChatColor.RED + "⏰ Espera " + (remaining / 1000) + " segundos");
+                    }
+                });
+
+                return new RankupResult(false, "En cooldown");
             }
 
             // Obtener rango actual
             String currentRank = getCurrentRank(player);
             if (currentRank == null) {
-                return new RankupResult(false, "❌ No se pudo determinar tu rango actual");
+                Bukkit.getScheduler().runTask(plugin, () -> {
+                    String errorMsg = (messageManager != null) ?
+                            messageManager.getErrorMessage("no_rank_detected") :
+                            ChatColor.RED + "❌ No se pudo detectar tu rango actual";
+                    player.sendMessage(errorMsg);
+                });
+                return new RankupResult(false, "No se pudo detectar rango");
             }
 
             SimpleRankData rankData = ranks.get(currentRank);
             if (rankData == null || rankData.getNextRank() == null) {
-                return new RankupResult(false, formatMessage("max_rank", Map.of()));
+                Bukkit.getScheduler().runTask(plugin, () -> {
+                    if (messageManager != null) {
+                        messageManager.sendMaxRankMessage(player, getDisplayName(currentRank));
+                    } else {
+                        player.sendMessage(ChatColor.LIGHT_PURPLE + "⭐ ¡Ya has alcanzado el rango máximo!");
+                    }
+                });
+                return new RankupResult(false, "Rango máximo alcanzado");
             }
 
             // Verificar requisitos
             RequirementCheckResult check = checkAllRequirements(player, rankData);
             if (!check.isSuccess()) {
-                return new RankupResult(false, formatMessage("failed", Map.of()) + "\n" + check.getFailureMessage());
+                Bukkit.getScheduler().runTask(plugin, () -> {
+                    if (messageManager != null) {
+                        messageManager.sendFailedMessage(player, check.getFailedRequirements());
+                    } else {
+                        player.sendMessage(ChatColor.RED + "❌ No cumples los requisitos:");
+                        for (String req : check.getFailedRequirements()) {
+                            player.sendMessage(ChatColor.RED + "• " + req);
+                        }
+                    }
+                });
+                return new RankupResult(false, "Requisitos no cumplidos");
             }
 
             // Realizar rankup
             if (performRankupProcess(player, currentRank, rankData.getNextRank(), rankData)) {
                 setCooldown(uuid);
-                return new RankupResult(true, formatMessage("success",
-                        Map.of("new_rank", getDisplayName(rankData.getNextRank()))));
+
+                Bukkit.getScheduler().runTask(plugin, () -> {
+                    String newRankDisplay = getDisplayName(rankData.getNextRank());
+                    int xpReward = (Integer) rankData.getRewards().getOrDefault("xp", 0);
+
+                    if (messageManager != null) {
+                        messageManager.sendSuccessMessage(player, newRankDisplay, xpReward);
+                    } else {
+                        player.sendMessage(ChatColor.GREEN + "🎉 ¡Has ascendido a " + newRankDisplay + "!");
+                    }
+                });
+
+                return new RankupResult(true, "Rankup exitoso");
             } else {
-                return new RankupResult(false, "❌ Error interno realizando rankup");
+                Bukkit.getScheduler().runTask(plugin, () -> {
+                    String errorMsg = (messageManager != null) ?
+                            messageManager.getErrorMessage("database") :
+                            ChatColor.RED + "❌ Error interno. Contacta a un administrador";
+                    player.sendMessage(errorMsg);
+                });
+                return new RankupResult(false, "Error interno");
             }
         });
     }
-
     /**
      * Verifica todos los requisitos de forma eficiente
      */
     private RequirementCheckResult checkAllRequirements(Player player, SimpleRankData rankData) {
         Map<String, Object> requirements = rankData.getRequirements();
-        List<String> failures = new ArrayList<>();
+        List<String> failedRequirements = new ArrayList<>();
 
         if (debugMode) {
             plugin.getLogger().info("🔍 Verificando " + requirements.size() + " requisitos para " + player.getName());
@@ -293,23 +345,58 @@ public class RankupManager {
             Object required = req.getValue();
 
             if (!checkSingleRequirement(player, type, required)) {
-                String message = formatRequirementFailure(player, type, required);
-                failures.add(message);
+                // 🔧 CORREGIDO: Verificar que messageManager no sea null
+                String reqName = (messageManager != null) ?
+                        messageManager.getRequirementName(type) :
+                        convertRequirementKeyToDisplayName(type);
+
+                double current = getCurrentRequirementValue(player, type);
+                double requiredValue = ((Number) required).doubleValue();
+
+                String formattedReq = String.format("%s: %s/%s",
+                        reqName,
+                        formatRequirementValue(type, current),
+                        formatRequirementValue(type, requiredValue)
+                );
+
+                failedRequirements.add(formattedReq);
 
                 if (debugMode) {
-                    plugin.getLogger().info("  ❌ " + type + ": " + message);
+                    plugin.getLogger().info("  ❌ " + type + ": " + formattedReq);
                 }
             } else if (debugMode) {
                 plugin.getLogger().info("  ✅ " + type + ": cumplido");
             }
         }
 
-        if (failures.isEmpty()) {
-            return new RequirementCheckResult(true, "");
-        } else {
-            return new RequirementCheckResult(false, String.join("\n", failures));
-        }
+        return new RequirementCheckResult(failedRequirements.isEmpty(), failedRequirements);
     }
+    private String formatRequirementValue(String type, double value) {
+        return switch (type) {
+            case "money" -> String.format("$%,.0f", value);
+            case "playtime_hours" -> String.format("%.1fh", value);
+            case "farming_level", "mining_level" -> String.format("Lv.%.0f", value);
+            default -> String.format("%,.0f", value);
+        };
+    }
+
+    private String convertRequirementKeyToDisplayName(String key) {
+        return switch (key.toLowerCase()) {
+            case "money" -> "Dinero";
+            case "level" -> "Nivel de experiencia";
+            case "playtime_hours" -> "Tiempo jugado";
+            case "mob_kills" -> "Mobs eliminados";
+            case "blocks_mined" -> "Bloques minados";
+            case "farming_level" -> "Nivel de farming";
+            case "mining_level" -> "Nivel de minería";
+            case "animals_bred" -> "Animales criados";
+            case "fish_caught" -> "Peces pescados";
+            case "ender_dragon_kills" -> "Ender Dragons eliminados";
+            case "wither_kills" -> "Withers eliminados";
+            default -> key.replace("_", " ");
+        };
+    }
+
 
     /**
      * Verifica un requisito individual
@@ -730,13 +817,19 @@ public class RankupManager {
                 (currentRank != null ? currentRank : "NULL"));
 
         if (currentRank == null) {
-            admin.sendMessage(ChatColor.RED + "❌ Error: No se pudo detectar el rango");
+            String errorMsg = (messageManager != null) ?
+                    messageManager.getErrorMessage("no_rank_detected") :
+                    ChatColor.RED + "❌ No se pudo detectar tu rango actual";
+            admin.sendMessage(errorMsg);
             return;
         }
 
         SimpleRankData rankData = ranks.get(currentRank);
         if (rankData == null) {
-            admin.sendMessage(ChatColor.RED + "❌ Error: No hay datos para el rango " + currentRank);
+            String errorMsg = (messageManager != null) ?
+                    messageManager.getErrorMessage("invalid_rank") :
+                    ChatColor.RED + "❌ Configuración de rango inválida";
+            admin.sendMessage(errorMsg);
             return;
         }
 
@@ -751,18 +844,15 @@ public class RankupManager {
         }
 
         admin.sendMessage(ChatColor.WHITE + "Verificando requisitos:");
-        Map<String, Object> requirements = rankData.getRequirements();
+        RequirementCheckResult check = checkAllRequirements(player, rankData);
 
-        for (Map.Entry<String, Object> req : requirements.entrySet()) {
-            String type = req.getKey();
-            double required = ((Number) req.getValue()).doubleValue();
-            double current = getCurrentRequirementValue(player, type);
-            boolean met = current >= required;
-
-            String status = met ? ChatColor.GREEN + "✓" : ChatColor.RED + "✗";
-            admin.sendMessage("  " + status + ChatColor.WHITE + " " + type +
-                    ": " + ChatColor.YELLOW + formatValue(type, current) +
-                    ChatColor.GRAY + "/" + ChatColor.GREEN + formatValue(type, required));
+        if (check.isSuccess()) {
+            admin.sendMessage(ChatColor.GREEN + "✅ Todos los requisitos cumplidos");
+        } else {
+            admin.sendMessage(ChatColor.RED + "❌ Requisitos faltantes:");
+            for (String failedReq : check.getFailedRequirements()) {
+                admin.sendMessage(ChatColor.RED + "  • " + failedReq);
+            }
         }
 
         if (isOnCooldown(player.getUniqueId())) {
@@ -771,9 +861,7 @@ public class RankupManager {
         } else {
             admin.sendMessage(ChatColor.GREEN + "✅ Sin cooldown activo");
         }
-    }
-
-    // =================== GETTERS Y CONFIGURACIÓN ===================
+    }    // =================== GETTERS Y CONFIGURACIÓN ===================
 
     public void reloadConfig() {
         try {
@@ -800,6 +888,13 @@ public class RankupManager {
             try {
                 // 4. Intentar cargar nueva configuración
                 loadConfiguration();
+
+                // 5. Recargar mensajes
+                if (messageManager != null) {
+                    messageManager.reloadMessages();
+                } else {
+                    messageManager = new MessageManager(plugin, config);
+                }
 
                 long duration = System.currentTimeMillis() - startTime;
 
@@ -879,6 +974,10 @@ public class RankupManager {
         } catch (Exception e) {
             return false;
         }
+    }
+
+    public MessageManager getMessageManager() {
+        return messageManager;
     }
 
     /**
@@ -1038,15 +1137,18 @@ public class RankupManager {
 
     public static class RequirementCheckResult {
         private final boolean success;
-        private final String failureMessage;
+        private final List<String> failedRequirements;
 
-        public RequirementCheckResult(boolean success, String failureMessage) {
+        public RequirementCheckResult(boolean success, List<String> failedRequirements) {
             this.success = success;
-            this.failureMessage = failureMessage;
+            this.failedRequirements = failedRequirements != null ? failedRequirements : new ArrayList<>();
         }
 
         public boolean isSuccess() { return success; }
-        public String getFailureMessage() { return failureMessage; }
+        public List<String> getFailedRequirements() { return failedRequirements; }
+        public String getFailureMessage() {
+            return String.join("\n", failedRequirements);
+        }
     }
 
     public static class RankupProgress {
@@ -1069,6 +1171,7 @@ public class RankupManager {
         public double getOverallProgress() { return overallProgress; }
     }
 
+
     public static class RequirementProgress {
         private final String type;
         private final double current;
@@ -1090,6 +1193,91 @@ public class RankupManager {
         public double getRequired() { return required; }
         public double getPercentage() { return percentage; }
         public boolean isCompleted() { return completed; }
+    }
+
+    public void showPlayerProgress(Player player) {
+        getPlayerProgress(player).thenAccept(progress -> {
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                // Enviar cabecera
+                messageManager.sendProgressHeader(player,
+                        progress.getCurrentRank(),
+                        progress.getNextRank(),
+                        progress.getOverallProgress());
+
+                if (progress.getNextRank() == null) {
+                    // Rango máximo alcanzado
+                    messageManager.sendMaxRankMessage(player, progress.getCurrentRank());
+                    return;
+                }
+
+                // Mostrar requisitos
+                int completed = 0;
+                int total = progress.getRequirements().size();
+
+                for (Map.Entry<String, RequirementProgress> entry : progress.getRequirements().entrySet()) {
+                    RequirementProgress reqProgress = entry.getValue();
+                    String reqName = messageManager.getRequirementName(entry.getKey());
+
+                    messageManager.sendProgressRequirement(player,
+                            reqName,
+                            reqProgress.getCurrent(),
+                            reqProgress.getRequired(),
+                            reqProgress.isCompleted());
+
+                    if (reqProgress.isCompleted()) completed++;
+                }
+
+                // Enviar pie
+                String status = completed == total ?
+                        messageManager.getStatusMessage("ready") :
+                        messageManager.getStatusMessage("missing_requirements")
+                                .replace("{count}", String.valueOf(total - completed));
+
+                messageManager.sendProgressFooter(player, status, completed, total - completed);
+            });
+        });
+    }
+
+    public void showRanksList(Player player) {
+        String currentRank = getCurrentRank(player);
+        Map<String, SimpleRankData> allRanks = getRanks();
+
+        // Enviar cabecera
+        messageManager.sendRankListHeader(player);
+
+        // Ordenar rangos
+        List<SimpleRankData> sortedRanks = allRanks.values().stream()
+                .sorted(Comparator.comparingInt(SimpleRankData::getOrder))
+                .collect(Collectors.toList());
+
+        // Mostrar cada rango
+        for (SimpleRankData rank : sortedRanks) {
+            MessageManager.RankStatus status;
+
+            if (rank.getId().equals(currentRank)) {
+                status = MessageManager.RankStatus.CURRENT;
+            } else if (currentRank != null) {
+                SimpleRankData currentRankData = allRanks.get(currentRank);
+                if (currentRankData != null && rank.getOrder() < currentRankData.getOrder()) {
+                    status = MessageManager.RankStatus.COMPLETED;
+                } else {
+                    status = MessageManager.RankStatus.LOCKED;
+                }
+            } else {
+                status = MessageManager.RankStatus.LOCKED;
+            }
+
+            messageManager.sendRankLine(player, rank.getDisplayName(), rank.getOrder(), status);
+        }
+
+        // Enviar pie
+        int currentPosition = currentRank != null && allRanks.containsKey(currentRank) ?
+                allRanks.get(currentRank).getOrder() + 1 : 1;
+
+        messageManager.sendRankListFooter(player,
+                currentRank != null ? getDisplayName(currentRank) : "Desconocido",
+                currentPosition,
+                allRanks.size());
     }
 
     /**

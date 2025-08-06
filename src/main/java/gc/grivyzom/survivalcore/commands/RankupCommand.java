@@ -127,35 +127,14 @@ public class RankupCommand implements CommandExecutor, TabCompleter {
         // Verificar cooldown inmediatamente para dar feedback rápido
         if (rankupManager.isOnCooldown(player.getUniqueId())) {
             long remaining = rankupManager.getRemainingCooldown(player.getUniqueId());
-            player.sendMessage(ChatColor.RED + "⏰ Debes esperar " + (remaining / 1000) + " segundos");
+            rankupManager.getMessageManager().sendCooldownMessage(player, remaining / 1000);
             return;
         }
 
         player.sendMessage(ChatColor.YELLOW + "🔄 Verificando requisitos...");
 
-        rankupManager.attemptRankup(player).thenAccept(result -> {
-            Bukkit.getScheduler().runTask(plugin, () -> {
-                if (result.isSuccess()) {
-                    // ✅ ÉXITO SIMPLIFICADO
-                    player.sendMessage("");
-                    player.sendMessage(ChatColor.GREEN + "🎉 " + ChatColor.BOLD + "¡RANKUP EXITOSO!");
-                    player.sendMessage(ChatColor.WHITE + result.getMessage());
-                    player.sendMessage(ChatColor.GRAY + "💡 Usa §e/rankup progress §7para ver tu siguiente objetivo");
-                    player.sendMessage("");
-                } else {
-                    // ❌ ERROR SIMPLIFICADO
-                    player.sendMessage("");
-                    player.sendMessage(ChatColor.RED + "❌ " + ChatColor.BOLD + "RANKUP NO DISPONIBLE");
-                    player.sendMessage("");
-                    player.sendMessage(result.getMessage());
-                    player.sendMessage("");
-                    player.sendMessage(ChatColor.YELLOW + "💡 Comandos útiles:");
-                    player.sendMessage(ChatColor.GRAY + "  • §e/rankup progress §7- Ver progreso detallado");
-                    player.sendMessage(ChatColor.GRAY + "  • §e/ranks §7- Abrir menú interactivo");
-                    player.sendMessage("");
-                }
-            });
-        });
+        // El resto lo maneja RankupManager.attemptRankup() con mensajes personalizables
+        rankupManager.attemptRankup(player);
     }
 
     /**
@@ -202,122 +181,21 @@ public class RankupCommand implements CommandExecutor, TabCompleter {
      * Muestra progreso con formato más limpio
      */
     private void showProgress(Player player) {
-        rankupManager.getPlayerProgress(player).thenAccept(progress -> {
-            Bukkit.getScheduler().runTask(plugin, () -> {
-                if (progress.getCurrentRank() == null) {
-                    player.sendMessage(ChatColor.RED + "❌ Error obteniendo tu progreso");
-                    return;
-                }
-
-                // 📊 PROGRESO SIMPLIFICADO
-                player.sendMessage("");
-                player.sendMessage(ChatColor.AQUA + "📊 " + ChatColor.BOLD + "TU PROGRESO");
-                player.sendMessage("");
-
-                if (progress.getNextRank() == null) {
-                    player.sendMessage(ChatColor.LIGHT_PURPLE + "🏆 ¡Has alcanzado el rango máximo!");
-                    player.sendMessage("");
-                    return;
-                }
-
-                // Barra de progreso principal
-                double percentage = progress.getOverallProgress();
-                String progressBar = createProgressBar(percentage, 20);
-                player.sendMessage(ChatColor.WHITE + "Progreso general: " + ChatColor.YELLOW +
-                        String.format("%.1f%%", percentage));
-                player.sendMessage(progressBar);
-                player.sendMessage("");
-
-                // Lista de requisitos más compacta
-                player.sendMessage(ChatColor.WHITE + "Requisitos:");
-
-                List<RequirementProgress> sortedReqs = progress.getRequirements().values()
-                        .stream()
-                        .sorted((a, b) -> Boolean.compare(b.isCompleted(), a.isCompleted()))
-                        .toList();
-
-                for (RequirementProgress reqProgress : sortedReqs) {
-                    String status = reqProgress.isCompleted() ?
-                            ChatColor.GREEN + "✓" : ChatColor.RED + "✗";
-                    String reqName = formatRequirementName(reqProgress.getType());
-                    String value = formatRequirementValue(reqProgress);
-
-                    player.sendMessage("  " + status + " " + ChatColor.WHITE + reqName +
-                            ": " + ChatColor.YELLOW + value);
-                }
-
-                player.sendMessage("");
-
-                if (percentage >= 100.0) {
-                    player.sendMessage(ChatColor.GREEN + "🎉 ¡Listo para rankup! Usa §e/rankup");
-                } else {
-                    long incomplete = sortedReqs.stream().mapToLong(req -> req.isCompleted() ? 0 : 1).sum();
-                    player.sendMessage(ChatColor.YELLOW + "⚡ Te faltan " + incomplete + " requisitos");
-                }
-                player.sendMessage("");
-            });
-        });
+        player.sendMessage(ChatColor.YELLOW + "🔄 Cargando tu progreso...");
+        rankupManager.showPlayerProgress(player);
     }
-
     /**
      * Muestra ayuda simplificada
      */
     private void showHelp(Player player) {
-        player.sendMessage("");
-        player.sendMessage(ChatColor.GOLD + "📖 " + ChatColor.BOLD + "AYUDA RANKUP");
-        player.sendMessage("");
-        player.sendMessage(ChatColor.YELLOW + "Comandos básicos:");
-        player.sendMessage(ChatColor.WHITE + "  §e/rankup §7- Subir de rango");
-        player.sendMessage(ChatColor.WHITE + "  §e/rankup info §7- Info de tu rango");
-        player.sendMessage(ChatColor.WHITE + "  §e/rankup progress §7- Ver progreso");
-        player.sendMessage(ChatColor.WHITE + "  §e/ranks §7- Menú interactivo");
-        player.sendMessage("");
-        player.sendMessage(ChatColor.YELLOW + "Comandos de información:");
-        player.sendMessage(ChatColor.WHITE + "  §e/rankup list §7- Lista de rangos");
-        player.sendMessage("");
-
-        if (player.hasPermission("survivalcore.rankup.admin")) {
-            player.sendMessage(ChatColor.RED + "🔧 Admin:");
-            player.sendMessage(ChatColor.WHITE + "  §e/rankup debug [jugador] §7- Debug");
-            player.sendMessage(ChatColor.WHITE + "  §e/rankup reload §7- Recargar");
-            player.sendMessage("");
-        }
+        rankupManager.getMessageManager().sendHelpMessage(player);
     }
 
     /**
      * Lista de rangos simplificada
      */
     private void showRankList(Player player) {
-        Map<String, RankupManager.SimpleRankData> rankups = rankupManager.getRanks();
-        if (rankups.isEmpty()) {
-            player.sendMessage(ChatColor.RED + "❌ No hay rangos configurados");
-            return;
-        }
-
-        player.sendMessage("");
-        player.sendMessage(ChatColor.GREEN + "📋 " + ChatColor.BOLD + "LISTA DE RANGOS");
-        player.sendMessage("");
-
-        List<RankupManager.SimpleRankData> sortedRanks = rankups.values().stream()
-                .sorted(Comparator.comparingInt(RankupManager.SimpleRankData::getOrder))
-                .collect(Collectors.toList());
-
-        String currentRank = rankupManager.getCurrentRank(player);
-
-        for (RankupManager.SimpleRankData rank : sortedRanks) {
-            String marker = rank.getId().equals(currentRank) ?
-                    ChatColor.GREEN + "► " : ChatColor.GRAY + "  ";
-
-            String status = rank.getId().equals(currentRank) ?
-                    ChatColor.GREEN + " (TU RANGO)" : "";
-
-            player.sendMessage(marker + rank.getDisplayName() +
-                    ChatColor.GRAY + " (#" + rank.getOrder() + ")" + status);
-        }
-
-        player.sendMessage("");
-        player.sendMessage(ChatColor.GRAY + "💡 Usa §e/rankup progress §7para ver tu progreso");
-        player.sendMessage("");
+        rankupManager.showRanksList(player);
     }
 
     /**

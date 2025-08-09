@@ -7,7 +7,7 @@ description: Plugin principal para el servidor de supervivencia con soporte híb
 website: https://grivyzom.gc/
 
 # Dependencias opcionales - ACTUALIZADO
-softdepend: [LuckPerms, PlaceholderAPI, Vault, BedrockGUI]
+softdepend: [LuckPerms, PlaceholderAPI, Vault]
 
 commands:
   # Comandos básicos existentes
@@ -125,7 +125,10 @@ commands:
     aliases: [flor, flower, mflower]
     permission: survivalcore.magicflower.use
     permission-message: "§cNo tienes permisos para usar este comando."
-
+  repairanim:
+    description: Comandos administrativos del sistema de reparación
+    usage: /repairanim <subcomando>
+    permission: survivalcore.repair.admin
 # Permisos del sistema - ACTUALIZADO
 permissions:
   # Permisos básicos existentes
@@ -404,3 +407,38 @@ permissions:
   survivalcore.rankup.info:
     description: Permite ver información de rangos
     default: true
+  survivalcore.repair.admin:
+    description: Acceso a comandos administrativos de reparación
+    default: op
+
+  survivalcore.repair.free:
+    description: Reparación completamente gratuita
+    default: false
+
+  survivalcore.repair.discount.legend:
+    description: 70% descuento en reparaciones
+    default: false
+
+  survivalcore.repair.discount.vip:
+    description: 50% descuento en reparaciones
+    default: false
+
+  survivalcore.repair.discount.premium:
+    description: 25% descuento en reparaciones
+    default: false
+
+  survivalcore.repair.discount:
+    description: 15% descuento básico en reparaciones
+    default: false
+
+  survivalcore.repair.nocooldown:
+    description: Sin cooldown entre reparaciones
+    default: false
+
+  survivalcore.repair.reload:
+    description: Recargar configuración de reparación
+    default: op
+
+  survivalcore.repair.admin.notify:
+    description: Recibir notificaciones de reparaciones grandes
+    default: op

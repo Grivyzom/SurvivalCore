@@ -283,6 +283,7 @@ public class Main extends JavaPlugin {
         } else {
             getLogger().warning("⚠️ Comandos de rankup NO registrados - Sistema no disponible");
         }
+
     }
 
     private void registerListeners() {

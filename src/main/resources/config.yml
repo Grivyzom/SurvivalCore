@@ -247,42 +247,80 @@ cheque_system:
     invalid_cheque: "&c✗ Este cheque es inválido o ya ha sido canjeado."
     no_permission: "&c✗ No tienes permisos para realizar esta acción."
     cooldown_active: "&c✗ Espera un momento antes de canjear otro cheque."
+# ===============================================
+# CONFIGURACIÓN DEL SISTEMA DE REPARACIÓN v3.0
+# ===============================================
 
-# ===================================
-# Sistema de reparación mejorado
-# ===================================
 repair:
-  # Multiplicador del costo base (porcentaje del daño)
-  base_cost_multiplier: 0.05  # 5% del daño como costo base
+  # === CONFIGURACIÓN BÁSICA ===
 
-  # Multiplicador adicional por cada encantamiento
-  enchantment_multiplier: 0.10  # +10% por cada encantamiento
+  # Multiplicador del costo base (porcentaje del daño como costo base)
+  # Ejemplo: 0.05 = 5% del daño se convierte en niveles de XP
+  base_cost_multiplier: 0.05
 
-  # Multiplicador extra si el ítem tiene Mending
-  mending_extra_multiplier: 0.10  # +10% adicional
+  # Multiplicador adicional por cada encantamiento genérico
+  # Ejemplo: 0.15 = +15% por cada encantamiento
+  enchantment_multiplier: 0.15
 
-  # Costo mínimo en niveles
+  # Multiplicador extra específico para el encantamiento Mending
+  # Este se suma al multiplicador genérico
+  mending_extra_multiplier: 0.20
+
+  # Costo mínimo en niveles (nunca será menor a esto)
   min_cost: 1
 
-  # Costo máximo por ítem individual
-  max_cost_per_item: 30
+  # Costo máximo por ítem individual (nunca será mayor a esto)
+  max_cost_per_item: 75
 
   # Cooldown entre reparaciones (milisegundos)
-  cooldown: 3000  # 3 segundos
+  # 3000 = 3 segundos
+  cooldown: 3000
 
-  # Multiplicadores por tipo de material
+  # === MULTIPLICADORES POR MATERIAL ===
+  # Estos valores se multiplican por el costo base
+  # Valores más altos = más costoso reparar
   material_multipliers:
-    NETHERITE: 2.0      # Netherite es el más costoso
-    DIAMOND: 1.5        # Diamante es costoso
-    IRON: 1.0           # Hierro es estándar
-    GOLD: 0.8           # Oro es más barato pero delicado
-    STONE: 0.6          # Piedra es barata
-    WOOD: 0.6           # Madera es la más barata
-    LEATHER: 0.4        # Armadura de cuero es muy barata
-    CHAINMAIL: 0.9      # Cota de malla
-    TURTLE: 1.2         # Caparazón de tortuga
+    # Materiales premium
+    NETHERITE: 3.0      # Netherite es extremadamente costoso
+    DIAMOND: 2.5        # Diamante es muy costoso
+    EMERALD: 2.2        # Esmeralda es premium
 
-  # Configuración de confirmación
+    # Materiales estándar
+    IRON: 1.0           # Hierro es el estándar (multiplicador base)
+    GOLD: 0.8           # Oro es más barato pero frágil
+    CHAINMAIL: 1.2      # Cota de malla es ligeramente cara
+
+    # Materiales básicos
+    STONE: 0.4          # Piedra es barata
+    WOOD: 0.3           # Madera es muy barata
+    LEATHER: 0.35       # Cuero es barato
+
+    # Materiales especiales
+    TURTLE: 1.5         # Caparazón de tortuga es especial
+    PRISMARINE: 1.1     # Prismarina es moderadamente cara
+
+  # === MULTIPLICADORES ESPECÍFICOS POR ENCANTAMIENTO ===
+  # Estos reemplazan el multiplicador genérico para encantamientos específicos
+  enchantment_specific_multipliers:
+    # Encantamientos premium (muy costosos)
+    MENDING: 0.30           # Mending es extremadamente valioso
+    SILK_TOUCH: 0.25        # Silk Touch es muy valioso
+    FORTUNE: 0.22           # Fortune es premium
+    LOOTING: 0.20           # Looting es valioso
+
+    # Encantamientos de combate
+    SHARPNESS: 0.15         # Sharpness es estándar
+    PROTECTION: 0.12        # Protection es común
+    FIRE_ASPECT: 0.10       # Fire Aspect es moderado
+    KNOCKBACK: 0.08         # Knockback es básico
+
+    # Encantamientos de utilidad
+    EFFICIENCY: 0.14        # Efficiency es útil
+    UNBREAKING: 0.08        # Unbreaking es básico (reduce el costo a largo plazo)
+    RESPIRATION: 0.12       # Respiration es útil
+    AQUA_AFFINITY: 0.10     # Aqua Affinity es moderado
+
+  # === CONFIGURACIÓN DE CONFIRMACIÓN ===
   confirmation:
     # Número mínimo de ítems para requerir confirmación
     min_items: 5
@@ -293,39 +331,172 @@ repair:
     # Tiempo de expiración de la confirmación (segundos)
     timeout: 30
 
-  # Mensajes personalizables
-  messages:
-    insufficient_xp: "&c╔══════════════════════════════════╗\n&c║ &eEXPERIENCIA INSUFICIENTE&c        ║\n&c╠══════════════════════════════════╣\n&c║ &fNecesitas: &e%required% niveles&c          ║\n&c║ &fTienes: &e%current% niveles&c             ║\n&c║ &fTe faltan: &6%missing% niveles&c          ║\n&c╚══════════════════════════════════╝"
+  # === CONFIGURACIÓN DE DESCUENTOS POR PERMISOS ===
+  # Los descuentos se aplican en este orden de prioridad:
+  # 1. survivalcore.repair.free (0% - gratis)
+  # 2. survivalcore.repair.discount.legend (30% del costo original)
+  # 3. survivalcore.repair.discount.vip (50% del costo original)
+  # 4. survivalcore.repair.discount.premium (75% del costo original)
+  # 5. survivalcore.repair.discount (85% del costo original)
 
-    repair_success_single: "&a✓ %item% ha sido reparado completamente.\n&7Costo: %cost% niveles de experiencia."
-
-    repair_success_multiple: "&a✓ Has reparado %count% ítems exitosamente.\n&7Costo total: %cost% niveles de experiencia."
-
-    cooldown_message: "&cDebes esperar %seconds% segundos antes de reparar nuevamente."
-
-    no_repairable_items: "&eNo tienes ítems dañados para reparar."
-
-    confirmation_required: "&e╔══════════════════════════════════╗\n&e║ &6CONFIRMACIÓN DE REPARACIÓN&e      ║\n&e╠══════════════════════════════════╣\n&e║ &fÍtems a reparar: &b%items%&e              ║\n&e║ &fCosto total: &a%cost% niveles&e         ║\n&e║                                  ║\n&e║ &fUsa &a/reparar confirm&f para&e     ║\n&e║ &fproceder con la reparación.&e      ║\n&e╚══════════════════════════════════╝"
-
-  # Efectos visuales y sonoros
+  # === EFECTOS VISUALES Y SONOROS ===
   effects:
-    # Sonidos para reparación individual
-    single_repair:
-      sounds:
-        - "BLOCK_ANVIL_USE:1.0:1.2"
-        - "ENTITY_EXPERIENCE_ORB_PICKUP:1.0:0.8"
+    # Configuración de sonidos
+    sounds:
+      # Sonidos para reparación individual
+      single_repair:
+        enabled: true
+        sounds:
+          - "BLOCK_ANVIL_USE:1.0:1.2"
+          - "ENTITY_EXPERIENCE_ORB_PICKUP:1.0:0.8"
 
-    # Sonidos para reparación múltiple
-    multiple_repair:
-      sounds:
-        - "BLOCK_ANVIL_USE:1.0:1.0"
-        - "ENTITY_PLAYER_LEVELUP:1.0:1.2"
-        - "BLOCK_ENCHANTMENT_TABLE_USE:0.8:1.5"
+      # Sonidos para reparación múltiple
+      multiple_repair:
+        enabled: true
+        sounds:
+          - "BLOCK_ANVIL_USE:1.0:1.0"
+          - "ENTITY_PLAYER_LEVELUP:1.0:1.2"
+          - "BLOCK_ENCHANTMENT_TABLE_USE:0.8:1.5"
 
-    # Partículas
+    # Configuración de partículas
     particles:
       enabled: true
       types:
         - "ENCHANTMENT_TABLE"
         - "VILLAGER_HAPPY"
-        - "CRIT_MAGIC"  # Solo para reparaciones múltiples
+        - "CRIT_MAGIC"
+
+  # === MENSAJES PERSONALIZABLES ===
+  messages:
+    # Mensaje cuando no hay suficiente experiencia
+    insufficient_xp: |
+      &c╔════════════════════════════════════════╗
+      &c║ &e💎 EXPERIENCIA INSUFICIENTE &c           ║
+      &c╠════════════════════════════════════════╣
+      &c║ &fNecesitas: &e%required% niveles &c          ║
+      &c║ &fTienes: &e%current% niveles &c             ║
+      &c║ &fTe faltan: &6%missing% niveles &c          ║
+      &c╚════════════════════════════════════════╝
+
+    # Mensaje de reparación exitosa (un ítem)
+    repair_success_single: "&a✅ Tu %item_type% ha sido reparado completamente."
+
+    # Mensaje de reparación exitosa (múltiples ítems)
+    repair_success_multiple: "&a✅ Has reparado %count% ítems de tu %repair_type% exitosamente."
+
+    # Mensaje de costo
+    repair_cost: "&7💰 Costo total: &e%cost% niveles de experiencia."
+
+    # Mensaje de reparación gratuita
+    repair_free: "&7🎁 Reparación gratuita aplicada."
+
+    # Mensaje de cooldown
+    cooldown_message: "&c⏰ Debes esperar %seconds% segundos antes de reparar nuevamente."
+
+    # Mensaje cuando no hay ítems para reparar
+    no_repairable_items: "&e📦 No tienes ítems dañados para reparar."
+
+    # Mensaje de confirmación requerida
+    confirmation_required: |
+      &e╔════════════════════════════════════════╗
+      &e║ &6🔔 CONFIRMACIÓN DE REPARACIÓN &e        ║
+      &e╠════════════════════════════════════════╣
+      &e║ &fÍtems a reparar: &b%items% &e              ║
+      &e║ &fCosto total: &a%cost% niveles &e         ║
+      &e║                                        ║
+      &e║ &a✅ /reparar confirm &f- Proceder &e     ║
+      &e║ &c❌ /reparar cancel &f- Cancelar &e      ║
+      &e╚════════════════════════════════════════╝
+
+  # === CONFIGURACIÓN ADMINISTRATIVA ===
+  admin:
+    # Notificar a administradores sobre reparaciones grandes
+    notify_large_repairs:
+      enabled: true
+      # Umbral de costo para notificar
+      cost_threshold: 100
+      # Umbral de cantidad de ítems para notificar
+      item_threshold: 10
+
+    # Logging detallado
+    detailed_logging: true
+
+    # Permiso para recibir notificaciones: survivalcore.repair.admin.notify
+
+# ===============================================
+# CONFIGURACIÓN DE PERMISOS RELACIONADOS
+# ===============================================
+#
+# Permisos principales:
+# - survivalcore.repair.use: Usar comandos básicos de reparación
+# - survivalcore.repair.free: Reparación completamente gratuita
+# - survivalcore.repair.discount.legend: 70% descuento
+# - survivalcore.repair.discount.vip: 50% descuento
+# - survivalcore.repair.discount.premium: 25% descuento
+# - survivalcore.repair.discount: 15% descuento básico
+# - survivalcore.repair.nocooldown: Sin cooldown entre reparaciones
+# - survivalcore.repair.reload: Recargar configuración
+# - survivalcore.repair.admin.notify: Recibir notificaciones administrativas
+#
+# ===============================================
+
+# === CONFIGURACIÓN AVANZADA ===
+repair_advanced:
+  # Algoritmo de cálculo de costo
+  cost_algorithm:
+    # Usar cálculo exponencial para materiales premium (más realista)
+    exponential_scaling: true
+
+    # Factor de escala exponencial (solo si exponential_scaling está activado)
+    exponential_factor: 1.2
+
+    # Penalización por múltiples encantamientos del mismo tipo
+    duplicate_enchant_penalty: 0.05
+
+    # Bonus por reparar múltiples ítems a la vez (descuento por volumen)
+    bulk_repair_bonus: 0.95  # 5% descuento en reparaciones masivas
+
+  # Configuración de límites dinámicos
+  dynamic_limits:
+    # Ajustar costo máximo basado en el material del ítem
+    adjust_max_cost_by_material: true
+
+    # Multiplicadores de costo máximo por material
+    max_cost_multipliers:
+      NETHERITE: 2.0  # Netherite puede costar hasta 150 niveles
+      DIAMOND: 1.5    # Diamante puede costar hasta 112 niveles
+      IRON: 1.0       # Hierro usa el límite estándar (75 niveles)
+      STONE: 0.5      # Piedra máximo 37 niveles
+      WOOD: 0.3       # Madera máximo 22 niveles
+
+  # Sistema de estadísticas
+  statistics:
+    # Rastrear estadísticas de reparación por jugador
+    track_player_stats: true
+
+    # Guardar estadísticas en la base de datos
+    save_to_database: true
+
+    # Mostrar estadísticas en /reparar info
+    show_in_info: true
+
+# ===============================================
+# EJEMPLOS DE CÁLCULO DE COSTO
+# ===============================================
+#
+# Ejemplo 1: Espada de Diamante con Sharpness V y Mending
+# - Daño: 800/1561 (51% de daño)
+# - Costo base: 800 * 0.05 = 40
+# - Material (Diamante): 40 * 2.5 = 100
+# - Sharpness V: 100 * (1 + 0.15 + 0.03*4) = 139
+# - Mending: 139 * (1 + 0.30) = 180.7
+# - Costo final: min(181, 75) = 75 niveles
+#
+# Ejemplo 2: Pico de Hierro con Efficiency III
+# - Daño: 100/250 (40% de daño)
+# - Costo base: 100 * 0.05 = 5
+# - Material (Hierro): 5 * 1.0 = 5
+# - Efficiency III: 5 * (1 + 0.14 + 0.03*2) = 6
+# - Costo final: max(6, 1) = 6 niveles
+#
+# ===============================================

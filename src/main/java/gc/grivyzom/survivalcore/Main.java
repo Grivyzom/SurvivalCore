@@ -37,6 +37,7 @@ import gc.grivyzom.survivalcore.commands.MagicFlowerPotCommand;
 import gc.grivyzom.survivalcore.commands.MagicFlowerPotCommand;
 import gc.grivyzom.survivalcore.listeners.MagicFlowerPotListener;
 import gc.grivyzom.survivalcore.util.SocialMediaValidator;
+import gc.grivyzom.survivalcore.commands.SocialCommand;
 
 
 import java.io.File;
@@ -412,6 +413,9 @@ public class Main extends JavaPlugin {
         registerCommand("flowerpot", magicFlowerPotCommand);
         registerCommand("magicflower", magicFlowerPotCommand);
 
+        // 🆕 COMANDO DE REDES SOCIALES - AÑADIR ESTA LÍNEA
+        registerCommand("social", new SocialCommand(this));
+
         // 🆕 COMANDOS DE RANKUP 2.0 - Solo registrar si el sistema está disponible
         if (rankupManager != null) {
             RankupCommand rankupCmd = new RankupCommand(this, rankupManager);
@@ -422,9 +426,7 @@ public class Main extends JavaPlugin {
         } else {
             getLogger().warning("⚠️ Comandos de rankup NO registrados - Sistema no disponible");
         }
-
     }
-
     private void registerListeners() {
         var pm = getServer().getPluginManager();
 

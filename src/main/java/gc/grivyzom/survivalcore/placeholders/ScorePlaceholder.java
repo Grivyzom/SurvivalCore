@@ -55,6 +55,81 @@ public class ScorePlaceholder extends PlaceholderExpansion {
 
         Player onlinePlayer = player.getPlayer();
 
+        // ===== PLACEHOLDERS DE REDES SOCIALES =====
+        if (params.equals("discord")) {
+            return getDiscord(player);
+        }
+
+        if (params.equals("instagram")) {
+            return getInstagram(player);
+        }
+
+        if (params.equals("github")) {
+            return getGithub(player);
+        }
+
+        if (params.equals("tiktok")) {
+            return getTiktok(player);
+        }
+
+        if (params.equals("twitch")) {
+            return getTwitch(player);
+        }
+
+        if (params.equals("kick")) {
+            return getKick(player);
+        }
+
+        if (params.equals("youtube")) {
+            return getYoutube(player);
+        }
+
+        if (params.equals("social_count")) {
+            return getSocialCount(player);
+        }
+
+        if (params.equals("has_socials")) {
+            return getHasSocials(player);
+        }
+
+        // ===== PLACEHOLDERS DE ESTADO DE REDES SOCIALES (para GUIs) =====
+        if (params.equals("discord_status")) {
+            return getSocialStatus(player, "discord");
+        }
+
+        if (params.equals("instagram_status")) {
+            return getSocialStatus(player, "instagram");
+        }
+
+        if (params.equals("github_status")) {
+            return getSocialStatus(player, "github");
+        }
+
+        if (params.equals("tiktok_status")) {
+            return getSocialStatus(player, "tiktok");
+        }
+
+        if (params.equals("twitch_status")) {
+            return getSocialStatus(player, "twitch");
+        }
+
+        if (params.equals("kick_status")) {
+            return getSocialStatus(player, "kick");
+        }
+
+        if (params.equals("youtube_status")) {
+            return getSocialStatus(player, "youtube");
+        }
+
+        // ===== PLACEHOLDERS DE INFORMACIÓN DE GÉNERO CON COOLDOWN =====
+        if (params.equals("gender_cooldown")) {
+            return getGenderCooldown(player);
+        }
+
+        if (params.equals("can_change_gender")) {
+            return getCanChangeGender(player);
+        }
+
         // ===== PLACEHOLDERS DE RANKUP SIMPLIFICADOS =====
         if (params.equals("rank")) {
             return getRankPlaceholder(onlinePlayer);
@@ -468,4 +543,150 @@ public class ScorePlaceholder extends PlaceholderExpansion {
 
         return bar.toString();
     }
+    private String getDiscord(OfflinePlayer player) {
+        try {
+            UserData userData = plugin.getDatabaseManager().getUserData(player.getUniqueId().toString());
+            return userData != null && userData.getDiscord() != null ?
+                    userData.getDiscord() : "No configurado";
+        } catch (Exception e) {
+            return "Error";
+        }
+    }
+
+    private String getInstagram(OfflinePlayer player) {
+        try {
+            UserData userData = plugin.getDatabaseManager().getUserData(player.getUniqueId().toString());
+            return userData != null && userData.getInstagram() != null ?
+                    userData.getInstagram() : "No configurado";
+        } catch (Exception e) {
+            return "Error";
+        }
+    }
+
+    private String getGithub(OfflinePlayer player) {
+        try {
+            UserData userData = plugin.getDatabaseManager().getUserData(player.getUniqueId().toString());
+            return userData != null && userData.getGithub() != null ?
+                    userData.getGithub() : "No configurado";
+        } catch (Exception e) {
+            return "Error";
+        }
+    }
+
+    private String getTiktok(OfflinePlayer player) {
+        try {
+            UserData userData = plugin.getDatabaseManager().getUserData(player.getUniqueId().toString());
+            return userData != null && userData.getTiktok() != null ?
+                    userData.getTiktok() : "No configurado";
+        } catch (Exception e) {
+            return "Error";
+        }
+    }
+
+    private String getTwitch(OfflinePlayer player) {
+        try {
+            UserData userData = plugin.getDatabaseManager().getUserData(player.getUniqueId().toString());
+            return userData != null && userData.getTwitch() != null ?
+                    userData.getTwitch() : "No configurado";
+        } catch (Exception e) {
+            return "Error";
+        }
+    }
+
+    private String getKick(OfflinePlayer player) {
+        try {
+            UserData userData = plugin.getDatabaseManager().getUserData(player.getUniqueId().toString());
+            return userData != null && userData.getKick() != null ?
+                    userData.getKick() : "No configurado";
+        } catch (Exception e) {
+            return "Error";
+        }
+    }
+
+    private String getYoutube(OfflinePlayer player) {
+        try {
+            UserData userData = plugin.getDatabaseManager().getUserData(player.getUniqueId().toString());
+            return userData != null && userData.getYoutube() != null ?
+                    userData.getYoutube() : "No configurado";
+        } catch (Exception e) {
+            return "Error";
+        }
+    }
+
+    private String getSocialCount(OfflinePlayer player) {
+        try {
+            UserData userData = plugin.getDatabaseManager().getUserData(player.getUniqueId().toString());
+            return userData != null ? String.valueOf(userData.getSocialMediaCount()) : "0";
+        } catch (Exception e) {
+            return "0";
+        }
+    }
+
+    private String getHasSocials(OfflinePlayer player) {
+        try {
+            UserData userData = plugin.getDatabaseManager().getUserData(player.getUniqueId().toString());
+            return userData != null ? String.valueOf(userData.hasAnySocialMedia()) : "false";
+        } catch (Exception e) {
+            return "false";
+        }
+    }
+
+    /**
+     * Obtiene el estado de una red social (para usar en GUIs)
+     */
+    private String getSocialStatus(OfflinePlayer player, String network) {
+        try {
+            UserData userData = plugin.getDatabaseManager().getUserData(player.getUniqueId().toString());
+            if (userData == null) return "✗ No configurado";
+
+            String value = null;
+            switch (network.toLowerCase()) {
+                case "discord" -> value = userData.getDiscord();
+                case "instagram" -> value = userData.getInstagram();
+                case "github" -> value = userData.getGithub();
+                case "tiktok" -> value = userData.getTiktok();
+                case "twitch" -> value = userData.getTwitch();
+                case "kick" -> value = userData.getKick();
+                case "youtube" -> value = userData.getYoutube();
+            }
+
+            if (value != null && !value.isEmpty()) {
+                // Truncar para mejor visualización en GUIs
+                String displayValue = value.length() > 15 ? value.substring(0, 12) + "..." : value;
+                return "✓ " + displayValue;
+            } else {
+                return "✗ No configurado";
+            }
+        } catch (Exception e) {
+            return "✗ Error";
+        }
+    }
+
+    /**
+     * Obtiene información del cooldown de género
+     */
+    private String getGenderCooldown(OfflinePlayer player) {
+        try {
+            if (plugin.getDatabaseManager().canChangeGender(player.getUniqueId().toString())) {
+                return "Disponible";
+            } else {
+                return plugin.getDatabaseManager().getGenderCooldownRemaining(player.getUniqueId().toString());
+            }
+        } catch (Exception e) {
+            return "Error";
+        }
+    }
+
+    /**
+     * Verifica si puede cambiar de género
+     */
+    private String getCanChangeGender(OfflinePlayer player) {
+        try {
+            return String.valueOf(plugin.getDatabaseManager().canChangeGender(player.getUniqueId().toString()));
+        } catch (Exception e) {
+            return "false";
+        }
+    }
+
 }
+

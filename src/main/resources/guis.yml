@@ -1,0 +1,643 @@
+# =======================================================
+#           SISTEMA DE GUIS CONFIGURABLES
+#            SurvivalCore v3.0 by Brocolitx
+# =======================================================
+
+# =================== CONFIGURACIÓN GLOBAL ===================
+global:
+  # Sonidos globales por defecto
+  default_sounds:
+    open_menu: "UI_BUTTON_CLICK"
+    close_menu: "UI_BUTTON_CLICK"
+    change_page: "ITEM_BOOK_PAGE_TURN"
+    error: "ENTITY_VILLAGER_NO"
+    success: "ENTITY_PLAYER_LEVELUP"
+
+  # Volumen y tono por defecto
+  sound_volume: 0.8
+  sound_pitch: 1.0
+
+# =================== GUI DE SELECCIÓN DE GÉNERO ===================
+gender_gui:
+  enabled: true
+  title: "&d&lSelecciona tu Género"
+  size: 27  # Múltiplo de 9 (9, 18, 27, 36, 45, 54)
+
+  # Cooldown de cambio (en días)
+  cooldown_days: 7
+
+  # Sonidos específicos
+  sounds:
+    open: "UI_BUTTON_CLICK"
+    select: "ENTITY_PLAYER_LEVELUP"
+    cooldown: "ENTITY_VILLAGER_NO"
+
+  # Items del menú
+  items:
+    # Bordes decorativos
+    border:
+      material: "GRAY_STAINED_GLASS_PANE"
+      name: " "
+      slots: [0,1,2,3,4,5,6,7,8,9,17,18,19,20,21,23,24,25,26]
+
+    # Opción Masculino
+    masculino:
+      slot: 11
+      material: "LIGHT_BLUE_WOOL"
+      name: "&b&lMasculino"
+      lore:
+        - ""
+        - "&7Selecciona este género"
+        - "&7si te identificas como"
+        - "&7masculino."
+        - ""
+        - "&e➤ Click para seleccionar"
+      glow: false
+      actions:
+        left_click:
+          - "[GENDER_SET] Masculino"
+          - "[MESSAGE] &a✓ Has seleccionado &bMasculino &acomo tu género."
+          - "[SOUND] ENTITY_PLAYER_LEVELUP:1.0:1.2"
+          - "[CLOSE]"
+
+    # Opción Femenino
+    femenino:
+      slot: 13
+      material: "PINK_WOOL"
+      name: "&d&lFemenino"
+      lore:
+        - ""
+        - "&7Selecciona este género"
+        - "&7si te identificas como"
+        - "&7femenino."
+        - ""
+        - "&e➤ Click para seleccionar"
+      glow: false
+      actions:
+        left_click:
+          - "[GENDER_SET] Femenino"
+          - "[MESSAGE] &a✓ Has seleccionado &dFemenino &acomo tu género."
+          - "[SOUND] ENTITY_PLAYER_LEVELUP:1.0:1.2"
+          - "[CLOSE]"
+
+    # Opción Otro
+    otro:
+      slot: 15
+      material: "LIME_WOOL"
+      name: "&a&lOtro"
+      lore:
+        - ""
+        - "&7Selecciona esta opción"
+        - "&7si prefieres no especificar"
+        - "&7o te identificas de otra forma."
+        - ""
+        - "&e➤ Click para seleccionar"
+      glow: false
+      actions:
+        left_click:
+          - "[GENDER_SET] Otro"
+          - "[MESSAGE] &a✓ Has seleccionado &aOtro &acomo tu género."
+          - "[SOUND] ENTITY_PLAYER_LEVELUP:1.0:1.2"
+          - "[CLOSE]"
+
+    # Información actual
+    info:
+      slot: 22
+      material: "BOOK"
+      name: "&6&lInformación"
+      lore:
+        - ""
+        - "&fGénero actual: &e{gender}"
+        - "&fÚltimo cambio: &e{last_change}"
+        - ""
+        - "&7El género es solo informativo"
+        - "&7y no afecta el gameplay."
+        - ""
+        - "&cPuedes cambiar tu género"
+        - "&ccada 7 días."
+      glow: true
+
+# =================== GUI DE PERFIL PRINCIPAL ===================
+profile_gui:
+  enabled: true
+  title: "&6&lPerfil de {player}"
+  size: 54
+
+  # Configuración de páginas
+  pages:
+    main:
+      title: "&6&lPerfil Principal"
+      items:
+        # Cabeza del jugador
+        player_head:
+          slot: 13
+          material: "PLAYER_HEAD"
+          owner: "{player}"
+          name: "&e&l{player}"
+          lore:
+            - ""
+            - "&7━━━━━━━━━━━━━━━━━━━━"
+            - "&6▸ &fRango: {rank}"
+            - "&6▸ &fNivel: &e{level}"
+            - "&6▸ &fExperiencia: &e{exp}"
+            - "&7━━━━━━━━━━━━━━━━━━━━"
+            - ""
+            - "&6▸ &fFarming: &aLv.{farming_level} &7({farming_xp} XP)"
+            - "&6▸ &fMinería: &bLv.{mining_level} &7({mining_xp} XP)"
+            - ""
+            - "&6▸ &fBanco XP: &e{banked_xp}&7/{bank_capacity}"
+            - "&7━━━━━━━━━━━━━━━━━━━━"
+          glow: true
+
+        # Información Personal
+        personal_info:
+          slot: 30
+          material: "WRITABLE_BOOK"
+          name: "&d&lInformación Personal"
+          lore:
+            - ""
+            - "&f▸ Género: &e{gender}"
+            - "&f▸ Cumpleaños: &e{birthday}"
+            - "&f▸ País: &e{country}"
+            - ""
+            - "&7━━━━━━━━━━━━━━━━━━━━"
+            - ""
+            - "&e➤ Click para editar"
+          glow: false
+          actions:
+            left_click:
+              - "[OPEN_PAGE] personal"
+
+        # Redes Sociales
+        social_media:
+          slot: 32
+          material: "ENDER_EYE"
+          name: "&b&lRedes Sociales"
+          lore:
+            - ""
+            - "&7Redes configuradas: &e{social_count}/7"
+            - ""
+            - "&f▸ Discord: {discord_status}"
+            - "&f▸ Instagram: {instagram_status}"
+            - "&f▸ GitHub: {github_status}"
+            - "&f▸ TikTok: {tiktok_status}"
+            - "&f▸ Twitch: {twitch_status}"
+            - "&f▸ Kick: {kick_status}"
+            - "&f▸ YouTube: {youtube_status}"
+            - ""
+            - "&e➤ Click para gestionar"
+          glow: true
+          actions:
+            left_click:
+              - "[OPEN_PAGE] social"
+
+        # Estadísticas
+        statistics:
+          slot: 31
+          material: "GOLDEN_SWORD"
+          name: "&6&lEstadísticas"
+          lore:
+            - ""
+            - "&f▸ Tiempo jugado: &e{playtime}"
+            - "&f▸ Primera vez: &e{first_join}"
+            - "&f▸ Última conexión: &e{last_seen}"
+            - ""
+            - "&7━━━━━━━━━━━━━━━━━━━━"
+            - ""
+            - "&f▸ Mobs eliminados: &c{mob_kills}"
+            - "&f▸ Bloques minados: &b{blocks_mined}"
+            - "&f▸ Distancia recorrida: &a{distance}"
+            - ""
+            - "&e➤ Click para ver más"
+          glow: false
+          actions:
+            left_click:
+              - "[OPEN_PAGE] stats"
+
+        # Logros
+        achievements:
+          slot: 33
+          material: "NETHER_STAR"
+          name: "&5&lLogros"
+          lore:
+            - ""
+            - "&7Logros desbloqueados:"
+            - "&e{achievements_count}/{achievements_total}"
+            - ""
+            - "&7━━━━━━━━━━━━━━━━━━━━"
+            - ""
+            - "&f▸ Puntos de logro: &e{achievement_points}"
+            - "&f▸ Rango de logros: &e{achievement_rank}"
+            - ""
+            - "&e➤ Click para ver todos"
+          glow: true
+          actions:
+            left_click:
+              - "[MESSAGE] &cSistema de logros en desarrollo..."
+
+        # Cerrar
+        close:
+          slot: 49
+          material: "BARRIER"
+          name: "&c&lCerrar"
+          lore:
+            - ""
+            - "&7Cierra este menú"
+          actions:
+            left_click:
+              - "[CLOSE]"
+
+        # Decoración
+        decoration:
+          material: "BLACK_STAINED_GLASS_PANE"
+          name: " "
+          slots: [0,1,2,3,4,5,6,7,8,9,17,18,26,27,35,36,44,45,46,47,48,50,51,52,53]
+
+    # =================== PÁGINA DE INFORMACIÓN PERSONAL ===================
+    personal:
+      title: "&d&lInformación Personal"
+      items:
+        # Botón Atrás
+        back:
+          slot: 0
+          material: "ARROW"
+          name: "&c← Volver"
+          lore:
+            - "&7Volver al menú principal"
+          actions:
+            left_click:
+              - "[OPEN_PAGE] main"
+
+        # Cambiar Género
+        change_gender:
+          slot: 20
+          material: "NAME_TAG"
+          name: "&d&lCambiar Género"
+          lore:
+            - ""
+            - "&fGénero actual: &e{gender}"
+            - ""
+            - "&7Puedes cambiar tu género"
+            - "&7cada 7 días."
+            - ""
+            - "&fPróximo cambio disponible:"
+            - "&e{gender_cooldown}"
+            - ""
+            - "&e➤ Click para cambiar"
+          glow: false
+          actions:
+            left_click:
+              - "[COMMAND] genero"
+
+        # Establecer Cumpleaños
+        set_birthday:
+          slot: 22
+          material: "CAKE"
+          name: "&6&lCumpleaños"
+          lore:
+            - ""
+            - "&fFecha: &e{birthday}"
+            - ""
+            - "&7Tu cumpleaños se celebrará"
+            - "&7automáticamente cada año."
+            - ""
+            - "&e➤ Click para establecer"
+          glow: false
+          actions:
+            left_click:
+              - "[COMMAND] birthday"
+
+        # País
+        country_info:
+          slot: 24
+          material: "FILLED_MAP"
+          name: "&a&lPaís"
+          lore:
+            - ""
+            - "&fPaís detectado: &e{country}"
+            - ""
+            - "&7El país se detecta"
+            - "&7automáticamente por IP."
+            - ""
+            - "&7Si es incorrecto, contacta"
+            - "&7a un administrador."
+          glow: false
+
+    # =================== PÁGINA DE REDES SOCIALES ===================
+    social:
+      title: "&b&lRedes Sociales"
+      items:
+        # Botón Atrás
+        back:
+          slot: 0
+          material: "ARROW"
+          name: "&c← Volver"
+          lore:
+            - "&7Volver al menú principal"
+          actions:
+            left_click:
+              - "[OPEN_PAGE] main"
+
+        # Discord
+        discord:
+          slot: 20
+          material: "LAPIS_LAZULI"
+          name: "&9&lDiscord"
+          lore:
+            - ""
+            - "&fEstado: {discord_display}"
+            - ""
+            - "&7Ejemplo: usuario#1234"
+            - "&7o enlace de perfil"
+            - ""
+            - "&a➤ Click izquierdo para establecer"
+            - "&c➤ Click derecho para eliminar"
+          glow: "{discord_set}"
+          actions:
+            left_click:
+              - "[CLOSE]"
+              - "[MESSAGE] &eEscribe tu Discord en el chat:"
+              - "[AWAIT_INPUT] social_discord"
+            right_click:
+              - "[SOCIAL_REMOVE] discord"
+              - "[MESSAGE] &cDiscord eliminado."
+
+        # Instagram
+        instagram:
+          slot: 21
+          material: "MAGENTA_DYE"
+          name: "&d&lInstagram"
+          lore:
+            - ""
+            - "&fEstado: {instagram_display}"
+            - ""
+            - "&7Ejemplo: @usuario"
+            - "&7o enlace de perfil"
+            - ""
+            - "&a➤ Click izquierdo para establecer"
+            - "&c➤ Click derecho para eliminar"
+          glow: "{instagram_set}"
+          actions:
+            left_click:
+              - "[CLOSE]"
+              - "[MESSAGE] &eEscribe tu Instagram en el chat:"
+              - "[AWAIT_INPUT] social_instagram"
+            right_click:
+              - "[SOCIAL_REMOVE] instagram"
+              - "[MESSAGE] &cInstagram eliminado."
+
+        # GitHub
+        github:
+          slot: 22
+          material: "BLACK_DYE"
+          name: "&8&lGitHub"
+          lore:
+            - ""
+            - "&fEstado: {github_display}"
+            - ""
+            - "&7Ejemplo: github.com/usuario"
+            - ""
+            - "&a➤ Click izquierdo para establecer"
+            - "&c➤ Click derecho para eliminar"
+          glow: "{github_set}"
+          actions:
+            left_click:
+              - "[CLOSE]"
+              - "[MESSAGE] &eEscribe tu GitHub en el chat:"
+              - "[AWAIT_INPUT] social_github"
+            right_click:
+              - "[SOCIAL_REMOVE] github"
+              - "[MESSAGE] &cGitHub eliminado."
+
+        # TikTok
+        tiktok:
+          slot: 23
+          material: "PINK_DYE"
+          name: "&d&lTikTok"
+          lore:
+            - ""
+            - "&fEstado: {tiktok_display}"
+            - ""
+            - "&7Ejemplo: @usuario"
+            - "&7o enlace de perfil"
+            - ""
+            - "&a➤ Click izquierdo para establecer"
+            - "&c➤ Click derecho para eliminar"
+          glow: "{tiktok_set}"
+          actions:
+            left_click:
+              - "[CLOSE]"
+              - "[MESSAGE] &eEscribe tu TikTok en el chat:"
+              - "[AWAIT_INPUT] social_tiktok"
+            right_click:
+              - "[SOCIAL_REMOVE] tiktok"
+              - "[MESSAGE] &cTikTok eliminado."
+
+        # Twitch
+        twitch:
+          slot: 24
+          material: "PURPLE_DYE"
+          name: "&5&lTwitch"
+          lore:
+            - ""
+            - "&fEstado: {twitch_display}"
+            - ""
+            - "&7Ejemplo: twitch.tv/usuario"
+            - ""
+            - "&a➤ Click izquierdo para establecer"
+            - "&c➤ Click derecho para eliminar"
+          glow: "{twitch_set}"
+          actions:
+            left_click:
+              - "[CLOSE]"
+              - "[MESSAGE] &eEscribe tu Twitch en el chat:"
+              - "[AWAIT_INPUT] social_twitch"
+            right_click:
+              - "[SOCIAL_REMOVE] twitch"
+              - "[MESSAGE] &cTwitch eliminado."
+
+        # Kick
+        kick:
+          slot: 30
+          material: "LIME_DYE"
+          name: "&a&lKick"
+          lore:
+            - ""
+            - "&fEstado: {kick_display}"
+            - ""
+            - "&7Ejemplo: kick.com/usuario"
+            - ""
+            - "&a➤ Click izquierdo para establecer"
+            - "&c➤ Click derecho para eliminar"
+          glow: "{kick_set}"
+          actions:
+            left_click:
+              - "[CLOSE]"
+              - "[MESSAGE] &eEscribe tu Kick en el chat:"
+              - "[AWAIT_INPUT] social_kick"
+            right_click:
+              - "[SOCIAL_REMOVE] kick"
+              - "[MESSAGE] &cKick eliminado."
+
+        # YouTube
+        youtube:
+          slot: 32
+          material: "RED_DYE"
+          name: "&c&lYouTube"
+          lore:
+            - ""
+            - "&fEstado: {youtube_display}"
+            - ""
+            - "&7Ejemplo: @usuario"
+            - "&7o enlace de canal"
+            - ""
+            - "&a➤ Click izquierdo para establecer"
+            - "&c➤ Click derecho para eliminar"
+          glow: "{youtube_set}"
+          actions:
+            left_click:
+              - "[CLOSE]"
+              - "[MESSAGE] &eEscribe tu YouTube en el chat:"
+              - "[AWAIT_INPUT] social_youtube"
+            right_click:
+              - "[SOCIAL_REMOVE] youtube"
+              - "[MESSAGE] &cYouTube eliminado."
+
+        # Información
+        info:
+          slot: 40
+          material: "BOOK"
+          name: "&6&lInformación"
+          lore:
+            - ""
+            - "&7Las redes sociales son"
+            - "&7opcionales y ayudan a otros"
+            - "&7jugadores a encontrarte"
+            - "&7fuera del juego."
+            - ""
+            - "&fRedes configuradas: &e{social_count}/7"
+            - ""
+            - "&7Usa los comandos:"
+            - "&e/social <red> <usuario>"
+            - "&7para configurar desde chat."
+
+    # =================== PÁGINA DE ESTADÍSTICAS ===================
+    stats:
+      title: "&6&lEstadísticas Detalladas"
+      items:
+        # Botón Atrás
+        back:
+          slot: 0
+          material: "ARROW"
+          name: "&c← Volver"
+          lore:
+            - "&7Volver al menú principal"
+          actions:
+            left_click:
+              - "[OPEN_PAGE] main"
+
+        # Estadísticas de combate
+        combat_stats:
+          slot: 20
+          material: "DIAMOND_SWORD"
+          name: "&c&lCombate"
+          lore:
+            - ""
+            - "&f▸ Mobs eliminados: &e{mob_kills}"
+            - "&f▸ Jugadores eliminados: &e{player_kills}"
+            - "&f▸ Muertes: &e{deaths}"
+            - "&f▸ K/D Ratio: &e{kd_ratio}"
+            - ""
+            - "&f▸ Daño total causado: &e{damage_dealt}"
+            - "&f▸ Daño total recibido: &e{damage_taken}"
+          glow: false
+
+        # Estadísticas de minería
+        mining_stats:
+          slot: 22
+          material: "DIAMOND_PICKAXE"
+          name: "&b&lMinería"
+          lore:
+            - ""
+            - "&f▸ Bloques minados: &e{blocks_mined}"
+            - "&f▸ Diamantes encontrados: &b{diamonds_found}"
+            - "&f▸ Hierro minado: &7{iron_mined}"
+            - "&f▸ Oro minado: &6{gold_mined}"
+            - "&f▸ Carbón minado: &8{coal_mined}"
+            - ""
+            - "&f▸ Nivel de minería: &e{mining_level}"
+            - "&f▸ XP de minería: &e{mining_xp}"
+          glow: false
+
+        # Estadísticas de farming
+        farming_stats:
+          slot: 24
+          material: "DIAMOND_HOE"
+          name: "&a&lAgricultura"
+          lore:
+            - ""
+            - "&f▸ Cultivos cosechados: &e{crops_harvested}"
+            - "&f▸ Animales criados: &e{animals_bred}"
+            - "&f▸ Peces pescados: &e{fish_caught}"
+            - ""
+            - "&f▸ Nivel de farming: &e{farming_level}"
+            - "&f▸ XP de farming: &e{farming_xp}"
+          glow: false
+
+# =================== CONFIGURACIÓN DE MENSAJES ===================
+messages:
+  # Mensajes de error
+  error:
+    no_permission: "&cNo tienes permisos para hacer esto."
+    cooldown_active: "&cDebes esperar {time} antes de poder cambiar tu género nuevamente."
+    invalid_format: "&cFormato inválido. Por favor, verifica e intenta de nuevo."
+
+  # Mensajes de éxito
+  success:
+    gender_changed: "&a✓ Tu género ha sido actualizado a {gender}."
+    social_added: "&a✓ {social} ha sido agregado a tu perfil."
+    social_removed: "&c✗ {social} ha sido eliminado de tu perfil."
+
+  # Mensajes de input
+  input:
+    cancelled: "&cEntrada cancelada."
+    timeout: "&cTiempo de espera agotado."
+    awaiting: "&eEsperando tu respuesta... Escribe 'cancelar' para cancelar."
+
+# =================== VALIDACIÓN DE URLs ===================
+url_validation:
+  discord:
+    patterns:
+      - "^[a-zA-Z0-9_]{2,32}#[0-9]{4}$"  # Usuario#1234
+      - "^https?://discord\\.com/users/[0-9]+$"  # URL de perfil
+      - "^@[a-zA-Z0-9_]{2,32}$"  # @usuario
+
+  instagram:
+    patterns:
+      - "^@[a-zA-Z0-9_.]{1,30}$"  # @usuario
+      - "^https?://(www\\.)?instagram\\.com/[a-zA-Z0-9_.]+/?$"  # URL
+
+  github:
+    patterns:
+      - "^[a-zA-Z0-9-]{1,39}$"  # usuario
+      - "^https?://github\\.com/[a-zA-Z0-9-]+/?$"  # URL
+
+  tiktok:
+    patterns:
+      - "^@[a-zA-Z0-9_.]{2,24}$"  # @usuario
+      - "^https?://(www\\.)?tiktok\\.com/@[a-zA-Z0-9_.]+/?$"  # URL
+
+  twitch:
+    patterns:
+      - "^[a-zA-Z0-9_]{4,25}$"  # usuario
+      - "^https?://(www\\.)?twitch\\.tv/[a-zA-Z0-9_]+/?$"  # URL
+
+  kick:
+    patterns:
+      - "^[a-zA-Z0-9_]{4,25}$"  # usuario
+      - "^https?://kick\\.com/[a-zA-Z0-9_]+/?$"  # URL
+
+  youtube:
+    patterns:
+      - "^@[a-zA-Z0-9_]{3,30}$"  # @usuario
+      - "^https?://(www\\.)?youtube\\.com/(c/|channel/|@)[a-zA-Z0-9_-]+/?$"  # URL canal

@@ -17,6 +17,8 @@ import gc.grivyzom.survivalcore.util.*;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 import gc.grivyzom.survivalcore.api.SurvivalCoreAPI;
@@ -34,6 +36,7 @@ import gc.grivyzom.survivalcore.flowerpot.MagicFlowerPotManager;
 import gc.grivyzom.survivalcore.commands.MagicFlowerPotCommand;
 import gc.grivyzom.survivalcore.commands.MagicFlowerPotCommand;
 import gc.grivyzom.survivalcore.listeners.MagicFlowerPotListener;
+import gc.grivyzom.survivalcore.util.SocialMediaValidator;
 
 
 import java.io.File;
@@ -72,15 +75,26 @@ public class Main extends JavaPlugin {
     private MagicFlowerPotManager magicFlowerPotManager;
     private ConfigurableFlowerIntegration flowerIntegration;
 
+    // Configuración de GUIs
+    private FileConfiguration guisConfig;
+    private File guisConfigFile;
+
+
     /* =================== CICLO DE VIDA =================== */
     @Override
     public void onEnable() {
         saveDefaultConfig();
         if (!getDataFolder().exists()) getDataFolder().mkdirs();
 
+        // Cargar configuración de GUIs
+        loadGuisConfig();
+
         loadSettings();
         if (!initDatabase()) return;
         initManagers();
+
+        // Inicializar GUIs con la configuración cargada
+        initializeGuis();
 
         // 🔧 CORRECCIÓN: Inicializar ConfigurableFlowerIntegration DESPUÉS de managers
         try {
@@ -149,6 +163,131 @@ public class Main extends JavaPlugin {
     }
 
     /* =================== INICIALIZACIÓN =================== */
+
+    /**
+     * Carga el archivo de configuración de GUIs
+     */
+    private void loadGuisConfig() {
+        guisConfigFile = new File(getDataFolder(), "guis.yml");
+
+        // Si no existe, intentar crearlo desde los recursos
+        if (!guisConfigFile.exists()) {
+            try {
+                // Intentar guardar desde recursos
+                saveResource("guis.yml", false);
+                getLogger().info("✓ Archivo guis.yml creado desde los recursos");
+            } catch (Exception e) {
+                // Si no existe en recursos, crear uno básico
+                getLogger().warning("No se encontró guis.yml en recursos, creando configuración básica...");
+                createDefaultGuisConfig();
+            }
+        }
+
+        // Cargar la configuración
+        guisConfig = YamlConfiguration.loadConfiguration(guisConfigFile);
+        getLogger().info("✓ Configuración de GUIs cargada correctamente");
+    }
+
+    /**
+     * Crea una configuración básica de GUIs si no existe
+     */
+    private void createDefaultGuisConfig() {
+        try {
+            if (!guisConfigFile.exists()) {
+                guisConfigFile.getParentFile().mkdirs();
+                guisConfigFile.createNewFile();
+
+                FileConfiguration config = YamlConfiguration.loadConfiguration(guisConfigFile);
+
+                // Configuración básica para el GUI de género
+                config.set("gender_gui.enabled", true);
+                config.set("gender_gui.title", "&d&lSelecciona tu Género");
+                config.set("gender_gui.size", 27);
+                config.set("gender_gui.cooldown_days", 7);
+
+                // Sonidos
+                config.set("gender_gui.sounds.open", "UI_BUTTON_CLICK");
+                config.set("gender_gui.sounds.select", "ENTITY_PLAYER_LEVELUP");
+                config.set("gender_gui.sounds.cooldown", "ENTITY_VILLAGER_NO");
+
+                // Items básicos
+                config.set("gender_gui.items.masculino.slot", 11);
+                config.set("gender_gui.items.masculino.material", "LIGHT_BLUE_WOOL");
+                config.set("gender_gui.items.masculino.name", "&b&lMasculino");
+
+                config.set("gender_gui.items.femenino.slot", 13);
+                config.set("gender_gui.items.femenino.material", "PINK_WOOL");
+                config.set("gender_gui.items.femenino.name", "&d&lFemenino");
+
+                config.set("gender_gui.items.otro.slot", 15);
+                config.set("gender_gui.items.otro.material", "LIME_WOOL");
+                config.set("gender_gui.items.otro.name", "&a&lOtro");
+
+                // Configuración básica para el GUI de perfil
+                config.set("profile_gui.enabled", true);
+                config.set("profile_gui.title", "&6&lPerfil de {player}");
+                config.set("profile_gui.size", 54);
+
+                config.save(guisConfigFile);
+                getLogger().info("✓ Configuración básica de GUIs creada");
+            }
+        } catch (Exception e) {
+            getLogger().severe("Error creando configuración básica de GUIs: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Recarga la configuración de GUIs
+     */
+    public void reloadGuisConfig() {
+        if (guisConfigFile == null) {
+            guisConfigFile = new File(getDataFolder(), "guis.yml");
+        }
+
+        guisConfig = YamlConfiguration.loadConfiguration(guisConfigFile);
+
+        // Reinicializar GUIs con la nueva configuración
+        initializeGuis();
+
+        getLogger().info("✓ Configuración de GUIs recargada");
+    }
+
+    /**
+     * Obtiene la configuración de GUIs
+     */
+    public FileConfiguration getGuisConfig() {
+        if (guisConfig == null) {
+            loadGuisConfig();
+        }
+        return guisConfig;
+    }
+
+    /**
+     * Guarda la configuración de GUIs
+     */
+    public void saveGuisConfig() {
+        if (guisConfig == null || guisConfigFile == null) return;
+
+        try {
+            guisConfig.save(guisConfigFile);
+        } catch (Exception e) {
+            getLogger().severe("No se pudo guardar guis.yml: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Inicializa los GUIs con la configuración cargada
+     */
+    private void initializeGuis() {
+        // Inicializar GUI de género
+        GeneroGUI.initialize(this);
+
+        // Inicializar GUI de perfil
+        ProfileGUI.initialize(this);
+
+        getLogger().info("✓ GUIs inicializados con configuración personalizada");
+    }
+
     /** Carga valores de config en campos para uso posterior. */
     private void loadSettings() {
         dbType  = getConfig().getString("database.type", "mysql");

@@ -12,8 +12,10 @@ public class GeneroGUIListener implements Listener {
 
     @EventHandler
     public void onClick(InventoryClickEvent e) {
-        if (!e.getView().getTitle().equals(GeneroGUI.INVENTORY_TITLE)) return;
+        if (!e.getView().getTitle().equals(GeneroGUI.getInventoryTitle())) return;
         e.setCancelled(true);
-        GeneroGUI.handleClick((org.bukkit.entity.Player) e.getWhoClicked(), e.getCurrentItem(), plugin);
+        if (e.getRawSlot() >= e.getView().getTopInventory().getSize()) return;
+        GeneroGUI.handleClick((org.bukkit.entity.Player) e.getWhoClicked(), e.getCurrentItem(), e.getRawSlot(), plugin);
+
     }
 }

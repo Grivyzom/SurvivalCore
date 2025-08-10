@@ -19,6 +19,7 @@ public class ProfileGUI {
     private static final int INVENTORY_SIZE = 54;
     private static final int SLOT_HEAD = 22;
     private static final int SLOT_CLOSE = 52;
+    private static Main plugin;
 
     public static void open(Player player, Main plugin) {
         Inventory inv = Bukkit.createInventory(null, INVENTORY_SIZE, INVENTORY_TITLE);
@@ -55,6 +56,15 @@ public class ProfileGUI {
         inv.setItem(SLOT_CLOSE, close);
 
         player.openInventory(inv);
+    }
+
+    public static void initialize(Main mainPlugin) {
+        plugin = mainPlugin;
+        reloadConfig();
+    }
+
+    public static void reloadConfig() {
+        // Lógica para recargar config de guis.yml o lo que necesites
     }
 
     private static void fillBorders(Inventory inv) {

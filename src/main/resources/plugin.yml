@@ -18,15 +18,24 @@ commands:
   birthday:
     description: Configura tu fecha de cumpleaños
     usage: /birthday [fecha]
-  perfil:
-    description: Ver el perfil de un jugador
-    usage: /perfil [jugador]
   score:
     description: Ver tu puntuación
     usage: /score
+  # ====== 🆕 COMANDOS DE GÉNERO ======
   genero:
-    description: Configura tu género
+    description: Abrir GUI de selección de género
     usage: /genero
+    aliases: [gender]
+    permission: survivalcore.genero
+    permission-message: "§cNo tienes permisos para usar este comando."
+  # ====== 🆕 COMANDOS DE PERFIL ======
+  perfil:
+    description: Abrir GUI de perfil
+    usage: /perfil
+    aliases: [profile]
+    permission: survivalcore.perfil
+    permission-message: "§cNo tienes permisos para usar este comando."
+
   lectern:
     description: Comandos del atril mágico
     usage: /lectern
@@ -129,6 +138,25 @@ commands:
     description: Comandos administrativos del sistema de reparación
     usage: /repairanim <subcomando>
     permission: survivalcore.repair.admin
+
+  # ====== 🆕 COMANDOS DE REDES SOCIALES ======
+  social:
+    description: Gestión de redes sociales
+    usage: |
+      /social list - Ver tus redes
+      /social <jugador> - Ver redes de otro jugador
+      /social discord Usuario#1234
+      /social instagram @usuario
+      /social github usuario
+      /social tiktok @usuario
+      /social twitch usuario
+      /social kick usuario
+      /social youtube @canal
+      /social <red> remove - Eliminar red
+    aliases: [sociales]
+    permission: survivalcore.social
+    permission-message: "§cNo tienes permisos para usar este comando."
+
 # Permisos del sistema - ACTUALIZADO
 permissions:
   # Permisos básicos existentes
@@ -159,7 +187,9 @@ permissions:
     children:
       survivalcore.sellwand.use: true
       survivalcore.sellwand.admin: true
-
+  survivalcore.social:
+    description: Permite usar el sistema de redes sociales
+    default: true
   survivalcore.sellwand.use:
     description: Permite usar las varas de venta
     default: true

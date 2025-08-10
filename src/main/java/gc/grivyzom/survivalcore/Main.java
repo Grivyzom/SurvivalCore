@@ -245,12 +245,18 @@ public class Main extends JavaPlugin {
             guisConfigFile = new File(getDataFolder(), "guis.yml");
         }
 
+        // Recargar archivo de configuración
         guisConfig = YamlConfiguration.loadConfiguration(guisConfigFile);
 
-        // Reinicializar GUIs con la nueva configuración
-        initializeGuis();
+        try {
+            // Reinicializar todos los GUIs
+            initializeGuis();
+            getLogger().info("✓ Configuración de GUIs recargada exitosamente");
 
-        getLogger().info("✓ Configuración de GUIs recargada");
+        } catch (Exception e) {
+            getLogger().severe("❌ Error recargando configuración de GUIs: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     /**
@@ -280,13 +286,21 @@ public class Main extends JavaPlugin {
      * Inicializa los GUIs con la configuración cargada
      */
     private void initializeGuis() {
-        // Inicializar GUI de género
-        GeneroGUI.initialize(this);
+        try {
+            // Inicializar GUI de género
+            GeneroGUI.initialize(this);
+            getLogger().info("✓ GUI de género inicializado correctamente");
 
-        // Inicializar GUI de perfil
-        ProfileGUI.initialize(this);
+            // Inicializar GUI de perfil
+            ProfileGUI.initialize(this);
+            getLogger().info("✓ GUI de perfil inicializado correctamente");
 
-        getLogger().info("✓ GUIs inicializados con configuración personalizada");
+            getLogger().info("✓ Todos los GUIs inicializados con configuración personalizada");
+
+        } catch (Exception e) {
+            getLogger().severe("❌ Error inicializando GUIs: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     /** Carga valores de config en campos para uso posterior. */

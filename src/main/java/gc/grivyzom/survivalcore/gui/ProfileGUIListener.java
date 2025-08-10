@@ -1,14 +1,19 @@
 package gc.grivyzom.survivalcore.gui;
 
 import gc.grivyzom.survivalcore.Main;
-import org.bukkit.ChatColor;
-import org.bukkit.Material;
-import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryCloseEvent;
 
+/**
+ * Listener para el GUI de perfil configurable
+ * Actualizado para trabajar con el sistema de páginas
+ *
+ * @author Brocolitx
+ * @version 3.0
+ */
 public class ProfileGUIListener implements Listener {
 
     private final Main plugin;
@@ -19,26 +24,32 @@ public class ProfileGUIListener implements Listener {
 
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
-        if (!event.getView().getTitle().equals(ProfileGUI.INVENTORY_TITLE)) return;
-        event.setCancelled(true);
-        if (event.getCurrentItem() == null || event.getCurrentItem().getType() == Material.AIR)
-            return;
-        Player player = (Player) event.getWhoClicked();
-        Material type = event.getCurrentItem().getType();
-        String displayName = event.getCurrentItem().getItemMeta().getDisplayName();
+        if (!(event.getWhoClicked() instanceof Player player)) return;
 
-        if (type == Material.ENCHANTED_BOOK) {
-            player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.7f, 1f);
-            return;
-        }
-        if (type == Material.BOOK && ChatColor.stripColor(displayName).equalsIgnoreCase("MAESTRÍAS")) {
-            player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.7f, 1f);
-            return;
-        }
-        if (type == Material.BARRIER) {
-            player.closeInventory();
-            player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.7f, 1f);
-            return;
+        String inventoryTitle = event.getView().getTitle();
+
+        // Verificar si es un inventario del sistema de perfil
+        if (!ProfileGUI.isProfileInventory(inventoryTitle)) return;
+
+        // Cancelar el evento para evitar manipulación de items
+        event.setCancelled(true);
+
+        // Ignorar clicks fuera del inventario superior
+        if (event.getRawSlot() >= event.getView().getTopInventory().getSize()) return;
+
+        // Manejar el click
+        ProfileGUI.handleClick(player, event.getCurrentItem(), event.getRawSlot(), plugin);
+    }
+
+    @EventHandler
+    public void onInventoryClose(InventoryCloseEvent event) {
+        if (!(event.getPlayer() instanceof Player player)) return;
+
+        String inventoryTitle = event.getView().getTitle();
+
+        // Si es un inventario de perfil, limpiar cache del jugador
+        if (ProfileGUI.isProfileInventory(inventoryTitle)) {
+            ProfileGUI.cleanupPlayer(player);
         }
     }
 }

@@ -126,8 +126,14 @@ profile_gui:
   # Configuración de páginas
   pages:
     main:
-      title: "&6&lPerfil Principal"
+      title: "&6&lPerfil de {player}"
       items:
+        # Decoración - Bordes
+        decoration:
+          material: "BLACK_STAINED_GLASS_PANE"
+          name: " "
+          slots: [0,1,2,3,4,5,6,7,8,9,17,18,26,27,35,36,44,45,46,47,48,50,51,52,53]
+
         # Cabeza del jugador
         player_head:
           slot: 13
@@ -137,7 +143,7 @@ profile_gui:
           lore:
             - ""
             - "&7━━━━━━━━━━━━━━━━━━━━"
-            - "&6▸ &fRango: {rank}"
+            - "&6▸ &fRango: &e{rank_display}"
             - "&6▸ &fNivel: &e{level}"
             - "&6▸ &fExperiencia: &e{exp}"
             - "&7━━━━━━━━━━━━━━━━━━━━"
@@ -198,15 +204,14 @@ profile_gui:
           name: "&6&lEstadísticas"
           lore:
             - ""
-            - "&f▸ Tiempo jugado: &e{playtime}"
-            - "&f▸ Primera vez: &e{first_join}"
-            - "&f▸ Última conexión: &e{last_seen}"
+            - "&f▸ Puntuación total: &e{farming_xp} + {mining_xp}"
+            - "&f▸ Nivel de farming: &a{farming_level}"
+            - "&f▸ Nivel de minería: &b{mining_level}"
             - ""
             - "&7━━━━━━━━━━━━━━━━━━━━"
             - ""
-            - "&f▸ Mobs eliminados: &c{mob_kills}"
-            - "&f▸ Bloques minados: &b{blocks_mined}"
-            - "&f▸ Distancia recorrida: &a{distance}"
+            - "&f▸ XP bankeada: &e{banked_xp}"
+            - "&f▸ Capacidad del banco: &e{bank_capacity}"
             - ""
             - "&e➤ Click para ver más"
           glow: false
@@ -214,22 +219,21 @@ profile_gui:
             left_click:
               - "[OPEN_PAGE] stats"
 
-        # Logros
+        # Logros (placeholder)
         achievements:
           slot: 33
           material: "NETHER_STAR"
           name: "&5&lLogros"
           lore:
             - ""
-            - "&7Logros desbloqueados:"
-            - "&e{achievements_count}/{achievements_total}"
+            - "&7Sistema de logros"
+            - "&7en desarrollo."
             - ""
             - "&7━━━━━━━━━━━━━━━━━━━━"
             - ""
-            - "&f▸ Puntos de logro: &e{achievement_points}"
-            - "&f▸ Rango de logros: &e{achievement_rank}"
+            - "&f▸ Próximamente disponible"
             - ""
-            - "&e➤ Click para ver todos"
+            - "&c➤ En construcción..."
           glow: true
           actions:
             left_click:
@@ -247,16 +251,16 @@ profile_gui:
             left_click:
               - "[CLOSE]"
 
-        # Decoración
-        decoration:
-          material: "BLACK_STAINED_GLASS_PANE"
-          name: " "
-          slots: [0,1,2,3,4,5,6,7,8,9,17,18,26,27,35,36,44,45,46,47,48,50,51,52,53]
-
     # =================== PÁGINA DE INFORMACIÓN PERSONAL ===================
     personal:
       title: "&d&lInformación Personal"
       items:
+        # Decoración
+        decoration:
+          material: "PINK_STAINED_GLASS_PANE"
+          name: " "
+          slots: [0,1,2,3,4,5,6,7,8,9,17,18,26,27,35,36,44,45,46,47,48,50,51,52,53]
+
         # Botón Atrás
         back:
           slot: 0
@@ -288,6 +292,7 @@ profile_gui:
           actions:
             left_click:
               - "[COMMAND] genero"
+              - "[CLOSE]"
 
         # Establecer Cumpleaños
         set_birthday:
@@ -306,6 +311,7 @@ profile_gui:
           actions:
             left_click:
               - "[COMMAND] birthday"
+              - "[CLOSE]"
 
         # País
         country_info:
@@ -327,6 +333,12 @@ profile_gui:
     social:
       title: "&b&lRedes Sociales"
       items:
+        # Decoración
+        decoration:
+          material: "LIGHT_BLUE_STAINED_GLASS_PANE"
+          name: " "
+          slots: [0,1,2,3,4,5,6,7,8,9,17,18,26,27,35,36,44,45,46,47,48,50,51,52,53]
+
         # Botón Atrás
         back:
           slot: 0
@@ -340,74 +352,71 @@ profile_gui:
 
         # Discord
         discord:
-          slot: 20
+          slot: 19
           material: "LAPIS_LAZULI"
           name: "&9&lDiscord"
           lore:
             - ""
-            - "&fEstado: {discord_display}"
+            - "&fEstado: {discord_status}"
+            - "&fValor: &7{discord_display}"
             - ""
             - "&7Ejemplo: usuario#1234"
             - "&7o enlace de perfil"
             - ""
-            - "&a➤ Click izquierdo para establecer"
+            - "&a➤ Click izquierdo para configurar"
             - "&c➤ Click derecho para eliminar"
-          glow: "{discord_set}"
+          glow: false
           actions:
             left_click:
               - "[CLOSE]"
-              - "[MESSAGE] &eEscribe tu Discord en el chat:"
-              - "[AWAIT_INPUT] social_discord"
+              - "[MESSAGE] &eUsa: &f/social discord <tu_discord>"
             right_click:
               - "[SOCIAL_REMOVE] discord"
-              - "[MESSAGE] &cDiscord eliminado."
 
         # Instagram
         instagram:
-          slot: 21
+          slot: 20
           material: "MAGENTA_DYE"
           name: "&d&lInstagram"
           lore:
             - ""
-            - "&fEstado: {instagram_display}"
+            - "&fEstado: {instagram_status}"
+            - "&fValor: &7{instagram_display}"
             - ""
             - "&7Ejemplo: @usuario"
             - "&7o enlace de perfil"
             - ""
-            - "&a➤ Click izquierdo para establecer"
+            - "&a➤ Click izquierdo para configurar"
             - "&c➤ Click derecho para eliminar"
-          glow: "{instagram_set}"
+          glow: false
           actions:
             left_click:
               - "[CLOSE]"
-              - "[MESSAGE] &eEscribe tu Instagram en el chat:"
-              - "[AWAIT_INPUT] social_instagram"
+              - "[MESSAGE] &eUsa: &f/social instagram <tu_instagram>"
             right_click:
               - "[SOCIAL_REMOVE] instagram"
-              - "[MESSAGE] &cInstagram eliminado."
 
         # GitHub
         github:
-          slot: 22
-          material: "BLACK_DYE"
+          slot: 21
+          material: "COAL"
           name: "&8&lGitHub"
           lore:
             - ""
-            - "&fEstado: {github_display}"
+            - "&fEstado: {github_status}"
+            - "&fValor: &7{github_display}"
             - ""
             - "&7Ejemplo: github.com/usuario"
             - ""
-            - "&a➤ Click izquierdo para establecer"
+            - "&a➤ Click izquierdo para configurar"
             - "&c➤ Click derecho para eliminar"
-          glow: "{github_set}"
+          glow: false
           actions:
             left_click:
               - "[CLOSE]"
-              - "[MESSAGE] &eEscribe tu GitHub en el chat:"
-              - "[AWAIT_INPUT] social_github"
+              - "[MESSAGE] &eUsa: &f/social github <tu_github>"
             right_click:
               - "[SOCIAL_REMOVE] github"
-              - "[MESSAGE] &cGitHub eliminado."
 
         # TikTok
         tiktok:
@@ -416,22 +425,21 @@ profile_gui:
           name: "&d&lTikTok"
           lore:
             - ""
-            - "&fEstado: {tiktok_display}"
+            - "&fEstado: {tiktok_status}"
+            - "&fValor: &7{tiktok_display}"
             - ""
             - "&7Ejemplo: @usuario"
             - "&7o enlace de perfil"
             - ""
-            - "&a➤ Click izquierdo para establecer"
+            - "&a➤ Click izquierdo para configurar"
             - "&c➤ Click derecho para eliminar"
-          glow: "{tiktok_set}"
+          glow: false
           actions:
             left_click:
               - "[CLOSE]"
-              - "[MESSAGE] &eEscribe tu TikTok en el chat:"
-              - "[AWAIT_INPUT] social_tiktok"
+              - "[MESSAGE] &eUsa: &f/social tiktok <tu_tiktok>"
             right_click:
               - "[SOCIAL_REMOVE] tiktok"
-              - "[MESSAGE] &cTikTok eliminado."
 
         # Twitch
         twitch:
@@ -440,68 +448,65 @@ profile_gui:
           name: "&5&lTwitch"
           lore:
             - ""
-            - "&fEstado: {twitch_display}"
+            - "&fEstado: {twitch_status}"
+            - "&fValor: &7{twitch_display}"
             - ""
             - "&7Ejemplo: twitch.tv/usuario"
             - ""
-            - "&a➤ Click izquierdo para establecer"
+            - "&a➤ Click izquierdo para configurar"
             - "&c➤ Click derecho para eliminar"
-          glow: "{twitch_set}"
+          glow: false
           actions:
             left_click:
               - "[CLOSE]"
-              - "[MESSAGE] &eEscribe tu Twitch en el chat:"
-              - "[AWAIT_INPUT] social_twitch"
+              - "[MESSAGE] &eUsa: &f/social twitch <tu_twitch>"
             right_click:
               - "[SOCIAL_REMOVE] twitch"
-              - "[MESSAGE] &cTwitch eliminado."
 
         # Kick
         kick:
-          slot: 30
+          slot: 25
           material: "LIME_DYE"
           name: "&a&lKick"
           lore:
             - ""
-            - "&fEstado: {kick_display}"
+            - "&fEstado: {kick_status}"
+            - "&fValor: &7{kick_display}"
             - ""
             - "&7Ejemplo: kick.com/usuario"
             - ""
-            - "&a➤ Click izquierdo para establecer"
+            - "&a➤ Click izquierdo para configurar"
             - "&c➤ Click derecho para eliminar"
-          glow: "{kick_set}"
+          glow: false
           actions:
             left_click:
               - "[CLOSE]"
-              - "[MESSAGE] &eEscribe tu Kick en el chat:"
-              - "[AWAIT_INPUT] social_kick"
+              - "[MESSAGE] &eUsa: &f/social kick <tu_kick>"
             right_click:
               - "[SOCIAL_REMOVE] kick"
-              - "[MESSAGE] &cKick eliminado."
 
         # YouTube
         youtube:
-          slot: 32
+          slot: 30
           material: "RED_DYE"
           name: "&c&lYouTube"
           lore:
             - ""
-            - "&fEstado: {youtube_display}"
+            - "&fEstado: {youtube_status}"
+            - "&fValor: &7{youtube_display}"
             - ""
             - "&7Ejemplo: @usuario"
             - "&7o enlace de canal"
             - ""
-            - "&a➤ Click izquierdo para establecer"
+            - "&a➤ Click izquierdo para configurar"
             - "&c➤ Click derecho para eliminar"
-          glow: "{youtube_set}"
+          glow: false
           actions:
             left_click:
               - "[CLOSE]"
-              - "[MESSAGE] &eEscribe tu YouTube en el chat:"
-              - "[AWAIT_INPUT] social_youtube"
+              - "[MESSAGE] &eUsa: &f/social youtube <tu_youtube>"
             right_click:
               - "[SOCIAL_REMOVE] youtube"
-              - "[MESSAGE] &cYouTube eliminado."
 
         # Información
         info:
@@ -517,14 +522,21 @@ profile_gui:
             - ""
             - "&fRedes configuradas: &e{social_count}/7"
             - ""
-            - "&7Usa los comandos:"
+            - "&7Comandos disponibles:"
             - "&e/social <red> <usuario>"
-            - "&7para configurar desde chat."
+            - "&e/social <red> remove"
+            - "&e/social list"
 
     # =================== PÁGINA DE ESTADÍSTICAS ===================
     stats:
       title: "&6&lEstadísticas Detalladas"
       items:
+        # Decoración
+        decoration:
+          material: "YELLOW_STAINED_GLASS_PANE"
+          name: " "
+          slots: [0,1,2,3,4,5,6,7,8,9,17,18,26,27,35,36,44,45,46,47,48,50,51,52,53]
+
         # Botón Atrás
         back:
           slot: 0
@@ -536,20 +548,21 @@ profile_gui:
             left_click:
               - "[OPEN_PAGE] main"
 
-        # Estadísticas de combate
-        combat_stats:
+        # Estadísticas de farming
+        farming_stats:
           slot: 20
-          material: "DIAMOND_SWORD"
-          name: "&c&lCombate"
+          material: "DIAMOND_HOE"
+          name: "&a&lAgricultura"
           lore:
             - ""
-            - "&f▸ Mobs eliminados: &e{mob_kills}"
-            - "&f▸ Jugadores eliminados: &e{player_kills}"
-            - "&f▸ Muertes: &e{deaths}"
-            - "&f▸ K/D Ratio: &e{kd_ratio}"
+            - "&f▸ Nivel actual: &a{farming_level}"
+            - "&f▸ Experiencia: &e{farming_xp} XP"
             - ""
-            - "&f▸ Daño total causado: &e{damage_dealt}"
-            - "&f▸ Daño total recibido: &e{damage_taken}"
+            - "&7La agricultura te permite"
+            - "&7ganar experiencia cultivando"
+            - "&7y cosechando."
+            - ""
+            - "&aEspecialízate en farming!"
           glow: false
 
         # Estadísticas de minería
@@ -559,30 +572,50 @@ profile_gui:
           name: "&b&lMinería"
           lore:
             - ""
-            - "&f▸ Bloques minados: &e{blocks_mined}"
-            - "&f▸ Diamantes encontrados: &b{diamonds_found}"
-            - "&f▸ Hierro minado: &7{iron_mined}"
-            - "&f▸ Oro minado: &6{gold_mined}"
-            - "&f▸ Carbón minado: &8{coal_mined}"
+            - "&f▸ Nivel actual: &b{mining_level}"
+            - "&f▸ Experiencia: &e{mining_xp} XP"
             - ""
-            - "&f▸ Nivel de minería: &e{mining_level}"
-            - "&f▸ XP de minería: &e{mining_xp}"
+            - "&7La minería te permite"
+            - "&7ganar experiencia minando"
+            - "&7diferentes tipos de bloques."
+            - ""
+            - "&bConviértete en un minero experto!"
           glow: false
 
-        # Estadísticas de farming
-        farming_stats:
+        # Banco de XP
+        xp_bank_stats:
           slot: 24
-          material: "DIAMOND_HOE"
-          name: "&a&lAgricultura"
+          material: "EXPERIENCE_BOTTLE"
+          name: "&e&lBanco de XP"
           lore:
             - ""
-            - "&f▸ Cultivos cosechados: &e{crops_harvested}"
-            - "&f▸ Animales criados: &e{animals_bred}"
-            - "&f▸ Peces pescados: &e{fish_caught}"
+            - "&f▸ XP almacenada: &e{banked_xp}"
+            - "&f▸ Capacidad total: &e{bank_capacity}"
+            - "&f▸ Espacio libre: &e{bank_capacity} - {banked_xp}"
             - ""
-            - "&f▸ Nivel de farming: &e{farming_level}"
-            - "&f▸ XP de farming: &e{farming_xp}"
-          glow: false
+            - "&7El banco de XP te permite"
+            - "&7almacenar experiencia de forma"
+            - "&7segura para usarla más tarde."
+            - ""
+            - "&eUsa /xpbank para obtener ánforas!"
+          glow: true
+
+        # Información general
+        general_info:
+          slot: 31
+          material: "PLAYER_HEAD"
+          owner: "{player}"
+          name: "&6&lInformación General"
+          lore:
+            - ""
+            - "&f▸ Jugador: &e{player}"
+            - "&f▸ Rango: &e{rank_display}"
+            - "&f▸ Nivel actual: &e{level}"
+            - "&f▸ Género: &e{gender}"
+            - "&f▸ País: &e{country}"
+            - ""
+            - "&7¡Sigue progresando en"
+            - "&7SurvivalCore!"
 
 # =================== CONFIGURACIÓN DE MENSAJES ===================
 messages:
@@ -591,12 +624,15 @@ messages:
     no_permission: "&cNo tienes permisos para hacer esto."
     cooldown_active: "&cDebes esperar {time} antes de poder cambiar tu género nuevamente."
     invalid_format: "&cFormato inválido. Por favor, verifica e intenta de nuevo."
+    system_disabled: "&cEste sistema está deshabilitado."
+    config_error: "&cError en la configuración. Contacta a un administrador."
 
   # Mensajes de éxito
   success:
     gender_changed: "&a✓ Tu género ha sido actualizado a {gender}."
     social_added: "&a✓ {social} ha sido agregado a tu perfil."
     social_removed: "&c✗ {social} ha sido eliminado de tu perfil."
+    config_reloaded: "&a✓ Configuración recargada exitosamente."
 
   # Mensajes de input
   input:

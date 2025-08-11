@@ -617,6 +617,16 @@ public class Main extends JavaPlugin {
                 }
             }
 
+            try {
+                reloadGuisConfig();
+                getLogger().info("✓ Configuración de GUIs actualizada");
+                report.append(ChatColor.GREEN + "✓ Sistema de GUIs\n");
+            } catch (Exception e) {
+                hasErrors = true;
+                getLogger().warning("Error recargando GUIs: " + e.getMessage());
+                report.append(ChatColor.RED + "✗ Sistema de GUIs: ").append(e.getMessage()).append("\n");
+            }
+
             // SISTEMA DE RANKUP SIMPLIFICADO - Sin híbrido
             if (rankupManager != null) {
                 try {

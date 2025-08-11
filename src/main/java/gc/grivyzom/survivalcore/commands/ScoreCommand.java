@@ -2,6 +2,8 @@ package gc.grivyzom.survivalcore.commands;
 
 import gc.grivyzom.survivalcore.Main;
 import gc.grivyzom.survivalcore.data.UserData;
+import gc.grivyzom.survivalcore.gui.GeneroGUI;
+import gc.grivyzom.survivalcore.gui.ProfileGUI;
 import gc.grivyzom.survivalcore.rankup.RankupManager;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
@@ -52,14 +54,15 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
         switch (subcommand) {
             case "version", "v" -> showVersion(sender);
             case "reload", "r" -> handleReload(sender);
-            case "reloadrankup", "rr", "rankupreload" -> handleRankupReload(sender); // 🆕 NUEVO
+            case "reloadrankup", "rr", "rankupreload" -> handleRankupReload(sender);
             case "birthday", "cumpleanos" -> handleBirthday(sender, args);
             case "gender", "genero" -> handleGender(sender, args);
             case "country", "pais" -> handleCountry(sender, args);
             case "help", "ayuda" -> showHelp(sender, args);
             case "debug" -> handleDebug(sender, args);
-            case "emergency" -> handleEmergencyRestart(sender); // 🆕 NUEVO
-            case "status" -> handleSystemStatus(sender); // 🆕 NUEVO
+            case "emergency" -> handleEmergencyRestart(sender);
+            case "status" -> handleSystemStatus(sender);
+            case "reloadguis", "gui", "guis" -> handleGuiReload(sender);
             default -> {
                 sender.sendMessage(ChatColor.RED + "Subcomando desconocido. Usa /score help para ver la ayuda.");
                 return true;
@@ -775,6 +778,76 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(ChatColor.YELLOW + "La detección de país es automática al unirse al servidor.");
     }
 
+    private void handleGuiReload(CommandSender sender) {
+        if (!sender.hasPermission("survivalcore.reload")) {
+            sender.sendMessage(ChatColor.RED + "No tienes permisos para recargar la configuración.");
+            return;
+        }
+
+        sender.sendMessage(ChatColor.YELLOW + "🔄 Iniciando recarga específica de GUIs...");
+
+        try {
+            long startTime = System.currentTimeMillis();
+
+            // 1. Verificar archivo antes de recargar
+            File guisFile = new File(plugin.getDataFolder(), "guis.yml");
+            if (!guisFile.exists()) {
+                sender.sendMessage(ChatColor.RED + "❌ Archivo guis.yml no encontrado.");
+                return;
+            }
+
+            sender.sendMessage(ChatColor.GRAY + "• Recargando archivo guis.yml...");
+
+            // 2. Recargar configuración de GUIs
+            plugin.reloadGuisConfig();
+            sender.sendMessage(ChatColor.GREEN + "  ✓ Archivo guis.yml cargado");
+
+            // 3. Reinicializar todos los GUIs
+            sender.sendMessage(ChatColor.GRAY + "• Reinicializando sistemas de GUI...");
+
+            GeneroGUI.initialize(plugin);
+            sender.sendMessage(ChatColor.GREEN + "  ✓ GeneroGUI reinicializado");
+
+            ProfileGUI.initialize(plugin);
+            sender.sendMessage(ChatColor.GREEN + "  ✓ ProfileGUI reinicializado");
+
+            long duration = System.currentTimeMillis() - startTime;
+
+            // 4. Verificar configuración cargada
+            boolean generoEnabled = plugin.getGuisConfig().getBoolean("gender_gui.enabled", true);
+            boolean profileEnabled = plugin.getGuisConfig().getBoolean("profile_gui.enabled", true);
+
+            sender.sendMessage("");
+            sender.sendMessage(ChatColor.GREEN + "✅ Recarga de GUIs completada exitosamente");
+            sender.sendMessage(ChatColor.GRAY + "Tiempo: " + duration + "ms");
+            sender.sendMessage("");
+
+            sender.sendMessage(ChatColor.AQUA + "📊 Estado de los GUIs:");
+            sender.sendMessage(ChatColor.WHITE + "GeneroGUI: " + (generoEnabled ? ChatColor.GREEN + "Habilitado" : ChatColor.RED + "Deshabilitado"));
+            sender.sendMessage(ChatColor.WHITE + "ProfileGUI: " + (profileEnabled ? ChatColor.GREEN + "Habilitado" : ChatColor.RED + "Deshabilitado"));
+
+            sender.sendMessage("");
+            sender.sendMessage(ChatColor.GREEN + "🎯 Los cambios se aplicarán inmediatamente al abrir los menús");
+
+            // Log en consola
+            plugin.getLogger().info("GUIs recargados específicamente por " + sender.getName() + " en " + duration + "ms");
+
+        } catch (Exception e) {
+            sender.sendMessage("");
+            sender.sendMessage(ChatColor.RED + "❌ Error recargando GUIs:");
+            sender.sendMessage(ChatColor.RED + e.getMessage());
+            sender.sendMessage("");
+            sender.sendMessage(ChatColor.YELLOW + "💡 Consejos:");
+            sender.sendMessage(ChatColor.GRAY + "• Verifica que guis.yml tenga sintaxis YAML válida");
+            sender.sendMessage(ChatColor.GRAY + "• Usa un validador YAML online para verificar el archivo");
+            sender.sendMessage(ChatColor.GRAY + "• Revisa la consola para más detalles del error");
+
+            plugin.getLogger().severe("Error en recarga específica de GUIs por " + sender.getName() + ": " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+
     /**
      * Actualiza el método showHelp para incluir los nuevos comandos
      */
@@ -800,6 +873,7 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
         if (sender.hasPermission("survivalcore.reload")) {
             adminCommands.add(ChatColor.WHITE + "/score reload" + ChatColor.GRAY + " - Recarga completa del plugin");
             adminCommands.add(ChatColor.WHITE + "/score reloadrankup" + ChatColor.GRAY + " - Recarga solo el sistema de rankup");
+            adminCommands.add(ChatColor.WHITE + "/score reloadguis" + ChatColor.GRAY + " - Recarga solo los GUIs"); // 🆕 NUEVO
         }
         if (sender.hasPermission("survivalcore.debug")) {
             adminCommands.add(ChatColor.WHITE + "/score debug [tipo]" + ChatColor.GRAY + " - Comandos de debug");
@@ -851,7 +925,6 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(ChatColor.GOLD + "═══════════════════════════════════");
     }
 
-
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
@@ -861,7 +934,7 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
 
             // Comandos administrativos básicos
             if (sender.hasPermission("survivalcore.reload")) {
-                completions.addAll(Arrays.asList("reload", "reloadrankup"));
+                completions.addAll(Arrays.asList("reload", "reloadrankup", "reloadguis")); // 🆕 Añadir "reloadguis"
             }
 
             // Comandos de debug
@@ -902,18 +975,6 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
                     .map(Player::getName)
                     .filter(name -> name.toLowerCase().startsWith(args[2].toLowerCase()))
                     .collect(Collectors.toList());
-        }
-
-
-        // Tab completion para debug - 🆕 ACTUALIZADO
-        if (args.length == 2 && args[0].equalsIgnoreCase("debug")) {
-            List<String> debugCommands = new ArrayList<>(Arrays.asList("rankup", "placeholders", "systems", "menus")); // 🆕 Añadido "menus"
-            if (sender instanceof Player) {
-                debugCommands.add("player");
-            }
-            return debugCommands.stream()
-                    .filter(completion -> completion.startsWith(args[1].toLowerCase()))
-                    .toList();
         }
 
         // Tab completion para help (páginas)

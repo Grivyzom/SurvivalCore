@@ -528,6 +528,22 @@ public class Main extends JavaPlugin {
             this.cropXpChance = getConfig().getDouble("plugin.cropXpChance", this.cropXpChance);
             getLogger().info("✓ Configuración básica actualizada");
 
+            // 🆕 CRÍTICO: Recargar configuración de GUIs PRIMERO
+            try {
+                getLogger().info("🔄 Recargando configuración de GUIs...");
+                reloadGuisConfig(); // Esto recarga el archivo guis.yml
+
+                // Reinicializar los GUIs con la nueva configuración
+                initializeGuis(); // Esto aplica los cambios cargados
+
+                getLogger().info("✅ Sistema de GUIs recargado exitosamente");
+                report.append(ChatColor.GREEN + "✓ Sistema de GUIs actualizado\n");
+            } catch (Exception e) {
+                hasErrors = true;
+                getLogger().severe("❌ Error recargando GUIs: " + e.getMessage());
+                report.append(ChatColor.RED + "✗ Sistema de GUIs: ").append(e.getMessage()).append("\n");
+            }
+
             // Recargar configuración de transferencias
             if (xpTransferManager != null) {
                 try {
@@ -617,16 +633,6 @@ public class Main extends JavaPlugin {
                 }
             }
 
-            try {
-                reloadGuisConfig();
-                getLogger().info("✓ Configuración de GUIs actualizada");
-                report.append(ChatColor.GREEN + "✓ Sistema de GUIs\n");
-            } catch (Exception e) {
-                hasErrors = true;
-                getLogger().warning("Error recargando GUIs: " + e.getMessage());
-                report.append(ChatColor.RED + "✗ Sistema de GUIs: ").append(e.getMessage()).append("\n");
-            }
-
             // SISTEMA DE RANKUP SIMPLIFICADO - Sin híbrido
             if (rankupManager != null) {
                 try {
@@ -674,6 +680,7 @@ public class Main extends JavaPlugin {
             e.printStackTrace();
         }
     }
+
     // =================== EVENTOS PERSONALIZADOS ===================
 
     /**

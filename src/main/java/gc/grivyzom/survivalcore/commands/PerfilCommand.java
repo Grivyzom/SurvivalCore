@@ -1,6 +1,7 @@
 package gc.grivyzom.survivalcore.commands;
 
 import gc.grivyzom.survivalcore.Main;
+import gc.grivyzom.survivalcore.gui.GeneroGUI;
 import gc.grivyzom.survivalcore.gui.ProfileGUI;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -77,22 +78,46 @@ public class PerfilCommand implements CommandExecutor, TabCompleter {
             return;
         }
 
+        player.sendMessage(ChatColor.YELLOW + "🔄 Recargando configuración de GUIs...");
+
         try {
-            // Recargar configuración de GUIs
+            long startTime = System.currentTimeMillis();
+
+            // 1. Recargar configuración de GUIs
             plugin.reloadGuisConfig();
+            player.sendMessage(ChatColor.GREEN + "  ✓ Archivo guis.yml recargado");
 
-            // Reinicializar ProfileGUI
+            // 2. Reinicializar ProfileGUI
             ProfileGUI.initialize(plugin);
+            player.sendMessage(ChatColor.GREEN + "  ✓ ProfileGUI reinicializado");
 
-            player.sendMessage(ChatColor.GREEN + "✅ Configuración de perfil recargada exitosamente.");
-            plugin.getLogger().info("Configuración de perfil recargada por " + player.getName());
+            // 3. Reinicializar GeneroGUI también
+            GeneroGUI.initialize(plugin);
+            player.sendMessage(ChatColor.GREEN + "  ✓ GeneroGUI reinicializado");
+
+            long duration = System.currentTimeMillis() - startTime;
+
+            player.sendMessage("");
+            player.sendMessage(ChatColor.GREEN + "✅ Configuración de GUIs recargada exitosamente en " + duration + "ms");
+            player.sendMessage(ChatColor.GRAY + "Los cambios se aplicarán al abrir los menús nuevamente.");
+
+            plugin.getLogger().info("Configuración de GUIs recargada por " + player.getName() + " en " + duration + "ms");
 
         } catch (Exception e) {
-            player.sendMessage(ChatColor.RED + "❌ Error recargando configuración de perfil: " + e.getMessage());
-            plugin.getLogger().severe("Error recargando configuración de perfil: " + e.getMessage());
+            player.sendMessage("");
+            player.sendMessage(ChatColor.RED + "❌ Error recargando configuración de GUIs:");
+            player.sendMessage(ChatColor.RED + e.getMessage());
+
+            player.sendMessage("");
+            player.sendMessage(ChatColor.YELLOW + "💡 Consejos:");
+            player.sendMessage(ChatColor.GRAY + "• Verifica que guis.yml tenga sintaxis YAML válida");
+            player.sendMessage(ChatColor.GRAY + "• Revisa la consola para más detalles del error");
+            player.sendMessage(ChatColor.GRAY + "• Usa /score reload para una recarga completa");
+
+            plugin.getLogger().severe("Error recargando GUIs solicitado por " + player.getName() + ": " + e.getMessage());
+            e.printStackTrace();
         }
     }
-
     /**
      * Muestra información de debug del sistema de perfil
      */

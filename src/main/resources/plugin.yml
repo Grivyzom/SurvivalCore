@@ -141,13 +141,13 @@ commands:
     usage: /repairanim <subcomando>
     permission: survivalcore.repair.admin
 
-  # 🆕 NUEVOS COMANDOS DE COORDENADAS
   coords:
     description: Muestra tus coordenadas actuales
     usage: /coords
-    aliases: [coordenadas, coordinates]
+    aliases: [coordinates]
     permission: survivalcore.coords
     permission-message: "§cNo tienes permisos para usar este comando."
+
   coordenadas:
     description: Muestra tus coordenadas actuales
     usage: /coordenadas

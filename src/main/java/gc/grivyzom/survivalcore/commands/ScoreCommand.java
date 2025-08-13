@@ -63,8 +63,6 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
             case "emergency" -> handleEmergencyRestart(sender);
             case "status" -> handleSystemStatus(sender);
             case "reloadguis", "gui", "guis" -> handleGuiReload(sender);
-            // 🆕 NUEVO: Comando de coordenadas
-            case "coords", "coordenadas", "coordinates" -> handleCoordinates(sender);
             default -> {
                 sender.sendMessage(ChatColor.RED + "Subcomando desconocido. Usa /score help para ver la ayuda.");
                 return true;
@@ -73,7 +71,6 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
 
         return true;
     }
-
 
     /**
      * Maneja el reload completo del plugin - OPTIMIZADO para Rankup 2.0
@@ -864,21 +861,19 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
             }
         }
 
-        // Comandos básicos
+        // Comandos básicos - 🗑️ REMOVIDO "/score coords"
         List<String> basicCommands = Arrays.asList(
                 ChatColor.WHITE + "/score" + ChatColor.GRAY + " - Ver tu puntuación",
                 ChatColor.WHITE + "/score version" + ChatColor.GRAY + " - Ver versión del plugin",
-                ChatColor.WHITE + "/score help [página]" + ChatColor.GRAY + " - Mostrar ayuda",
-                ChatColor.WHITE + "/score coords" + ChatColor.GRAY + " - Ver tus coordenadas actuales" // 🆕 NUEVO
+                ChatColor.WHITE + "/score help [página]" + ChatColor.GRAY + " - Mostrar ayuda"
         );
-
 
         // Comandos administrativos
         List<String> adminCommands = new ArrayList<>();
         if (sender.hasPermission("survivalcore.reload")) {
             adminCommands.add(ChatColor.WHITE + "/score reload" + ChatColor.GRAY + " - Recarga completa del plugin");
             adminCommands.add(ChatColor.WHITE + "/score reloadrankup" + ChatColor.GRAY + " - Recarga solo el sistema de rankup");
-            adminCommands.add(ChatColor.WHITE + "/score reloadguis" + ChatColor.GRAY + " - Recarga solo los GUIs"); // 🆕 NUEVO
+            adminCommands.add(ChatColor.WHITE + "/score reloadguis" + ChatColor.GRAY + " - Recarga solo los GUIs");
         }
         if (sender.hasPermission("survivalcore.debug")) {
             adminCommands.add(ChatColor.WHITE + "/score debug [tipo]" + ChatColor.GRAY + " - Comandos de debug");
@@ -927,6 +922,7 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
                     ChatColor.GRAY + " - Debug específico del sistema de rankup");
         }
 
+        // 🆕 MOSTRAR COMANDOS DE COORDENADAS COMO COMANDOS SEPARADOS
         if (sender.hasPermission("survivalcore.coords")) {
             sender.sendMessage("");
             sender.sendMessage(ChatColor.AQUA + "💡 Comandos de utilidad:");
@@ -939,7 +935,6 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(ChatColor.GOLD + "═══════════════════════════════════");
     }
 
-
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
@@ -949,7 +944,7 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
 
             // Comandos administrativos básicos
             if (sender.hasPermission("survivalcore.reload")) {
-                completions.addAll(Arrays.asList("reload", "reloadrankup", "reloadguis")); // 🆕 Añadir "reloadguis"
+                completions.addAll(Arrays.asList("reload", "reloadrankup", "reloadguis"));
             }
 
             // Comandos de debug
@@ -960,11 +955,6 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
             // Comandos de emergencia
             if (sender.hasPermission("survivalcore.admin")) {
                 completions.add("emergency");
-            }
-
-            // 🆕 NUEVO: Comando de coordenadas
-            if (sender.hasPermission("survivalcore.coords")) {
-                completions.addAll(Arrays.asList("coords", "coordenadas", "coordinates"));
             }
 
             // Comandos de información personal (siempre disponibles)

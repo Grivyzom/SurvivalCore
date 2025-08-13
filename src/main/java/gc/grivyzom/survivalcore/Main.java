@@ -408,12 +408,33 @@ public class Main extends JavaPlugin {
         registerCommand("genero", new GeneroCommand(this));
         registerCommand("lectern", new LecternRecipeCreateCommand(this, lecternRecipeManager));
 
-        // 🆕 NUEVO: Comandos de coordenadas
-        ScoreCommand scoreCommand = new ScoreCommand(this);
-        registerCommand("coords", scoreCommand);
-        registerCommand("coordenadas", scoreCommand);
+        // 🔍 DEBUG: Añadir logs para verificar el registro
+        getLogger().info("🔍 Registrando comandos de coordenadas...");
 
-        // Comandos de transferencia de XP
+        try {
+            CoordsCommand coordsCommand = new CoordsCommand(this);
+
+            // Verificar que los comandos existen en plugin.yml
+            if (getCommand("coords") != null) {
+                registerCommand("coords", coordsCommand);
+                getLogger().info("✅ Comando /coords registrado correctamente");
+            } else {
+                getLogger().severe("❌ Comando 'coords' no encontrado en plugin.yml");
+            }
+
+            if (getCommand("coordenadas") != null) {
+                registerCommand("coordenadas", coordsCommand);
+                getLogger().info("✅ Comando /coordenadas registrado correctamente");
+            } else {
+                getLogger().severe("❌ Comando 'coordenadas' no encontrado en plugin.yml");
+            }
+
+        } catch (Exception e) {
+            getLogger().severe("❌ Error registrando comandos de coordenadas: " + e.getMessage());
+            e.printStackTrace();
+        }
+
+        // Resto de comandos...
         registerCommand("xpgive", xpTransferCommand);
         registerCommand("xptransfers", xpTransferCommand);
         registerCommand("xptransferlog", xpTransferCommand);

@@ -408,6 +408,11 @@ public class Main extends JavaPlugin {
         registerCommand("genero", new GeneroCommand(this));
         registerCommand("lectern", new LecternRecipeCreateCommand(this, lecternRecipeManager));
 
+        // 🆕 NUEVO: Comandos de coordenadas
+        ScoreCommand scoreCommand = new ScoreCommand(this);
+        registerCommand("coords", scoreCommand);
+        registerCommand("coordenadas", scoreCommand);
+
         // Comandos de transferencia de XP
         registerCommand("xpgive", xpTransferCommand);
         registerCommand("xptransfers", xpTransferCommand);
@@ -427,7 +432,7 @@ public class Main extends JavaPlugin {
         registerCommand("flowerpot", magicFlowerPotCommand);
         registerCommand("magicflower", magicFlowerPotCommand);
 
-        // 🆕 COMANDO DE REDES SOCIALES - AÑADIR ESTA LÍNEA
+        // 🆕 COMANDO DE REDES SOCIALES
         registerCommand("social", new SocialCommand(this));
 
         // 🆕 COMANDOS DE RANKUP 2.0 - Solo registrar si el sistema está disponible
@@ -441,6 +446,7 @@ public class Main extends JavaPlugin {
             getLogger().warning("⚠️ Comandos de rankup NO registrados - Sistema no disponible");
         }
     }
+
     private void registerListeners() {
         var pm = getServer().getPluginManager();
 

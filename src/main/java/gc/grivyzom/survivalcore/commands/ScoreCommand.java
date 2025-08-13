@@ -63,6 +63,8 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
             case "emergency" -> handleEmergencyRestart(sender);
             case "status" -> handleSystemStatus(sender);
             case "reloadguis", "gui", "guis" -> handleGuiReload(sender);
+            // 🆕 NUEVO: Comando de coordenadas
+            case "coords", "coordenadas", "coordinates" -> handleCoordinates(sender);
             default -> {
                 sender.sendMessage(ChatColor.RED + "Subcomando desconocido. Usa /score help para ver la ayuda.");
                 return true;
@@ -71,6 +73,7 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
 
         return true;
     }
+
 
     /**
      * Maneja el reload completo del plugin - OPTIMIZADO para Rankup 2.0
@@ -865,8 +868,10 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
         List<String> basicCommands = Arrays.asList(
                 ChatColor.WHITE + "/score" + ChatColor.GRAY + " - Ver tu puntuación",
                 ChatColor.WHITE + "/score version" + ChatColor.GRAY + " - Ver versión del plugin",
-                ChatColor.WHITE + "/score help [página]" + ChatColor.GRAY + " - Mostrar ayuda"
+                ChatColor.WHITE + "/score help [página]" + ChatColor.GRAY + " - Mostrar ayuda",
+                ChatColor.WHITE + "/score coords" + ChatColor.GRAY + " - Ver tus coordenadas actuales" // 🆕 NUEVO
         );
+
 
         // Comandos administrativos
         List<String> adminCommands = new ArrayList<>();
@@ -922,9 +927,17 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
                     ChatColor.GRAY + " - Debug específico del sistema de rankup");
         }
 
+        if (sender.hasPermission("survivalcore.coords")) {
+            sender.sendMessage("");
+            sender.sendMessage(ChatColor.AQUA + "💡 Comandos de utilidad:");
+            sender.sendMessage(ChatColor.GRAY + "• " + ChatColor.WHITE + "/coords" +
+                    ChatColor.GRAY + " - Obtener coordenadas clickeables para copiar");
+            sender.sendMessage(ChatColor.GRAY + "• " + ChatColor.WHITE + "/coordenadas" +
+                    ChatColor.GRAY + " - Alias en español del comando anterior");
+        }
+
         sender.sendMessage(ChatColor.GOLD + "═══════════════════════════════════");
     }
-
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
@@ -945,6 +958,11 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
             // Comandos de emergencia
             if (sender.hasPermission("survivalcore.admin")) {
                 completions.add("emergency");
+            }
+
+            // 🆕 NUEVO: Comando de coordenadas
+            if (sender.hasPermission("survivalcore.coords")) {
+                completions.addAll(Arrays.asList("coords", "coordenadas", "coordinates"));
             }
 
             // Comandos de información personal (siempre disponibles)
@@ -1163,6 +1181,62 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
             return ChatColor.WHITE + name + ": " + ChatColor.YELLOW + oldStr +
                     ChatColor.GRAY + " → " + ChatColor.GREEN + newStr;
         }
+    }
+
+    private void handleCoordinates(CommandSender sender) {
+        if (!(sender instanceof Player)) {
+            sender.sendMessage(ChatColor.RED + "Solo los jugadores pueden obtener sus coordenadas.");
+            return;
+        }
+
+        Player player = (Player) sender;
+        var location = player.getLocation();
+
+        // Obtener coordenadas redondeadas
+        int x = (int) Math.round(location.getX());
+        int y = (int) Math.round(location.getY());
+        int z = (int) Math.round(location.getZ());
+        String world = location.getWorld() != null ? location.getWorld().getName() : "unknown";
+
+        // Formatear las coordenadas para copiar
+        String coordsText = x + " " + y + " " + z;
+
+        // Crear mensaje clickeable usando hover y click events
+        net.md_5.bungee.api.chat.TextComponent message = new net.md_5.bungee.api.chat.TextComponent("📍 Tus coordenadas: ");
+        message.setColor(net.md_5.bungee.api.ChatColor.YELLOW);
+
+        net.md_5.bungee.api.chat.TextComponent clickableCoords = new net.md_5.bungee.api.chat.TextComponent(coordsText);
+        clickableCoords.setColor(net.md_5.bungee.api.ChatColor.AQUA);
+        clickableCoords.setBold(true);
+
+        // Añadir evento de click para copiar al portapapeles
+        clickableCoords.setClickEvent(new net.md_5.bungee.api.chat.ClickEvent(
+                net.md_5.bungee.api.chat.ClickEvent.Action.COPY_TO_CLIPBOARD,
+                coordsText
+        ));
+
+        // Añadir hover text
+        clickableCoords.setHoverEvent(new net.md_5.bungee.api.chat.HoverEvent(
+                net.md_5.bungee.api.chat.HoverEvent.Action.SHOW_TEXT,
+                new net.md_5.bungee.api.chat.hover.content.Text("§aHaz clic para copiar: §f" + coordsText)
+        ));
+
+        net.md_5.bungee.api.chat.TextComponent instruction = new net.md_5.bungee.api.chat.TextComponent(" §7(Haz clic para copiar)");
+
+        // Combinar los componentes
+        message.addExtra(clickableCoords);
+        message.addExtra(instruction);
+
+        // Enviar mensaje
+        player.sendMessage("");
+        player.sendMessage(ChatColor.GOLD + "═══════ " + ChatColor.WHITE + "TUS COORDENADAS" + ChatColor.GOLD + " ═══════");
+        player.spigot().sendMessage(message);
+        player.sendMessage(ChatColor.WHITE + "🌍 Mundo: " + ChatColor.GREEN + world);
+        player.sendMessage(ChatColor.GRAY + "💡 Haz clic en las coordenadas para copiarlas");
+        player.sendMessage(ChatColor.GOLD + "════════════════════════════════════════");
+
+        // Log en consola si es necesario
+        plugin.getLogger().info("Jugador " + player.getName() + " consultó sus coordenadas: " + coordsText + " en " + world);
     }
 
 }

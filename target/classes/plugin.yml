@@ -62,6 +62,7 @@ commands:
     description: Crear cheques de experiencia
     usage: /cheque <cantidad>
     permission: survivalcore.cheque.create
+
   # ========== COMANDOS DE RANKUP HÍBRIDOS ==========
   rankup:
     description: Comando principal del sistema de rankup híbrido
@@ -123,6 +124,7 @@ commands:
     aliases: [maceta, magicpot, mpot, magicflower]
     permission: survivalcore.flowerpot.use
     permission-message: "§cNo tienes permisos para usar este comando."
+
   # ========== 🆕 COMANDOS DE FLORES MÁGICAS ==========
   magicflower:
     description: Gestión de Flores Mágicas
@@ -138,6 +140,20 @@ commands:
     description: Comandos administrativos del sistema de reparación
     usage: /repairanim <subcomando>
     permission: survivalcore.repair.admin
+
+  # 🆕 NUEVOS COMANDOS DE COORDENADAS
+  coords:
+    description: Muestra tus coordenadas actuales
+    usage: /coords
+    aliases: [coordenadas, coordinates]
+    permission: survivalcore.coords
+    permission-message: "§cNo tienes permisos para usar este comando."
+  coordenadas:
+    description: Muestra tus coordenadas actuales
+    usage: /coordenadas
+    aliases: [coords, coordinates]
+    permission: survivalcore.coords
+    permission-message: "§cNo tienes permisos para usar este comando."
 
   # ====== 🆕 COMANDOS DE REDES SOCIALES ======
   social:
@@ -358,6 +374,7 @@ permissions:
       survivalcore.rankup.admin.*: true
       survivalcore.xpbank.*: true
       survivalcore.flowerpot.admin.*: true
+      survivalcore.coords: true
 
   survivalcore.xpbank.*:
     description: Todos los permisos de XpBank
@@ -472,3 +489,8 @@ permissions:
   survivalcore.repair.admin.notify:
     description: Recibir notificaciones de reparaciones grandes
     default: op
+
+  # 🆕 NUEVO PERMISO DE COORDENADAS
+  survivalcore.coords:
+    description: Permite usar los comandos de coordenadas
+    default: true

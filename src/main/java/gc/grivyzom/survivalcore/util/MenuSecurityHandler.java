@@ -16,11 +16,11 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 /**
- * Utilidad para manejar la seguridad de menús personalizados.
- * Previene que los jugadores puedan modificar o extraer items de los menús.
+ * Utilidad BULLETPROOF para manejar la seguridad de menús personalizados.
+ * INTERFAZ COMPLETAMENTE PROTEGIDA - Los items NO se pueden modificar, mover o extraer.
  *
  * @author Brocolitx
- * @version 2.0 - Corregido para permitir interacciones mientras bloquea modificaciones
+ * @version 4.0 - BULLETPROOF Protection + Full Requirements Compliance
  */
 public class MenuSecurityHandler implements Listener {
 
@@ -28,40 +28,32 @@ public class MenuSecurityHandler implements Listener {
     private final Set<String> protectedTitles;
     private final Set<Inventory> protectedInventories;
 
-    // Callbacks opcionales
+    // Callbacks
     private BiConsumer<Player, InventoryClickEvent> onClickHandler;
     private Consumer<Player> onCloseHandler;
-    private boolean allowOnlyLeftClick = true;
     private boolean debugMode = false;
 
-    /**
-     * Constructor principal
-     * @param plugin La instancia del plugin principal
-     */
+    // Configuración de protección BULLETPROOF
+    private boolean allowRightClick = false;
+    private boolean processActionsOnly = true; // Solo procesar acciones, NUNCA permitir movimiento
+
     public MenuSecurityHandler(JavaPlugin plugin) {
         this.plugin = plugin;
         this.protectedTitles = new HashSet<>();
         this.protectedInventories = new HashSet<>();
 
-        // Registrar los eventos
+        // Registrar eventos con MÁXIMA PRIORIDAD
         Bukkit.getPluginManager().registerEvents(this, plugin);
     }
 
     /**
-     * Registra un título de inventario para proteger
-     * @param title El título del inventario (puede contener códigos de color)
-     * @return Esta instancia para encadenamiento
+     * Registra títulos para proteger
      */
     public MenuSecurityHandler registerTitle(String title) {
         protectedTitles.add(title);
         return this;
     }
 
-    /**
-     * Registra múltiples títulos de inventario para proteger
-     * @param titles Los títulos de los inventarios
-     * @return Esta instancia para encadenamiento
-     */
     public MenuSecurityHandler registerTitles(String... titles) {
         for (String title : titles) {
             protectedTitles.add(title);
@@ -70,66 +62,26 @@ public class MenuSecurityHandler implements Listener {
     }
 
     /**
-     * Registra un inventario específico para proteger
-     * @param inventory El inventario a proteger
-     * @return Esta instancia para encadenamiento
+     * Permite right-click además de left-click (solo para procesamiento, no movimiento)
      */
-    public MenuSecurityHandler registerInventory(Inventory inventory) {
-        protectedInventories.add(inventory);
+    public MenuSecurityHandler setAllowRightClick(boolean allowRightClick) {
+        this.allowRightClick = allowRightClick;
         return this;
     }
 
     /**
-     * Desregistra un inventario cuando ya no necesita protección
-     * @param inventory El inventario a desproteger
-     */
-    public void unregisterInventory(Inventory inventory) {
-        protectedInventories.remove(inventory);
-    }
-
-    /**
-     * Desregistra un título cuando ya no necesita protección
-     * @param title El título a desproteger
-     */
-    public void unregisterTitle(String title) {
-        protectedTitles.remove(title);
-    }
-
-    /**
-     * Establece si solo se permite click izquierdo (por defecto: true)
-     * @param allowOnlyLeftClick true para solo permitir click izquierdo
-     * @return Esta instancia para encadenamiento
-     */
-    public MenuSecurityHandler setAllowOnlyLeftClick(boolean allowOnlyLeftClick) {
-        this.allowOnlyLeftClick = allowOnlyLeftClick;
-        return this;
-    }
-
-    /**
-     * Establece el manejador de clicks personalizado
-     * @param handler BiConsumer que recibe (Player, InventoryClickEvent)
-     * @return Esta instancia para encadenamiento
+     * Configurar manejadores
      */
     public MenuSecurityHandler setClickHandler(BiConsumer<Player, InventoryClickEvent> handler) {
         this.onClickHandler = handler;
         return this;
     }
 
-    /**
-     * Establece el manejador de cierre de inventario
-     * @param handler Consumer que recibe el Player
-     * @return Esta instancia para encadenamiento
-     */
     public MenuSecurityHandler setCloseHandler(Consumer<Player> handler) {
         this.onCloseHandler = handler;
         return this;
     }
 
-    /**
-     * Activa o desactiva el modo debug
-     * @param debug true para activar mensajes de debug
-     * @return Esta instancia para encadenamiento
-     */
     public MenuSecurityHandler setDebugMode(boolean debug) {
         this.debugMode = debug;
         return this;
@@ -137,9 +89,6 @@ public class MenuSecurityHandler implements Listener {
 
     /**
      * Verifica si un inventario está protegido
-     * @param title El título del inventario
-     * @param inventory El inventario (puede ser null)
-     * @return true si está protegido
      */
     private boolean isProtected(String title, Inventory inventory) {
         // Verificar por título
@@ -151,184 +100,244 @@ public class MenuSecurityHandler implements Listener {
             }
         }
 
-        // Verificar por instancia de inventario
-        if (inventory != null && protectedInventories.contains(inventory)) {
-            return true;
-        }
-
-        return false;
+        // Verificar por instancia
+        return inventory != null && protectedInventories.contains(inventory);
     }
 
     /**
-     * Método helper para verificar si un título necesita una verificación especial
-     * Útil para menús con placeholders dinámicos
-     * @param title El título a verificar
-     * @return true si es un inventario protegido
+     * Verifica si un click debe ser procesado (pero SIEMPRE será cancelado)
      */
-    public boolean isProtectedTitle(String title) {
-        return isProtected(title, null);
+    private boolean shouldProcessClick(InventoryClickEvent event, Player player) {
+        // Solo procesar clicks en el GUI (inventario superior)
+        int rawSlot = event.getRawSlot();
+        int guiSize = event.getView().getTopInventory().getSize();
+
+        if (rawSlot < 0 || rawSlot >= guiSize) {
+            return false; // Click en inventario del jugador o fuera
+        }
+
+        // Verificar que hay un item clickeado
+        ItemStack clickedItem = event.getCurrentItem();
+        if (clickedItem == null || !clickedItem.hasItemMeta()) {
+            return false; // No hay item válido
+        }
+
+        // Verificar tipo de click permitido
+        ClickType clickType = event.getClick();
+        switch (clickType) {
+            case LEFT:
+                return true; // Siempre permitir left-click
+            case RIGHT:
+                return allowRightClick; // Solo si está configurado
+            default:
+                return false; // Todos los demás tipos bloqueados
+        }
     }
 
-    // ================== EVENTOS ==================
+    // ================== EVENTOS BULLETPROOF ==================
 
-    @EventHandler(priority = EventPriority.HIGHEST)
-    public void onInventoryClick(InventoryClickEvent event) {
-        // Verificar si es un inventario protegido
+    @EventHandler(priority = EventPriority.LOWEST) // PRIMERA en procesar
+    public void onInventoryClickEarly(InventoryClickEvent event) {
         String title = event.getView().getTitle();
         Inventory inventory = event.getInventory();
 
         if (!isProtected(title, inventory)) return;
 
-        // Solo procesar si es un jugador
-        if (!(event.getWhoClicked() instanceof Player player)) {
-            event.setCancelled(true);
-            return;
+        if (debugMode) {
+            plugin.getLogger().info("[EARLY] Click detectado en menú protegido: " + title +
+                    " (slot: " + event.getRawSlot() + ", tipo: " + event.getClick() + ")");
         }
 
-        // Verificar que el click sea en el inventario superior (el GUI)
-        int rawSlot = event.getRawSlot();
-        int inventorySize = event.getView().getTopInventory().getSize();
+        // CANCELAR INMEDIATAMENTE - PROTECCIÓN ABSOLUTA
+        event.setCancelled(true);
+        event.setResult(InventoryClickEvent.Result.DENY);
+    }
 
-        // IMPORTANTE: Permitir procesar el click ANTES de cancelarlo
-        boolean shouldProcessClick = false;
+    @EventHandler(priority = EventPriority.MONITOR) // ÚLTIMA en procesar - para ejecutar acciones
+    public void onInventoryClickLate(InventoryClickEvent event) {
+        String title = event.getView().getTitle();
+        Inventory inventory = event.getInventory();
 
-        // Si el click es en el inventario del GUI (no en el del jugador)
-        if (rawSlot >= 0 && rawSlot < inventorySize) {
-            // Obtener el item clickeado
-            ItemStack clickedItem = event.getCurrentItem();
+        if (!isProtected(title, inventory)) return;
+        if (!(event.getWhoClicked() instanceof Player player)) return;
 
-            // Si hay un item válido
-            if (clickedItem != null && clickedItem.hasItemMeta()) {
-                // Verificar el tipo de click
-                if (allowOnlyLeftClick) {
-                    // Solo procesar click izquierdo con cursor vacío
-                    if (event.getClick() == ClickType.LEFT &&
-                            (event.getCursor() == null || event.getCursor().getType().isAir())) {
-                        shouldProcessClick = true;
-                    }
-                } else {
-                    // Permitir cualquier click (pero seguirá siendo cancelado después)
-                    shouldProcessClick = true;
-                }
-            }
-        }
+        // El evento YA está cancelado por el handler EARLY
+        // Aquí solo procesamos acciones si corresponde
 
-        // PRIMERO: Ejecutar el handler si corresponde
-        if (shouldProcessClick && onClickHandler != null) {
+        if (shouldProcessClick(event, player) && onClickHandler != null) {
             try {
-                // Ejecutar el handler personalizado
+                if (debugMode) {
+                    plugin.getLogger().info("[LATE] Procesando acción para slot: " + event.getRawSlot());
+                }
+
+                // Ejecutar handler personalizado
                 onClickHandler.accept(player, event);
 
-                if (debugMode) {
-                    plugin.getLogger().info("Click procesado en slot " + rawSlot + " para " + player.getName());
-                }
             } catch (Exception e) {
                 if (debugMode) {
-                    plugin.getLogger().warning("Error procesando click: " + e.getMessage());
+                    plugin.getLogger().warning("[ERROR] Error ejecutando handler: " + e.getMessage());
                     e.printStackTrace();
                 }
             }
         }
 
-        // DESPUÉS: Cancelar el evento para prevenir movimiento de items
+        // ASEGURAR que el evento sigue cancelado
         event.setCancelled(true);
         event.setResult(InventoryClickEvent.Result.DENY);
-
-        if (debugMode && !shouldProcessClick) {
-            plugin.getLogger().info("Click bloqueado sin procesar en slot " + rawSlot);
-        }
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST)
+    @EventHandler(priority = EventPriority.LOWEST)
     public void onInventoryDrag(InventoryDragEvent event) {
         String title = event.getView().getTitle();
         Inventory inventory = event.getInventory();
 
         if (!isProtected(title, inventory)) return;
 
-        // Cancelar cualquier intento de arrastrar
+        // BLOQUEAR COMPLETAMENTE cualquier drag
         event.setCancelled(true);
         event.setResult(InventoryDragEvent.Result.DENY);
 
         if (debugMode) {
-            plugin.getLogger().info("Drag bloqueado en menú protegido: " + title);
+            plugin.getLogger().info("[DRAG] Bloqueado en menú protegido: " + title);
         }
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST)
+    @EventHandler(priority = EventPriority.LOWEST)
     public void onInventoryMoveItem(InventoryMoveItemEvent event) {
-        // Verificar inventarios involucrados
-        boolean shouldCancel = false;
+        // Verificar ambos inventarios
+        boolean isSourceProtected = false;
+        boolean isDestProtected = false;
 
-        try {
-            // Verificar el inventario fuente
-            if (event.getSource().getHolder() instanceof Player sourcePlayer) {
-                if (sourcePlayer.getOpenInventory() != null) {
-                    String sourceTitle = sourcePlayer.getOpenInventory().getTitle();
-                    Inventory sourceInv = sourcePlayer.getOpenInventory().getTopInventory();
-                    if (isProtected(sourceTitle, sourceInv)) {
-                        shouldCancel = true;
-                    }
-                }
-            }
-
-            // Verificar el inventario destino
-            if (!shouldCancel && event.getDestination().getHolder() instanceof Player destPlayer) {
-                if (destPlayer.getOpenInventory() != null) {
-                    String destTitle = destPlayer.getOpenInventory().getTitle();
-                    Inventory destInv = destPlayer.getOpenInventory().getTopInventory();
-                    if (isProtected(destTitle, destInv)) {
-                        shouldCancel = true;
-                    }
-                }
-            }
-        } catch (Exception e) {
-            // Si hay algún error, cancelar por seguridad
-            shouldCancel = true;
-            if (debugMode) {
-                plugin.getLogger().warning("Error verificando movimiento de items: " + e.getMessage());
-            }
+        // Verificar inventarios registrados
+        if (protectedInventories.contains(event.getSource()) ||
+                protectedInventories.contains(event.getDestination())) {
+            isSourceProtected = true;
+            isDestProtected = true;
         }
 
-        if (shouldCancel) {
+        if (isSourceProtected || isDestProtected) {
             event.setCancelled(true);
             if (debugMode) {
-                plugin.getLogger().info("Movimiento de items bloqueado en menú protegido");
+                plugin.getLogger().info("[MOVE] Movimiento de items bloqueado en menú protegido");
             }
         }
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onInventoryPickupItem(InventoryPickupItemEvent event) {
+        if (protectedInventories.contains(event.getInventory())) {
+            event.setCancelled(true);
+            if (debugMode) {
+                plugin.getLogger().info("[PICKUP] Pickup bloqueado en menú protegido");
+            }
+        }
+    }
+
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onInventoryOpen(InventoryOpenEvent event) {
+        String title = event.getView().getTitle();
+        Inventory inventory = event.getInventory();
+
+        if (isProtected(title, inventory)) {
+            // Registrar el inventario específico para protección adicional
+            protectedInventories.add(inventory);
+
+            if (debugMode && event.getPlayer() instanceof Player player) {
+                plugin.getLogger().info("[OPEN] Menú protegido abierto: " + title + " por " + player.getName());
+            }
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
     public void onInventoryClose(InventoryCloseEvent event) {
         String title = event.getView().getTitle();
         Inventory inventory = event.getInventory();
 
         if (!isProtected(title, inventory)) return;
 
-        // Desregistrar el inventario si estaba registrado por instancia
+        // Limpiar registro del inventario específico
         protectedInventories.remove(inventory);
 
-        // Ejecutar el handler de cierre si existe
+        // Ejecutar handler de cierre
         if (onCloseHandler != null && event.getPlayer() instanceof Player player) {
             try {
                 onCloseHandler.accept(player);
 
                 if (debugMode) {
-                    plugin.getLogger().info("Menú protegido cerrado: " + title + " por " + player.getName());
+                    plugin.getLogger().info("[CLOSE] Menú protegido cerrado: " + title + " por " + player.getName());
                 }
             } catch (Exception e) {
                 if (debugMode) {
-                    plugin.getLogger().warning("Error en handler de cierre: " + e.getMessage());
+                    plugin.getLogger().warning("[ERROR] Error en handler de cierre: " + e.getMessage());
                 }
             }
         }
     }
 
+    // ================== PROTECCIÓN ADICIONAL ==================
+
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onPlayerDropItem(org.bukkit.event.player.PlayerDropItemEvent event) {
+        Player player = event.getPlayer();
+
+        // Si el player tiene un menú protegido abierto, bloquear drops
+        if (player.getOpenInventory() != null) {
+            String title = player.getOpenInventory().getTitle();
+            if (isProtected(title, null)) {
+                event.setCancelled(true);
+                if (debugMode) {
+                    plugin.getLogger().info("[DROP] Drop bloqueado mientras menú protegido está abierto");
+                }
+            }
+        }
+    }
+
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onPlayerSwapHandItems(org.bukkit.event.player.PlayerSwapHandItemsEvent event) {
+        Player player = event.getPlayer();
+
+        // Si el player tiene un menú protegido abierto, bloquear swap
+        if (player.getOpenInventory() != null) {
+            String title = player.getOpenInventory().getTitle();
+            if (isProtected(title, null)) {
+                event.setCancelled(true);
+                if (debugMode) {
+                    plugin.getLogger().info("[SWAP] Hand swap bloqueado mientras menú protegido está abierto");
+                }
+            }
+        }
+    }
+
+    // ================== MÉTODOS DE UTILIDAD ==================
+
     /**
-     * Método de utilidad para crear un inventario protegido
-     * @param title El título del inventario
-     * @param size El tamaño del inventario (debe ser múltiplo de 9)
-     * @return El inventario creado y ya protegido
+     * Registra un inventario específico para protección
+     */
+    public MenuSecurityHandler registerInventory(Inventory inventory) {
+        protectedInventories.add(inventory);
+        return this;
+    }
+
+    /**
+     * Desregistra protecciones
+     */
+    public void unregisterInventory(Inventory inventory) {
+        protectedInventories.remove(inventory);
+    }
+
+    public void unregisterTitle(String title) {
+        protectedTitles.remove(title);
+    }
+
+    /**
+     * Verifica si un título está protegido
+     */
+    public boolean isProtectedTitle(String title) {
+        return isProtected(title, null);
+    }
+
+    /**
+     * Crea un inventario protegido automáticamente
      */
     public Inventory createProtectedInventory(String title, int size) {
         Inventory inventory = Bukkit.createInventory(null, size, title);
@@ -337,12 +346,44 @@ public class MenuSecurityHandler implements Listener {
     }
 
     /**
-     * Limpia todos los registros (útil para reload del plugin)
+     * Limpia todos los registros
      */
     public void cleanup() {
         protectedTitles.clear();
         protectedInventories.clear();
         onClickHandler = null;
         onCloseHandler = null;
+
+        if (debugMode) {
+            plugin.getLogger().info("[CLEANUP] MenuSecurityHandler limpiado");
+        }
+    }
+
+    /**
+     * Métodos de configuración simplificados para compatibilidad
+     */
+    public MenuSecurityHandler setAllowOnlyLeftClick(boolean allowOnlyLeftClick) {
+        this.allowRightClick = !allowOnlyLeftClick;
+        return this;
+    }
+
+    public MenuSecurityHandler setAllowShiftClick(boolean allow) {
+        // Shift+click SIEMPRE bloqueado en modo bulletproof
+        return this;
+    }
+
+    public MenuSecurityHandler setAllowDoubleClick(boolean allow) {
+        // Double-click SIEMPRE bloqueado en modo bulletproof
+        return this;
+    }
+
+    public MenuSecurityHandler setAllowDropOutside(boolean allow) {
+        // Drop SIEMPRE bloqueado en modo bulletproof
+        return this;
+    }
+
+    public MenuSecurityHandler setAllowHotbarSwap(boolean allow) {
+        // Hotbar swap SIEMPRE bloqueado en modo bulletproof
+        return this;
     }
 }

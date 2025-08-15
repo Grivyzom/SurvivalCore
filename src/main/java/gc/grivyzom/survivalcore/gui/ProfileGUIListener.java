@@ -4,13 +4,14 @@ import gc.grivyzom.survivalcore.Main;
 import gc.grivyzom.survivalcore.util.MenuSecurityHandler;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Listener;
+import org.bukkit.Bukkit;
 
 /**
  * Listener para el GUI de perfil usando MenuSecurityHandler
  * Versión simplificada con seguridad centralizada
  *
  * @author Brocolitx
- * @version 5.0 - Con MenuSecurityHandler
+ * @version 5.1 - Fixed close button handling
  */
 public class ProfileGUIListener implements Listener {
 
@@ -20,25 +21,34 @@ public class ProfileGUIListener implements Listener {
     public ProfileGUIListener(Main plugin) {
         this.plugin = plugin;
 
-        // Crear el manejador de seguridad
+        // Crear el manejador de seguridad BULLETPROOF
         this.securityHandler = new MenuSecurityHandler(plugin)
                 // Registrar todos los posibles títulos del menú de perfil
                 .registerTitle("Perfil de")  // Título parcial que matchea cualquier "Perfil de {jugador}"
                 .registerTitle("Profile")     // Por si usas títulos en inglés
                 .registerTitle("👤")          // Por si usas emojis/símbolos en títulos
 
-                // Configurar que solo se permite click izquierdo
-                .setAllowOnlyLeftClick(true)
+                // ✅ INTERFAZ COMPLETAMENTE PROTEGIDA - Configuración bulletproof
+                .setAllowRightClick(false)     // Solo left-click para máxima protección
+                .setDebugMode(plugin.getConfig().getBoolean("debug.menu_security", false))
 
-                // Configurar el manejador de clicks
+                // Configurar el manejador de clicks con protección absoluta
                 .setClickHandler((player, event) -> {
-                    // Llamar al método handleClick de ProfileGUI
-                    ProfileGUI.handleClick(
-                            player,
-                            event.getCurrentItem(),
-                            event.getRawSlot(),
-                            plugin
-                    );
+                    try {
+                        // El evento YA está cancelado por el MenuSecurityHandler
+                        // Solo ejecutamos la lógica de negocio
+                        ProfileGUI.handleClick(
+                                player,
+                                event.getCurrentItem(),
+                                event.getRawSlot(),
+                                plugin
+                        );
+                    } catch (Exception e) {
+                        plugin.getLogger().warning("Error in ProfileGUI click handler: " + e.getMessage());
+                        if (plugin.getConfig().getBoolean("debug.menu_security", false)) {
+                            e.printStackTrace();
+                        }
+                    }
                 })
 
                 // Configurar el manejador de cierre

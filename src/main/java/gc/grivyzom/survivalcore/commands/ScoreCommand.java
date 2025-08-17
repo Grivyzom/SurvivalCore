@@ -63,6 +63,7 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
             case "emergency" -> handleEmergencyRestart(sender);
             case "status" -> handleSystemStatus(sender);
             case "reloadguis", "gui", "guis" -> handleGuiReload(sender);
+
             default -> {
                 sender.sendMessage(ChatColor.RED + "Subcomando desconocido. Usa /score help para ver la ayuda.");
                 return true;
@@ -323,6 +324,9 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage(ChatColor.WHITE + "  /score debug placeholders - Verificar placeholders");
             sender.sendMessage(ChatColor.WHITE + "  /score debug systems - Estado de todos los sistemas");
             sender.sendMessage(ChatColor.WHITE + "  /score debug menus - Debug del sistema de menús");
+            // 🆕 NUEVOS comandos de debug
+            sender.sendMessage(ChatColor.WHITE + "  /score debug statistics [jugador] - Debug de estadísticas");
+            sender.sendMessage(ChatColor.WHITE + "  /score debug requirements - Debug de requisitos de rankup");
             if (sender instanceof Player) {
                 sender.sendMessage(ChatColor.WHITE + "  /score debug player - Debug de tu información");
             }
@@ -333,7 +337,7 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
 
         switch (debugType) {
             case "rankup" -> debugRankupSystem(sender);
-            case "placeholders" -> debugPlaceholders(sender);
+            case "placeholders" -> debugPlaceholdersCommand(sender);
             case "systems" -> debugAllSystems(sender);
             case "rankup_detection", "rd" -> {
                 if (args.length < 3) {
@@ -380,8 +384,41 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
                 sender.sendMessage(ChatColor.GREEN + "✅ Debug completo en consola");
             }
             case "menus", "menu" -> {
-                plugin.debugMenuSystemDetailed(sender); // 🔧 USAR MÉTODO RENOMBRADO
+                plugin.debugMenuSystemDetailed(sender);
             }
+
+            // 🆕 NUEVOS CASOS DE DEBUG
+            case "statistics", "stats" -> {
+                if (args.length < 3) {
+                    // Debug de estadísticas del propio jugador
+                    if (sender instanceof Player) {
+                        debugPlayerStatistics((Player) sender);
+                    } else {
+                        sender.sendMessage(ChatColor.RED + "Especifica un jugador: /score debug statistics <jugador>");
+                    }
+                    return;
+                }
+
+                String targetName = args[2];
+                Player target = plugin.getServer().getPlayer(targetName);
+
+                if (target == null) {
+                    sender.sendMessage(ChatColor.RED + "❌ Jugador no encontrado: " + targetName);
+                    return;
+                }
+
+                debugPlayerStatistics(target, sender);
+            }
+
+            case "requirements", "req" -> {
+                if (!(sender instanceof Player)) {
+                    sender.sendMessage(ChatColor.RED + "Solo jugadores pueden probar requisitos");
+                    return;
+                }
+
+                debugRequirements((Player) sender);
+            }
+
             case "player" -> {
                 if (sender instanceof Player) {
                     debugPlayerInfo((Player) sender);
@@ -391,8 +428,6 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
             }
             default -> sender.sendMessage(ChatColor.RED + "Tipo de debug desconocido: " + debugType);
         }
-
-
     }
 
     /**
@@ -447,7 +482,10 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
         }
     }
 
+
+
     /**
+     *
      * Debug de placeholders - ACTUALIZADO para nuevos placeholders
      */
     private void debugPlaceholders(CommandSender sender) {
@@ -774,6 +812,7 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(ChatColor.YELLOW + "Usa " + ChatColor.WHITE + "/genero" + ChatColor.YELLOW + " para gestionar tu género.");
     }
 
+
     private void handleCountry(CommandSender sender, String[] args) {
         sender.sendMessage(ChatColor.YELLOW + "La detección de país es automática al unirse al servidor.");
     }
@@ -847,7 +886,171 @@ public class ScoreCommand implements CommandExecutor, TabCompleter {
         }
     }
 
+    /**
+     * Debug de estadísticas del jugador
+     */
+    private void debugPlayerStatistics(Player target) {
+        debugPlayerStatistics(target, target);
+    }
 
+    private void debugPlayerStatistics(Player target, CommandSender admin) {
+        if (!plugin.isRankupSystemEnabled()) {
+            admin.sendMessage(ChatColor.RED + "❌ Sistema de rankup no disponible");
+            return;
+        }
+
+        // Verificar si el admin es un Player para poder usar el método correcto
+        if (admin instanceof Player) {
+            plugin.getRankupManager().debugPlayerStatistics(target, (Player) admin);
+        } else {
+            // Para console, crear una versión simplificada
+            admin.sendMessage(ChatColor.AQUA + "═══ DEBUG ESTADÍSTICAS - " + target.getName() + " ═══");
+
+            try {
+                // Estadísticas básicas de Minecraft
+                admin.sendMessage("Nivel: " + target.getLevel());
+                admin.sendMessage("Mobs matados: " + target.getStatistic(org.bukkit.Statistic.MOB_KILLS));
+                admin.sendMessage("Animales criados: " + target.getStatistic(org.bukkit.Statistic.ANIMALS_BRED));
+                admin.sendMessage("Peces pescados: " + target.getStatistic(org.bukkit.Statistic.FISH_CAUGHT));
+
+                // Usar reflexión para obtener el método getTotalBlocksMined
+                java.lang.reflect.Method method = plugin.getRankupManager().getClass()
+                        .getDeclaredMethod("getTotalBlocksMined", Player.class);
+                method.setAccessible(true);
+                double totalMined = (Double) method.invoke(plugin.getRankupManager(), target);
+                admin.sendMessage("Total bloques minados (calculado): " + totalMined);
+
+            } catch (Exception e) {
+                admin.sendMessage("Error obteniendo estadísticas: " + e.getMessage());
+            }
+
+            admin.sendMessage("═══════════════════════════════════");
+        }
+    }
+    /**
+     * Debug específico de placeholders
+     */
+    private void debugPlaceholdersCommand(CommandSender sender) {
+        if (!(sender instanceof Player)) {
+            sender.sendMessage(ChatColor.RED + "Solo jugadores pueden probar placeholders desde el comando debug");
+            return;
+        }
+
+        debugPlaceholders((Player) sender);
+    }
+
+    private void debugPlaceholders(Player player) {
+        player.sendMessage("");
+        player.sendMessage(ChatColor.AQUA + "🔌 " + ChatColor.BOLD + "DEBUG PLACEHOLDERS");
+        player.sendMessage(ChatColor.GRAY + "════════════════════════════════════════");
+
+        if (plugin.getServer().getPluginManager().getPlugin("PlaceholderAPI") == null) {
+            player.sendMessage(ChatColor.RED + "❌ PlaceholderAPI no está instalado");
+            return;
+        }
+
+        // Lista de placeholders a probar
+        String[] testPlaceholders = {
+                "%player_name%",
+                "%player_level%",
+                "%statistic_mine_block%",
+                "%statistic_mob_kills%",
+                "%statistic_animals_bred%",
+                "%statistic_fish_caught%",
+                "%vault_eco_balance%",
+                "%mcmmo_level_mining%",
+                "%mcmmo_power_level%"
+        };
+
+        for (String placeholder : testPlaceholders) {
+            try {
+                String result = me.clip.placeholderapi.PlaceholderAPI.setPlaceholders(player, placeholder);
+
+                // Verificar si el placeholder fue procesado
+                if (result.equals(placeholder)) {
+                    player.sendMessage(ChatColor.RED + "  ✗ " + placeholder + " = " + ChatColor.GRAY + "No procesado");
+                } else {
+                    player.sendMessage(ChatColor.GREEN + "  ✓ " + placeholder + " = " + ChatColor.WHITE + result);
+                }
+            } catch (Exception e) {
+                player.sendMessage(ChatColor.RED + "  ❌ " + placeholder + " = ERROR: " + e.getMessage());
+            }
+        }
+
+        player.sendMessage("");
+        player.sendMessage(ChatColor.YELLOW + "💡 Si ves 'No procesado', significa que falta una expansión");
+        player.sendMessage(ChatColor.GRAY + "Instala: /papi ecloud download Player");
+        player.sendMessage(ChatColor.GRAY + "         /papi ecloud download Vault");
+        player.sendMessage(ChatColor.GRAY + "════════════════════════════════════════");
+    }
+    /**
+     * Debug específico de requisitos de rankup
+     */
+    private void debugRequirements(Player player) {
+        if (!plugin.isRankupSystemEnabled()) {
+            player.sendMessage(ChatColor.RED + "❌ Sistema de rankup no disponible");
+            return;
+        }
+
+        player.sendMessage("");
+        player.sendMessage(ChatColor.GOLD + "📋 " + ChatColor.BOLD + "DEBUG REQUISITOS DE RANKUP");
+        player.sendMessage(ChatColor.GRAY + "════════════════════════════════════════");
+
+        try {
+            var rankupManager = plugin.getRankupManager();
+            String currentRank = rankupManager.getCurrentRank(player);
+
+            if (currentRank == null) {
+                player.sendMessage(ChatColor.RED + "❌ No se pudo detectar tu rango actual");
+                return;
+            }
+
+            var rankData = rankupManager.getRanks().get(currentRank);
+            if (rankData == null || rankData.getNextRank() == null) {
+                player.sendMessage(ChatColor.LIGHT_PURPLE + "⭐ Ya tienes el rango máximo");
+                return;
+            }
+
+            player.sendMessage(ChatColor.WHITE + "🎯 Rango actual: " + ChatColor.YELLOW + currentRank);
+            player.sendMessage(ChatColor.WHITE + "⬆️ Siguiente: " + ChatColor.GREEN + rankData.getNextRank());
+            player.sendMessage("");
+
+            // Probar cada requisito individualmente
+            Map<String, Object> requirements = rankData.getRequirements();
+
+            for (Map.Entry<String, Object> req : requirements.entrySet()) {
+                String type = req.getKey();
+                double required = ((Number) req.getValue()).doubleValue();
+
+                try {
+                    // Usar reflexión para llamar getCurrentRequirementValue
+                    java.lang.reflect.Method method = rankupManager.getClass()
+                            .getDeclaredMethod("getCurrentRequirementValue", Player.class, String.class);
+                    method.setAccessible(true);
+
+                    double current = (Double) method.invoke(rankupManager, player, type);
+
+                    String status = current >= required ?
+                            ChatColor.GREEN + "✓" : ChatColor.RED + "✗";
+
+                    String reqName = type.replace("_", " ");
+                    player.sendMessage(status + ChatColor.WHITE + " " + reqName + ": " +
+                            ChatColor.YELLOW + String.format("%.0f", current) +
+                            ChatColor.GRAY + "/" +
+                            ChatColor.WHITE + String.format("%.0f", required));
+
+                } catch (Exception e) {
+                    player.sendMessage(ChatColor.RED + "❌ " + type + ": Error - " + e.getMessage());
+                }
+            }
+
+        } catch (Exception e) {
+            player.sendMessage(ChatColor.RED + "❌ Error en debug de requisitos: " + e.getMessage());
+            e.printStackTrace();
+        }
+
+        player.sendMessage(ChatColor.GRAY + "════════════════════════════════════════");
+    }
     /**
      * Actualiza el método showHelp para incluir los nuevos comandos
      */

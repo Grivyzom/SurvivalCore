@@ -9,6 +9,7 @@ import net.luckperms.api.node.types.InheritanceNode;
 import me.clip.placeholderapi.PlaceholderAPI;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
+import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -83,7 +84,7 @@ public class RankupManager {
 
             // Configuración de LuckPerms
             detectionMethod = config.getString("luckperms.detection_method", "primary_group");
-            groupPrefix = config.getString("luckperms.group_prefix", "");  // 🔧 CORREGIDO: vacío por defecto
+            groupPrefix = config.getString("luckperms.group_prefix", "");
             defaultRank = config.getString("luckperms.default_rank", "default");
 
             // Limpiar y cargar rangos
@@ -92,6 +93,9 @@ public class RankupManager {
 
             // 🔧 INICIALIZAR MessageManager AQUÍ
             this.messageManager = new MessageManager(plugin, config);
+
+            // 🆕 CRÍTICO: Establecer la referencia bidireccional
+            messageManager.setRankupManager(this);
 
             if (config.getBoolean("advanced.validate_config", true)) {
                 validateConfiguration();
@@ -105,6 +109,85 @@ public class RankupManager {
         }
     }
 
+    private double handleCustomRequirement(Player player, String type) {
+        if (!placeholderAPIEnabled) {
+            if (debugMode) {
+                plugin.getLogger().warning("PlaceholderAPI no disponible para requisito personalizado: " + type);
+            }
+            return 0;
+        }
+
+        try {
+            String placeholder = null;
+
+            // Mapear tipos a placeholders específicos
+            switch (type.toLowerCase()) {
+                case "total_blocks_mined", "all_blocks_mined" -> {
+                    placeholder = "%statistic_mine_block%";
+                }
+                case "vault_balance", "money_vault" -> {
+                    placeholder = "%vault_eco_balance%";
+                }
+                case "mcmmo_mining" -> {
+                    placeholder = "%mcmmo_level_mining%";
+                }
+                case "mcmmo_power" -> {
+                    placeholder = "%mcmmo_power_level%";
+                }
+                case "jobs_total" -> {
+                    placeholder = "%jobs_total_level%";
+                }
+                case "cmi_playtime" -> {
+                    placeholder = "%cmi_user_playtime_hoursf%";
+                }
+                default -> {
+                    // Buscar en configuración personalizada
+                    placeholder = config.getString("custom_requirements." + type);
+                }
+            }
+
+            if (placeholder == null) {
+                if (debugMode) {
+                    plugin.getLogger().warning("No se encontró placeholder para requisito: " + type);
+                }
+                return 0;
+            }
+
+            // Procesar placeholder con PlaceholderAPI
+            String result = PlaceholderAPI.setPlaceholders(player, placeholder);
+
+            if (debugMode) {
+                plugin.getLogger().info("PlaceholderAPI - " + type + ": " + placeholder + " = " + result);
+            }
+
+            // Limpiar y convertir resultado
+            if (result != null && !result.equals(placeholder)) {
+                // Remover caracteres no numéricos excepto punto y coma
+                String cleanResult = result.replaceAll("[^0-9.-]", "");
+
+                if (!cleanResult.isEmpty()) {
+                    try {
+                        return Double.parseDouble(cleanResult);
+                    } catch (NumberFormatException e) {
+                        if (debugMode) {
+                            plugin.getLogger().warning("No se pudo convertir resultado a número: " + cleanResult);
+                        }
+                    }
+                }
+            } else {
+                if (debugMode) {
+                    plugin.getLogger().warning("Placeholder no procesado o no disponible: " + placeholder);
+                }
+            }
+
+        } catch (Exception e) {
+            if (debugMode) {
+                plugin.getLogger().warning("Error procesando requisito personalizado " + type + ": " + e.getMessage());
+            }
+        }
+
+        return 0;
+    }
 
     /**
      * Carga rangos con formato simplificado
@@ -123,8 +206,11 @@ public class RankupManager {
 
                 SimpleRankData rank = new SimpleRankData();
                 rank.setId(rankId);
+
+                // 🔧 CRÍTICO: Cambiar '§' por '&' para procesar códigos correctamente
                 rank.setDisplayName(ChatColor.translateAlternateColorCodes('&',
                         rankConfig.getString("name", rankId)));
+
                 rank.setNextRank(rankConfig.getString("next"));
                 rank.setOrder(rankConfig.getInt("order", 0));
 
@@ -137,7 +223,8 @@ public class RankupManager {
                 ranks.put(rankId, rank);
 
                 if (debugMode) {
-                    plugin.getLogger().info("✓ Rango cargado: " + rankId + " (orden: " + rank.getOrder() + ")");
+                    plugin.getLogger().info("✅ Rango cargado: " + rankId + " (orden: " + rank.getOrder() + ")");
+                    plugin.getLogger().info("  • Display name procesado: " + rank.getDisplayName());
                 }
 
             } catch (Exception e) {
@@ -145,7 +232,6 @@ public class RankupManager {
             }
         }
     }
-
     /**
      * Carga requisitos de forma simplificada
      */
@@ -168,6 +254,77 @@ public class RankupManager {
 
         rank.setRequirements(requirements);
     }
+
+    public void debugPlayerStatistics(Player player, Player admin) {
+        admin.sendMessage(ChatColor.AQUA + "═══ DEBUG ESTADÍSTICAS - " + player.getName() + " ═══");
+
+        try {
+            // Estadísticas básicas de Minecraft
+            admin.sendMessage(ChatColor.YELLOW + "📊 Estadísticas de Minecraft:");
+            admin.sendMessage(ChatColor.WHITE + "  • Nivel: " + ChatColor.GREEN + player.getLevel());
+            admin.sendMessage(ChatColor.WHITE + "  • Mobs matados: " + ChatColor.GREEN +
+                    player.getStatistic(org.bukkit.Statistic.MOB_KILLS));
+            admin.sendMessage(ChatColor.WHITE + "  • Animales criados: " + ChatColor.GREEN +
+                    player.getStatistic(org.bukkit.Statistic.ANIMALS_BRED));
+            admin.sendMessage(ChatColor.WHITE + "  • Peces pescados: " + ChatColor.GREEN +
+                    player.getStatistic(org.bukkit.Statistic.FISH_CAUGHT));
+
+            // Intentar estadísticas de bloques
+            admin.sendMessage(ChatColor.YELLOW + "⛏️ Estadísticas de minería:");
+
+            // Método personalizado
+            double totalMined = getTotalBlocksMined(player);
+            admin.sendMessage(ChatColor.WHITE + "  • Total minado (calculado): " + ChatColor.GREEN + totalMined);
+
+            // Algunos materiales específicos
+            try {
+                admin.sendMessage(ChatColor.WHITE + "  • Piedra minada: " + ChatColor.GREEN +
+                        player.getStatistic(org.bukkit.Statistic.MINE_BLOCK, Material.STONE));
+                admin.sendMessage(ChatColor.WHITE + "  • Carbón minado: " + ChatColor.GREEN +
+                        player.getStatistic(org.bukkit.Statistic.MINE_BLOCK, Material.COAL_ORE));
+                admin.sendMessage(ChatColor.WHITE + "  • Hierro minado: " + ChatColor.GREEN +
+                        player.getStatistic(org.bukkit.Statistic.MINE_BLOCK, Material.IRON_ORE));
+            } catch (Exception e) {
+                admin.sendMessage(ChatColor.RED + "  • Error obteniendo estadísticas específicas");
+            }
+
+            // Placeholders si está disponible
+            if (placeholderAPIEnabled) {
+                admin.sendMessage(ChatColor.YELLOW + "🔌 Placeholders de PlaceholderAPI:");
+
+                String[] testPlaceholders = {
+                        "%statistic_mine_block%",
+                        "%statistic_mob_kills%",
+                        "%player_level%",
+                        "%vault_eco_balance%"
+                };
+
+                for (String placeholder : testPlaceholders) {
+                    try {
+                        String result = PlaceholderAPI.setPlaceholders(player, placeholder);
+                        admin.sendMessage(ChatColor.WHITE + "  • " + placeholder + " = " +
+                                ChatColor.GREEN + result);
+                    } catch (Exception e) {
+                        admin.sendMessage(ChatColor.RED + "  • " + placeholder + " = ERROR");
+                    }
+                }
+            } else {
+                admin.sendMessage(ChatColor.RED + "❌ PlaceholderAPI no disponible");
+            }
+
+            // Datos de SurvivalCore
+            admin.sendMessage(ChatColor.YELLOW + "🎯 Datos de SurvivalCore:");
+            admin.sendMessage(ChatColor.WHITE + "  • Nivel farming: " + ChatColor.GREEN + getFarmingLevel(player));
+            admin.sendMessage(ChatColor.WHITE + "  • Nivel minería: " + ChatColor.GREEN + getMiningLevel(player));
+
+        } catch (Exception e) {
+            admin.sendMessage(ChatColor.RED + "❌ Error en debug de estadísticas: " + e.getMessage());
+            e.printStackTrace();
+        }
+
+        admin.sendMessage(ChatColor.AQUA + "═══════════════════════════════════");
+    }
+
 
     /**
      * Convierte nombres de requisitos amigables a estándar
@@ -383,22 +540,81 @@ public class RankupManager {
     }
 
     private String convertRequirementKeyToDisplayName(String key) {
+        // Primero verificar si es un custom requirement
+        if (isCustomRequirement(key)) {
+            String customName = getCustomRequirementDisplayName(key);
+            if (!customName.equals(key)) { // Si encontró un nombre personalizado
+                return customName;
+            }
+        }
+
+        // Nombres estándar existentes
         return switch (key.toLowerCase()) {
-            case "money" -> "Dinero";
-            case "level" -> "Nivel de experiencia";
-            case "playtime_hours" -> "Tiempo jugado";
-            case "mob_kills" -> "Mobs eliminados";
-            case "blocks_mined" -> "Bloques minados";
-            case "farming_level" -> "Nivel de farming";
-            case "mining_level" -> "Nivel de minería";
-            case "animals_bred" -> "Animales criados";
-            case "fish_caught" -> "Peces pescados";
-            case "ender_dragon_kills" -> "Ender Dragons eliminados";
-            case "wither_kills" -> "Withers eliminados";
-            default -> key.replace("_", " ");
+            case "money" -> "💰 Dinero";
+            case "level" -> "📊 Nivel de experiencia";
+            case "playtime_hours" -> "⏰ Tiempo jugado";
+            case "mob_kills" -> "⚔️ Mobs eliminados";
+            case "blocks_mined" -> "⛏️ Bloques minados";
+            case "farming_level" -> "🌾 Nivel de farming";
+            case "mining_level" -> "⛏️ Nivel de minería";
+            case "animals_bred" -> "🐄 Animales criados";
+            case "fish_caught" -> "🎣 Peces pescados";
+            case "ender_dragon_kills" -> "🐲 Ender Dragons eliminados";
+            case "wither_kills" -> "💀 Withers eliminados";
+
+            // 🆕 NUEVOS: Custom requirements comunes con fallback
+            case "vault_eco_balance", "dinero_vault" -> "💰 Dinero del Banco";
+            case "mcmmo_mining", "mineria_mcmmo" -> "⛏️ McMMO Minería";
+            case "mcmmo_power", "poder_mcmmo" -> "💪 Poder McMMO";
+            case "jobs_total", "trabajos_total" -> "💼 Nivel total de trabajos";
+            case "playtime", "tiempo_jugado" -> "⏰ Tiempo jugado";
+            case "combate_mcmmo" -> "⚔️ Combate McMMO";
+            case "farming_mcmmo" -> "🌾 Agricultura McMMO";
+            case "pesca_mcmmo" -> "🎣 Pesca McMMO";
+            case "arco_mcmmo" -> "🏹 Tiro con Arco";
+            case "reparacion_mcmmo" -> "🔧 Reparación";
+            case "tokens_servidor" -> "💎 Tokens del Servidor";
+            case "xp_total" -> "🏆 Experiencia Total";
+            case "bloques_colocados" -> "📊 Bloques Colocados";
+            case "votos_totales" -> "🌟 Votos Totales";
+
+            default -> {
+                // Convertir nombres como vault_eco_balance -> Vault Eco Balance
+                String[] parts = key.split("_");
+                StringBuilder result = new StringBuilder();
+
+                for (int i = 0; i < parts.length; i++) {
+                    if (i > 0) result.append(" ");
+
+                    String part = parts[i];
+                    if (!part.isEmpty()) {
+                        result.append(Character.toUpperCase(part.charAt(0)));
+                        if (part.length() > 1) {
+                            result.append(part.substring(1).toLowerCase());
+                        }
+                    }
+                }
+
+                // Añadir emoji contextual según el contenido
+                String finalName = result.toString();
+                if (finalName.toLowerCase().contains("money") || finalName.toLowerCase().contains("balance") || finalName.toLowerCase().contains("dinero")) {
+                    finalName = "💰 " + finalName;
+                } else if (finalName.toLowerCase().contains("mcmmo")) {
+                    finalName = "🎯 " + finalName;
+                } else if (finalName.toLowerCase().contains("time") || finalName.toLowerCase().contains("tiempo")) {
+                    finalName = "⏰ " + finalName;
+                } else if (finalName.toLowerCase().contains("level") || finalName.toLowerCase().contains("nivel")) {
+                    finalName = "📊 " + finalName;
+                } else if (finalName.toLowerCase().contains("token")) {
+                    finalName = "💎 " + finalName;
+                } else if (finalName.toLowerCase().contains("vot")) {
+                    finalName = "🌟 " + finalName;
+                }
+
+                yield finalName;
+            }
         };
     }
-
 
     /**
      * Verifica un requisito individual
@@ -407,37 +623,175 @@ public class RankupManager {
         try {
             double requiredValue = ((Number) required).doubleValue();
             double currentValue = getCurrentRequirementValue(player, type);
+            boolean satisfied = currentValue >= requiredValue;
 
-            return currentValue >= requiredValue;
+            if (debugMode) {
+                plugin.getLogger().info("🔍 Verificando requirement '" + type + "':");
+                plugin.getLogger().info("  • Requerido: " + requiredValue);
+                plugin.getLogger().info("  • Actual: " + currentValue);
+                plugin.getLogger().info("  • Satisfecho: " + (satisfied ? "✅ SÍ" : "❌ NO"));
+
+                if (!satisfied) {
+                    double missing = requiredValue - currentValue;
+                    plugin.getLogger().info("  • Faltante: " + missing);
+                }
+            }
+
+            return satisfied;
 
         } catch (Exception e) {
             if (debugMode) {
-                plugin.getLogger().warning("Error verificando requisito " + type + ": " + e.getMessage());
+                plugin.getLogger().warning("❌ Error verificando requisito " + type + ": " + e.getMessage());
+                e.printStackTrace();
             }
             return false;
         }
+    }
+
+    public String getCustomRequirementFormat(String type, double value) {
+        try {
+            // Buscar formato en configuración extendida
+            ConfigurationSection customReq = config.getConfigurationSection("custom_requirements." + type);
+            if (customReq != null) {
+                String format = customReq.getString("format");
+                if (format != null && !format.isEmpty()) {
+                    String processedFormat = format.replace("{value}", String.format("%.0f", value));
+                    // 🔧 CRÍTICO: Procesar códigos de color en el formato
+                    return ChatColor.translateAlternateColorCodes('&', processedFormat);
+                }
+            }
+
+            // Buscar en requirements estándar
+            String configFormat = config.getString("requirements." + type + ".format_short");
+            if (configFormat != null && !configFormat.isEmpty()) {
+                String processedFormat = configFormat.replace("{value}", String.format("%.0f", value));
+                // 🔧 CRÍTICO: Procesar códigos de color aquí también
+                return ChatColor.translateAlternateColorCodes('&', processedFormat);
+            }
+
+            // Formatos por defecto para custom requirements comunes
+            String defaultFormat = switch (type.toLowerCase()) {
+                case "dinero_vault", "vault_eco_balance" -> String.format("$&a%,.0f", value);
+                case "tiempo_jugado", "playtime" -> String.format("&e%.1fh", value);
+                case "mineria_mcmmo", "poder_mcmmo", "combate_mcmmo", "farming_mcmmo", "pesca_mcmmo", "arco_mcmmo", "reparacion_mcmmo" -> String.format("&7Nivel &e%.0f", value);
+                case "trabajos_total" -> String.format("&9Nivel &e%.0f", value);
+                case "tokens_servidor" -> String.format("&d%.0f tokens", value);
+                case "xp_total" -> String.format("&a%.0f XP", value);
+                case "votos_totales" -> String.format("&e%.0f votos", value);
+                case "bloques_colocados" -> String.format("&6%.0f bloques", value);
+                default -> String.format("%,.0f", value);
+            };
+
+            // 🔧 CRÍTICO: Procesar códigos de color en formatos por defecto también
+            return ChatColor.translateAlternateColorCodes('&', defaultFormat);
+
+        } catch (Exception e) {
+            plugin.getLogger().warning("Error obteniendo formato para '" + type + "': " + e.getMessage());
+            return String.format("%.0f", value);
+        }
+    }
+
+    public void debugPlayerCustomRequirements(Player player) {
+        if (!debugMode) return;
+
+        plugin.getLogger().info("🔍 DEBUG CUSTOM REQUIREMENTS PARA " + player.getName());
+        plugin.getLogger().info("════════════════════════════════════════");
+
+        ConfigurationSection customReqSection = config.getConfigurationSection("custom_requirements");
+        if (customReqSection == null) {
+            plugin.getLogger().info("❌ No hay custom requirements configurados");
+            return;
+        }
+
+        for (String reqType : customReqSection.getKeys(false)) {
+            plugin.getLogger().info("🔧 Custom Requirement: " + reqType);
+
+            try {
+                // Verificar si es configuración extendida
+                ConfigurationSection extendedConfig = customReqSection.getConfigurationSection(reqType);
+                if (extendedConfig != null) {
+                    plugin.getLogger().info("  📋 Configuración extendida:");
+                    plugin.getLogger().info("    • Display name: " + extendedConfig.getString("display_name", "N/A"));
+                    plugin.getLogger().info("    • Placeholder: " + extendedConfig.getString("placeholder", "N/A"));
+                    plugin.getLogger().info("    • Format: " + extendedConfig.getString("format", "N/A"));
+                    plugin.getLogger().info("    • Description: " + extendedConfig.getString("description", "N/A"));
+                } else {
+                    // Configuración simple
+                    String placeholder = customReqSection.getString(reqType);
+                    plugin.getLogger().info("  📋 Configuración simple: " + placeholder);
+                }
+
+                // Obtener valor actual
+                double currentValue = getCurrentRequirementValue(player, reqType);
+                plugin.getLogger().info("  💰 Valor actual: " + currentValue);
+
+                // Obtener nombre de display
+                String displayName = getCustomRequirementDisplayName(reqType);
+                plugin.getLogger().info("  🏷️ Display name: " + displayName);
+
+                // Obtener formato
+                String formattedValue = getCustomRequirementFormat(reqType, currentValue);
+                plugin.getLogger().info("  🎨 Valor formateado: " + formattedValue);
+
+                plugin.getLogger().info("  ────────────────");
+
+            } catch (Exception e) {
+                plugin.getLogger().info("  ❌ Error procesando: " + e.getMessage());
+            }
+        }
+
+        plugin.getLogger().info("════════════════════════════════════════");
     }
 
     /**
      * Obtiene el valor actual de un requisito
      */
     private double getCurrentRequirementValue(Player player, String type) {
-        return switch (type) {
-            case "money" -> getPlayerMoney(player);
-            case "level" -> player.getLevel();
-            case "playtime_hours" -> getPlaytimeHours(player);
-            case "mob_kills" -> player.getStatistic(org.bukkit.Statistic.MOB_KILLS);
-            case "blocks_mined" -> player.getStatistic(org.bukkit.Statistic.MINE_BLOCK);
-            case "farming_level" -> getFarmingLevel(player);
-            case "mining_level" -> getMiningLevel(player);
-            case "animals_bred" -> player.getStatistic(org.bukkit.Statistic.ANIMALS_BRED);
-            case "fish_caught" -> player.getStatistic(org.bukkit.Statistic.FISH_CAUGHT);
-            case "ender_dragon_kills" -> getEntityKills(player, "ENDER_DRAGON");
-            case "wither_kills" -> getEntityKills(player, "WITHER");
-            default -> handleCustomRequirement(player, type);
-        };
-    }
+        try {
+            if (debugMode) {
+                plugin.getLogger().info("🔍 Obteniendo valor para requirement '" + type + "' del jugador " + player.getName());
+            }
 
+            double value = switch (type) {
+                case "money" -> getPlayerMoney(player);
+                case "level" -> player.getLevel();
+                case "playtime_hours" -> getPlaytimeHours(player);
+                case "mob_kills" -> player.getStatistic(org.bukkit.Statistic.MOB_KILLS);
+
+                // 🔧 CORRECCIÓN: Usar estadística correcta para bloques minados
+                case "blocks_mined" -> getTotalBlocksMined(player);
+
+                case "farming_level" -> getFarmingLevel(player);
+                case "mining_level" -> getMiningLevel(player);
+                case "animals_bred" -> player.getStatistic(org.bukkit.Statistic.ANIMALS_BRED);
+                case "fish_caught" -> player.getStatistic(org.bukkit.Statistic.FISH_CAUGHT);
+                case "ender_dragon_kills" -> getEntityKills(player, "ENDER_DRAGON");
+                case "wither_kills" -> getEntityKills(player, "WITHER");
+                default -> {
+                    // Si no es un tipo estándar, intentar como custom requirement
+                    if (isCustomRequirement(type)) {
+                        yield handleCustomRequirement(player, type);
+                    } else {
+                        plugin.getLogger().warning("⚠️ Tipo de requisito desconocido: " + type);
+                        yield 0.0;
+                    }
+                }
+            };
+
+            if (debugMode) {
+                plugin.getLogger().info("  • Valor obtenido: " + value);
+            }
+
+            return value;
+
+        } catch (Exception e) {
+            plugin.getLogger().severe("❌ Error obteniendo valor para requirement '" + type + "': " + e.getMessage());
+            if (debugMode) {
+                e.printStackTrace();
+            }
+            return 0.0;
+        }
+    }
     /**
      * Obtiene el rango actual de forma más robusta
      */
@@ -777,6 +1131,57 @@ public class RankupManager {
         return (ticks * 50L) / (1000.0 * 60 * 60); // Convertir ticks a horas
     }
 
+    private double getTotalBlocksMined(Player player) {
+        try {
+            // Método 1: Intentar usar la estadística general si existe
+            try {
+                // En versiones más recientes de Minecraft/Bukkit puede existir
+                return player.getStatistic(org.bukkit.Statistic.valueOf("MINE_BLOCK"));
+            } catch (IllegalArgumentException | UnsupportedOperationException e) {
+                // Si no existe, usar método alternativo
+            }
+
+            // Método 2: Sumar estadísticas específicas de materiales comunes
+            double totalMined = 0;
+
+            // Lista de materiales comunes que se minan
+            Material[] commonMaterials = {
+                    Material.STONE, Material.COBBLESTONE, Material.DEEPSLATE, Material.COBBLED_DEEPSLATE,
+                    Material.COAL_ORE, Material.DEEPSLATE_COAL_ORE,
+                    Material.IRON_ORE, Material.DEEPSLATE_IRON_ORE,
+                    Material.GOLD_ORE, Material.DEEPSLATE_GOLD_ORE,
+                    Material.DIAMOND_ORE, Material.DEEPSLATE_DIAMOND_ORE,
+                    Material.EMERALD_ORE, Material.DEEPSLATE_EMERALD_ORE,
+                    Material.LAPIS_ORE, Material.DEEPSLATE_LAPIS_ORE,
+                    Material.REDSTONE_ORE, Material.DEEPSLATE_REDSTONE_ORE,
+                    Material.COPPER_ORE, Material.DEEPSLATE_COPPER_ORE,
+                    Material.DIRT, Material.GRAVEL, Material.SAND,
+                    Material.NETHERRACK, Material.NETHER_QUARTZ_ORE,
+                    Material.ANCIENT_DEBRIS, Material.NETHER_GOLD_ORE,
+                    Material.END_STONE
+            };
+
+            for (Material material : commonMaterials) {
+                try {
+                    totalMined += player.getStatistic(org.bukkit.Statistic.MINE_BLOCK, material);
+                } catch (Exception e) {
+                    // Ignorar si el material no es válido o no se puede obtener
+                    if (debugMode) {
+                        plugin.getLogger().warning("No se pudo obtener estadística para material: " + material.name());
+                    }
+                }
+            }
+
+            return totalMined;
+
+        } catch (Exception e) {
+            if (debugMode) {
+                plugin.getLogger().warning("Error obteniendo bloques minados para " + player.getName() + ": " + e.getMessage());
+            }
+            return 0;
+        }
+    }
+
     private double getFarmingLevel(Player player) {
         try {
             UserData userData = plugin.getDatabaseManager().getUserData(player.getUniqueId().toString());
@@ -804,25 +1209,81 @@ public class RankupManager {
         }
     }
 
-    private double handleCustomRequirement(Player player, String type) {
-        if (!placeholderAPIEnabled) return 0;
-
+    public String getCustomRequirementDisplayName(String type) {
         try {
-            // Buscar en requisitos personalizados
-            String placeholderTemplate = config.getString("custom_requirements." + type);
-            if (placeholderTemplate == null) return 0;
-
-            String placeholder = placeholderTemplate.replace("{value}", "0");
-            String result = PlaceholderAPI.setPlaceholders(player, placeholder);
-
-            return Double.parseDouble(result.replaceAll("[^0-9.-]", ""));
-        } catch (Exception e) {
             if (debugMode) {
-                plugin.getLogger().warning("Error en requisito personalizado " + type + ": " + e.getMessage());
+                plugin.getLogger().info("🔍 Obteniendo display name para: " + type);
             }
-            return 0;
+
+            // Buscar en configuración extendida primero
+            ConfigurationSection customReq = config.getConfigurationSection("custom_requirements." + type);
+
+            if (customReq != null) {
+                String displayName = customReq.getString("display_name");
+                if (displayName != null && !displayName.isEmpty()) {
+                    // 🔧 CRÍTICO: Procesar códigos de color aquí
+                    String formattedName = ChatColor.translateAlternateColorCodes('&', displayName);
+                    if (debugMode) {
+                        plugin.getLogger().info("  • Display name encontrado en configuración extendida: " + formattedName);
+                    }
+                    return formattedName;
+                }
+            }
+
+            // Buscar en la sección de formatos de requirements
+            String formatName = config.getString("requirements." + type + ".name");
+            if (formatName != null && !formatName.isEmpty()) {
+                // 🔧 CRÍTICO: Procesar códigos de color aquí también
+                String formattedName = ChatColor.translateAlternateColorCodes('&', formatName);
+                if (debugMode) {
+                    plugin.getLogger().info("  • Display name encontrado en sección requirements: " + formattedName);
+                }
+                return formattedName;
+            }
+
+            // Fallback: convertir el tipo a nombre legible
+            String fallbackName = convertRequirementKeyToDisplayName(type);
+            if (debugMode) {
+                plugin.getLogger().info("  • Usando nombre fallback: " + fallbackName);
+            }
+            return fallbackName;
+
+        } catch (Exception e) {
+            plugin.getLogger().warning("Error obteniendo display name para '" + type + "': " + e.getMessage());
+            return convertRequirementKeyToDisplayName(type);
         }
     }
+
+    public boolean isCustomRequirement(String type) {
+        try {
+            // Verificar si existe como configuración extendida
+            ConfigurationSection customReq = config.getConfigurationSection("custom_requirements." + type);
+            if (customReq != null) {
+                if (debugMode) {
+                    plugin.getLogger().info("✅ '" + type + "' es un custom requirement (configuración extendida)");
+                }
+                return true;
+            }
+
+            // Verificar si existe como string simple
+            String placeholder = config.getString("custom_requirements." + type);
+            boolean isCustom = placeholder != null && !placeholder.isEmpty();
+
+            if (debugMode) {
+                plugin.getLogger().info((isCustom ? "✅" : "❌") + " '" + type + "' " +
+                        (isCustom ? "es" : "NO es") + " un custom requirement (formato simple)");
+            }
+
+            return isCustom;
+
+        } catch (Exception e) {
+            if (debugMode) {
+                plugin.getLogger().warning("Error verificando si '" + type + "' es custom requirement: " + e.getMessage());
+            }
+            return false;
+        }
+    }
+
 
     private String formatRequirementFailure(Player player, String type, Object required) {
         double requiredValue = ((Number) required).doubleValue();
@@ -831,11 +1292,11 @@ public class RankupManager {
         String messageKey = "messages.requirements." + type;
         String template = config.getString(messageKey, "&7• " + type + ": &c{current}&7/&a{required}");
 
+        // 🔧 CRÍTICO: Cambiar '§' por '&' aquí también
         return ChatColor.translateAlternateColorCodes('&', template
                 .replace("{current}", formatValue(type, currentValue))
                 .replace("{required}", formatValue(type, requiredValue)));
     }
-
     private String formatValue(String type, double value) {
         return switch (type) {
             case "money" -> String.format("$%,.0f", value);
@@ -894,10 +1355,10 @@ public class RankupManager {
 
             // Título
             if (effectsConfig.getBoolean("title.enabled", true)) {
-                String title = ChatColor.translateAlternateColorCodes('&',
-                        effectsConfig.getString("title.title", "&6&l¡RANKUP!"));
-                String subtitle = ChatColor.translateAlternateColorCodes('&',
-                        effectsConfig.getString("title.subtitle", "&fAhora eres {new_rank}")
+                String title = ChatColor.translateAlternateColorCodes('§',
+                        effectsConfig.getString("title.title", "§6§l¡RANKUP!"));
+                String subtitle = ChatColor.translateAlternateColorCodes('§',
+                        effectsConfig.getString("title.subtitle", "§fAhora eres {new_rank}")
                                 .replace("{new_rank}", getDisplayName(newRank)));
                 int duration = effectsConfig.getInt("title.duration", 60);
 
@@ -943,6 +1404,7 @@ public class RankupManager {
             message = message.replace("{" + replacement.getKey() + "}", replacement.getValue());
         }
 
+        // 🔧 CRÍTICO: Cambiar '§' por '&' aquí también
         return ChatColor.translateAlternateColorCodes('&', message);
     }
 
@@ -1598,7 +2060,7 @@ public class RankupManager {
         }
 
         if (progress.getNextRank() != null) {
-            player.sendMessage(ChatColor.WHITE + "⬆️ Siguiente: " + ChatColor.GREEN + progress.getNextRank());
+            player.sendMessage(ChatColor.WHITE + "⬆ Siguiente: " + ChatColor.GREEN + progress.getNextRank());
 
             double overallProgress = progress.getOverallProgress();
             String progressBar = createSimpleProgressBar(overallProgress);

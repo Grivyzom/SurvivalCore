@@ -15,9 +15,10 @@ import java.util.ArrayList;
 /**
  * Sistema de mensajes modernizado para Rankup 2.0
  * Con paginación, mensajes compactos y navegación intuitiva
+ * 🔧 CORREGIDO: rankupManager inicializado correctamente
  *
  * @author Brocolitx
- * @version 2.1 - Mejorado con paginación
+ * @version 2.2 - Corregido con custom requirements
  */
 public class MessageManager {
 
@@ -25,6 +26,9 @@ public class MessageManager {
     private final FileConfiguration config;
     private final Map<String, String> messageCache = new HashMap<>();
     private boolean placeholderAPIEnabled;
+
+    // 🔧 CORREGIDO: rankupManager puede ser null inicialmente
+    private RankupManager rankupManager;
 
     // Configuración de paginación
     private int maxRequirementsPerPage = 4;
@@ -37,8 +41,168 @@ public class MessageManager {
         this.config = config;
         this.placeholderAPIEnabled = plugin.getServer().getPluginManager().getPlugin("PlaceholderAPI") != null;
 
+        // 🔧 NOTA: rankupManager se inicializará después con setRankupManager()
         loadPaginationConfig();
         loadMessages();
+    }
+
+    /**
+     * 🆕 NUEVO: Método para establecer la referencia al RankupManager
+     * Este método debe ser llamado desde RankupManager después de crear MessageManager
+     */
+    public void setRankupManager(RankupManager rankupManager) {
+        this.rankupManager = rankupManager;
+        plugin.getLogger().info("✅ RankupManager vinculado al MessageManager");
+    }
+
+    /**
+     * 🔧 MÉTODO MEJORADO: getRequirementName con soporte para custom requirements
+     * Ahora maneja correctamente el caso donde rankupManager puede ser null
+     */
+    public String getRequirementName(String requirementType) {
+        try {
+            // 🆕 NUEVO: Primero verificar si es un custom requirement
+            if (rankupManager != null && rankupManager.isCustomRequirement(requirementType)) {
+                String customName = rankupManager.getCustomRequirementDisplayName(requirementType);
+
+                // 🔧 CRÍTICO: Asegurar que se procesen los códigos de color
+                if (customName != null && !customName.equals(requirementType)) {
+                    return ChatColor.translateAlternateColorCodes('&', customName);
+                }
+            }
+
+            // Verificar en configuración de formatos de requirements
+            String configName = config.getString("requirements." + requirementType + ".name");
+            if (configName != null && !configName.isEmpty()) {
+                return ChatColor.translateAlternateColorCodes('&', configName);
+            }
+
+            // 🔧 CORREGIDO: Procesar códigos de color en nombres estándar también
+            String standardName = switch (requirementType.toLowerCase()) {
+                case "money" -> "💰 Dinero";
+                case "level" -> "📊 Nivel de experiencia";
+                case "playtime_hours" -> "⏰ Tiempo jugado";
+                case "mob_kills" -> "⚔️ Mobs eliminados";
+                case "blocks_mined" -> "⛏️ Bloques minados";
+                case "farming_level" -> "🌾 Nivel de farming";
+                case "mining_level" -> "⛏️ Nivel de minería";
+                case "animals_bred" -> "🐄 Animales criados";
+                case "fish_caught" -> "🎣 Peces pescados";
+                case "ender_dragon_kills" -> "🐲 Ender Dragons eliminados";
+                case "wither_kills" -> "💀 Withers eliminados";
+
+                // 🆕 CUSTOM REQUIREMENTS COMUNES CON FALLBACK
+                case "vault_eco_balance", "dinero_vault" -> "&6💰 Dinero del Banco";
+                case "mcmmo_mining", "mineria_mcmmo" -> "&8⛏️ McMMO Minería";
+                case "mcmmo_power", "poder_mcmmo" -> "&c💪 Poder McMMO";
+                case "jobs_total", "trabajos_total" -> "&9💼 Nivel de Trabajos";
+                case "playtime", "tiempo_jugado" -> "&b⏰ Tiempo Jugado";
+                case "combate_mcmmo" -> "&4⚔️ Combate McMMO";
+                case "farming_mcmmo" -> "&2🌾 Agricultura McMMO";
+                case "pesca_mcmmo" -> "&3🎣 Pesca McMMO";
+                case "arco_mcmmo" -> "&e🏹 Tiro con Arco";
+                case "reparacion_mcmmo" -> "&7🔧 Reparación";
+                case "tokens_servidor" -> "&d💎 Tokens del Servidor";
+                case "xp_total" -> "&a🏆 Experiencia Total";
+                case "bloques_colocados" -> "&6📊 Bloques Colocados";
+                case "votos_totales" -> "&e🌟 Votos Totales";
+
+                default -> {
+                    // Convertir snake_case a Title Case con emojis
+                    String[] parts = requirementType.split("_");
+                    StringBuilder result = new StringBuilder();
+
+                    for (int i = 0; i < parts.length; i++) {
+                        if (i > 0) result.append(" ");
+
+                        String part = parts[i];
+                        if (!part.isEmpty()) {
+                            result.append(Character.toUpperCase(part.charAt(0)));
+                            if (part.length() > 1) {
+                                result.append(part.substring(1).toLowerCase());
+                            }
+                        }
+                    }
+
+                    // Añadir emojis contextuales
+                    String finalName = result.toString();
+                    if (finalName.toLowerCase().contains("money") || finalName.toLowerCase().contains("balance") || finalName.toLowerCase().contains("dinero")) {
+                        finalName = "&6💰 " + finalName;
+                    } else if (finalName.toLowerCase().contains("level") || finalName.toLowerCase().contains("nivel")) {
+                        finalName = "&b📊 " + finalName;
+                    } else if (finalName.toLowerCase().contains("time") || finalName.toLowerCase().contains("tiempo")) {
+                        finalName = "&e⏰ " + finalName;
+                    } else if (finalName.toLowerCase().contains("mcmmo")) {
+                        finalName = "&6🎯 " + finalName;
+                    }
+
+                    yield finalName;
+                }
+            };
+
+            // 🔧 CRÍTICO: Siempre procesar códigos de color antes de devolver
+            return ChatColor.translateAlternateColorCodes('&', standardName);
+
+        } catch (Exception e) {
+            plugin.getLogger().warning("Error obteniendo nombre de requirement '" + requirementType + "': " + e.getMessage());
+            return ChatColor.translateAlternateColorCodes('&', "📋 " + requirementType.replace("_", " "));
+        }
+    }
+
+    /**
+     * 🆕 NUEVO: Obtener formato de valor para custom requirements
+     * Maneja el caso donde rankupManager puede ser null
+     */
+    public String formatCustomRequirementValue(String requirementType, double value) {
+        try {
+            // Verificar si hay formato personalizado en configuración (solo si rankupManager está disponible)
+            if (rankupManager != null) {
+                ConfigurationSection customReq = config.getConfigurationSection("custom_requirements." + requirementType);
+                if (customReq != null) {
+                    String format = customReq.getString("format");
+                    if (format != null) {
+                        String processedFormat = format.replace("{value}", String.format("%.0f", value));
+                        // 🔧 CRÍTICO: Procesar códigos de color aquí
+                        return ChatColor.translateAlternateColorCodes('&', processedFormat);
+                    }
+                }
+            }
+
+            // Verificar formatos estándar
+            String configFormat = config.getString("requirements." + requirementType + ".format_short");
+            if (configFormat != null) {
+                String processedFormat = configFormat.replace("{value}", String.format("%.0f", value));
+                // 🔧 CRÍTICO: Procesar códigos de color aquí también
+                return ChatColor.translateAlternateColorCodes('&', processedFormat);
+            }
+
+            // Formatos por defecto según el tipo
+            String defaultFormat = switch (requirementType.toLowerCase()) {
+                case "money", "vault_eco_balance", "dinero_vault", "balance" -> String.format("$&a%,.0f", value);
+                case "playtime_hours", "playtime", "tiempo_jugado" -> String.format("&e%.1fh", value);
+                case "farming_level", "mining_level", "mcmmo_mining", "mcmmo_power", "mineria_mcmmo", "poder_mcmmo" -> String.format("&7Lv.&e%.0f", value);
+                case "jobs_total", "trabajos_total" -> String.format("&9Nivel &e%.0f", value);
+                case "combate_mcmmo", "farming_mcmmo", "pesca_mcmmo", "arco_mcmmo", "reparacion_mcmmo" -> String.format("&7Lv.&e%.0f", value);
+                case "tokens_servidor" -> String.format("&d%.0f tokens", value);
+                case "xp_total" -> String.format("&a%.0f XP", value);
+                case "votos_totales" -> String.format("&e%.0f votos", value);
+                default -> String.format("%,.0f", value);
+            };
+
+            // 🔧 CRÍTICO: Procesar códigos de color en formatos por defecto
+            return ChatColor.translateAlternateColorCodes('&', defaultFormat);
+
+        } catch (Exception e) {
+            plugin.getLogger().warning("Error formateando valor para '" + requirementType + "': " + e.getMessage());
+            return String.format("%.0f", value);
+        }
+    }
+    /**
+     * Formatea el valor de un requisito según su tipo (método original mejorado)
+     */
+    private String formatRequirementValue(double value, String type) {
+        // Usar el método mejorado
+        return formatCustomRequirementValue(type, value);
     }
 
     /**
@@ -234,8 +398,8 @@ public class MessageManager {
         player.sendMessage("");
 
         // Información básica
-        player.sendMessage(ChatColor.WHITE + "🎯 Rango actual: " + ChatColor.YELLOW + progress.getCurrentRank());
-        player.sendMessage(ChatColor.WHITE + "⬆️ Siguiente: " + ChatColor.GREEN + progress.getNextRank());
+        player.sendMessage(ChatColor.YELLOW + "🎯" + ChatColor.WHITE + "Tú Rango: " + ChatColor.YELLOW + progress.getCurrentRank());
+        player.sendMessage(ChatColor.GREEN + "⬆" + ChatColor.WHITE + "Siguiente: " + ChatColor.GREEN + progress.getNextRank());
 
         // Barra de progreso compacta
         double overallProgress = progress.getOverallProgress();
@@ -368,7 +532,9 @@ public class MessageManager {
      */
     private String formatCompactRequirement(RankupManager.RequirementProgress req) {
         String icon = req.isCompleted() ? ChatColor.GREEN + "✅" : ChatColor.RED + "❌";
+
         String name = getRequirementName(req.getType());
+
         String progress = formatRequirementValue(req.getCurrent(), req.getType()) + "/" +
                 formatRequirementValue(req.getRequired(), req.getType());
 
@@ -519,41 +685,6 @@ public class MessageManager {
         player.sendMessage("");
         player.sendMessage(ChatColor.GRAY + "💡 Los rangos se basan en dinero, nivel, tiempo y estadísticas");
         player.sendMessage("");
-    }
-
-    // =================== MÉTODOS DE UTILIDAD ===================
-
-    /**
-     * Formatea el valor de un requisito según su tipo
-     */
-    private String formatRequirementValue(double value, String type) {
-        return switch (type.toLowerCase()) {
-            case "money" -> String.format("$%.0f", value);
-            case "level" -> String.format("Lv.%.0f", value);
-            case "playtime_hours" -> String.format("%.1fh", value);
-            case "farming_level", "mining_level" -> String.format("Lv.%.0f", value);
-            default -> String.format("%.0f", value);
-        };
-    }
-
-    /**
-     * Obtiene el nombre formateado de un requisito
-     */
-    public String getRequirementName(String requirementType) {
-        return switch (requirementType) {
-            case "money" -> "Dinero";
-            case "level" -> "Nivel de experiencia";
-            case "playtime_hours" -> "Tiempo jugado";
-            case "mob_kills" -> "Mobs eliminados";
-            case "blocks_mined" -> "Bloques minados";
-            case "farming_level" -> "Nivel de farming";
-            case "mining_level" -> "Nivel de minería";
-            case "animals_bred" -> "Animales criados";
-            case "fish_caught" -> "Peces pescados";
-            case "ender_dragon_kills" -> "Ender Dragons eliminados";
-            case "wither_kills" -> "Withers eliminados";
-            default -> requirementType.replace("_", " ");
-        };
     }
 
     /**

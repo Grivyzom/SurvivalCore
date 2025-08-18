@@ -188,6 +188,11 @@ public class ScorePlaceholder extends PlaceholderExpansion {
             return getBankedXp(player);
         }
 
+        if (params.equals("banked_xp_level")) {
+            return getBankedXpLevel(player);
+        }
+
+
         if (params.equals("bank_capacity")) {
             return getBankCapacity(player);
         }
@@ -235,6 +240,20 @@ public class ScorePlaceholder extends PlaceholderExpansion {
             return currentRank != null ? currentRank : "default";
         } catch (Exception e) {
             return "error";
+        }
+    }
+
+    /**
+     * Convierte XP almacenado en niveles equivalentes
+     */
+    private String getBankedXpLevel(OfflinePlayer player) {
+        try {
+            long bankedXp = plugin.getDatabaseManager().getBankedXp(player.getUniqueId().toString());
+            int levels = (int) (bankedXp / 68L); // 68 XP = 1 nivel en tu sistema
+            return String.valueOf(levels);
+        } catch (Exception e) {
+            plugin.getLogger().warning("Error obteniendo banked_xp_level para " + player.getName() + ": " + e.getMessage());
+            return "0";
         }
     }
 

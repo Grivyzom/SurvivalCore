@@ -130,6 +130,11 @@ public class ScorePlaceholder extends PlaceholderExpansion {
             return getCanChangeGender(player);
         }
 
+        // ===== NUEVO: PLACEHOLDER DE SÍMBOLO DE GÉNERO =====
+        if (params.equals("gender_symbol")) {
+            return getGenderSymbol(player);
+        }
+
         // ===== PLACEHOLDERS DE RANKUP SIMPLIFICADOS =====
         if (params.equals("rank")) {
             return getRankPlaceholder(onlinePlayer);
@@ -562,6 +567,9 @@ public class ScorePlaceholder extends PlaceholderExpansion {
 
         return bar.toString();
     }
+
+    // =================== MÉTODOS DE REDES SOCIALES ===================
+
     private String getDiscord(OfflinePlayer player) {
         try {
             UserData userData = plugin.getDatabaseManager().getUserData(player.getUniqueId().toString());
@@ -681,6 +689,8 @@ public class ScorePlaceholder extends PlaceholderExpansion {
         }
     }
 
+    // =================== MÉTODOS DE GÉNERO ===================
+
     /**
      * Obtiene información del cooldown de género
      */
@@ -707,5 +717,35 @@ public class ScorePlaceholder extends PlaceholderExpansion {
         }
     }
 
-}
+    /**
+     * NUEVO: Obtiene el símbolo del género
+     * ♀ para Femenino
+     * ♂ para Masculino
+     * ◈ para Otro/No especificado
+     */
+    private String getGenderSymbol(OfflinePlayer player) {
+        try {
+            UserData userData = plugin.getDatabaseManager().getUserData(player.getUniqueId().toString());
 
+            if (userData == null || userData.getGenero() == null) {
+                return "◈"; // Símbolo neutral para casos sin datos
+            }
+
+            String genero = userData.getGenero().toLowerCase().trim();
+
+            switch (genero) {
+                case "femenino":
+                    return "♀"; // Símbolo femenino
+                case "masculino":
+                    return "♂"; // Símbolo masculino
+                case "otro":
+                default:
+                    return "◈"; // Símbolo neutral para "Otro" o cualquier otro valor
+            }
+
+        } catch (Exception e) {
+            plugin.getLogger().warning("Error obteniendo símbolo de género para " + player.getName() + ": " + e.getMessage());
+            return "◈"; // Símbolo por defecto en caso de error
+        }
+    }
+}

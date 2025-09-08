@@ -25,7 +25,7 @@ import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
-import org.bukkit.event.block.Action;         // ← nuevo
+import org.bukkit.event.block.Action;
 import org.bukkit.ChatColor;
 import gc.grivyzom.survivalcore.effects.LecternEffectsManager;
 import gc.grivyzom.survivalcore.recipes.RecipeCategory;
@@ -37,6 +37,8 @@ import java.util.stream.Collectors;
  * Listener para todo lo relativo a los Atriles Mágicos. Maneja la colocación, rotura,
  * interacción y lógica de recetas. Garantiza que los jugadores reciban exactamente
  * los mismos objetos y cantidades cuando una combinación no es válida.
+ *
+ * VERSIÓN CORREGIDA: Conserva nombre y lore al romper
  */
 public class MagicLecternListener implements Listener {
 
@@ -44,7 +46,9 @@ public class MagicLecternListener implements Listener {
     private final Main plugin;
     private final NamespacedKey keyLectern;
     private final NamespacedKey keyLevel;
-    private final LecternRecipeManager recipeManager;  // ← SOLO UNA DECLARACIÓN
+    private final NamespacedKey keyDisplayName; // 🆕 NUEVO
+    private final NamespacedKey keyLore;        // 🆕 NUEVO
+    private final LecternRecipeManager recipeManager;
     private final LecternEffectsManager effectsManager;
 
     // Configuración de timeouts
@@ -78,6 +82,8 @@ public class MagicLecternListener implements Listener {
         this.plugin = plugin;
         this.keyLectern = new NamespacedKey(plugin, "is_magic_lectern");
         this.keyLevel = new NamespacedKey(plugin, "lectern_level");
+        this.keyDisplayName = new NamespacedKey(plugin, "lectern_display_name"); // 🆕 NUEVO
+        this.keyLore = new NamespacedKey(plugin, "lectern_lore");               // 🆕 NUEVO
         this.recipeManager = plugin.getLecternRecipeManager();
         this.effectsManager = new LecternEffectsManager(plugin);
         this.previewMgr = new PreviewManager(plugin);
@@ -94,7 +100,7 @@ public class MagicLecternListener implements Listener {
 
         BlockState state = e.getBlock().getState();
         if (state instanceof TileState ts) {
-            copyMeta(placed, ts);
+            copyMetaImproved(placed, ts); // 🔧 MEJORADO
             ts.update(true);
         }
     }
@@ -110,10 +116,7 @@ public class MagicLecternListener implements Listener {
 
         // Cancelamos drops vanilla y soltamos nuestro ítem custom
         e.setDropItems(false);
-        ItemStack drop = new ItemStack(Material.LECTERN);
-        ItemMeta meta = drop.getItemMeta();
-        copyMeta(ts, meta);
-        drop.setItemMeta(meta);
+        ItemStack drop = createMagicLecternFromTileState(ts); // 🔧 MEJORADO
         b.getWorld().dropItemNaturally(b.getLocation().add(0.5, 0.5, 0.5), drop);
     }
 
@@ -121,7 +124,6 @@ public class MagicLecternListener implements Listener {
        ===================== INTERACCIONES ==========================
        ============================================================== */
 
-    /* ==== ONINTERACT — ahora permite romper agachado ================ */
     @EventHandler
     public void onInteract(PlayerInteractEvent e) {
         // 1) Sólo interesan clics con la mano principal
@@ -157,16 +159,12 @@ public class MagicLecternListener implements Listener {
         }
         // Limpia contador si ya tiene permiso
         deniedClicks.remove(p.getUniqueId());
-        /* ───────────────────────────────────────────────────────────── */
 
         // 5) Si está agachado y hace clic izquierdo, permitimos recoger el Atril
         if (e.getAction() == Action.LEFT_CLICK_BLOCK && p.isSneaking()) {
             e.setCancelled(true);
 
-            ItemStack drop = new ItemStack(Material.LECTERN);
-            ItemMeta meta  = drop.getItemMeta();
-            copyMeta(ts, meta);
-            drop.setItemMeta(meta);
+            ItemStack drop = createMagicLecternFromTileState(ts); // 🔧 MEJORADO
 
             b.setType(Material.AIR, false);
             b.getWorld().dropItemNaturally(b.getLocation().add(.5, .5, .5), drop);
@@ -183,16 +181,132 @@ public class MagicLecternListener implements Listener {
         }
     }
 
+    /* ==============================================================
+       ================ 🔧 MÉTODOS MEJORADOS =======================
+       ============================================================== */
 
-    /* ==== HANDLELEFTCLICK – idle FX al primer ítem ================== */
+    /**
+     * 🔧 MÉTODO MEJORADO: Copia metadatos incluyendo nombre y lore
+     */
+    private void copyMetaImproved(ItemStack src, TileState target) {
+        ItemMeta srcMeta = src.getItemMeta();
+        if (srcMeta == null) return;
+
+        PersistentDataContainer from = srcMeta.getPersistentDataContainer();
+        PersistentDataContainer to = target.getPersistentDataContainer();
+
+        // Copiar metadatos básicos
+        to.set(keyLectern, PersistentDataType.BYTE, (byte) 1);
+        to.set(keyLevel, PersistentDataType.INTEGER, from.getOrDefault(keyLevel, PersistentDataType.INTEGER, 1));
+
+        // 🆕 NUEVO: Guardar nombre y lore en el TileState
+        if (srcMeta.hasDisplayName()) {
+            to.set(keyDisplayName, PersistentDataType.STRING, srcMeta.getDisplayName());
+        }
+
+        if (srcMeta.hasLore() && srcMeta.getLore() != null) {
+            String loreString = String.join("||LORE_SEPARATOR||", srcMeta.getLore());
+            to.set(keyLore, PersistentDataType.STRING, loreString);
+        }
+    }
+
+    /**
+     * 🆕 MÉTODO NUEVO: Crea un Lectern Magic completo desde un TileState
+     */
+    private ItemStack createMagicLecternFromTileState(TileState ts) {
+        PersistentDataContainer container = ts.getPersistentDataContainer();
+
+        // Crear item base
+        ItemStack lectern = new ItemStack(Material.LECTERN);
+        ItemMeta meta = lectern.getItemMeta();
+
+        if (meta == null) {
+            plugin.getLogger().warning("No se pudo obtener ItemMeta para Lectern Magic");
+            return lectern;
+        }
+
+        PersistentDataContainer itemContainer = meta.getPersistentDataContainer();
+
+        // Copiar metadatos básicos
+        itemContainer.set(keyLectern, PersistentDataType.BYTE, (byte) 1);
+        int level = container.getOrDefault(keyLevel, PersistentDataType.INTEGER, 1);
+        itemContainer.set(keyLevel, PersistentDataType.INTEGER, level);
+
+        // 🔧 CRÍTICO: Restaurar nombre y lore desde el TileState
+        String savedDisplayName = container.get(keyDisplayName, PersistentDataType.STRING);
+        String savedLore = container.get(keyLore, PersistentDataType.STRING);
+
+        if (savedDisplayName != null && !savedDisplayName.isEmpty()) {
+            meta.setDisplayName(savedDisplayName);
+        } else {
+            // Fallback: nombre por defecto basado en nivel
+            meta.setDisplayName(ChatColor.DARK_PURPLE + "✦ Atril Mágico " + ChatColor.GOLD + "Nivel " + level + ChatColor.DARK_PURPLE + " ✦");
+        }
+
+        if (savedLore != null && !savedLore.isEmpty()) {
+            List<String> loreList = Arrays.asList(savedLore.split("\\|\\|LORE_SEPARATOR\\|\\|"));
+            meta.setLore(loreList);
+        } else {
+            // Fallback: lore por defecto
+            List<String> defaultLore = Arrays.asList(
+                    ChatColor.GRAY + "Un atril imbuido con energía arcana",
+                    ChatColor.GRAY + "capaz de fusionar objetos mágicamente.",
+                    "",
+                    ChatColor.YELLOW + "Nivel: " + ChatColor.GOLD + level,
+                    ChatColor.YELLOW + "Capacidad: " + ChatColor.GREEN + "Recetas nivel " + level + " y menor",
+                    "",
+                    ChatColor.AQUA + "▶ Clic derecho: Abrir menú",
+                    ChatColor.AQUA + "▶ Clic izquierdo: Añadir ingredientes",
+                    ChatColor.RED + "▶ Shift + Clic izq: Recoger atril",
+                    "",
+                    ChatColor.DARK_PURPLE + "✦ Item Mágico ✦"
+            );
+            meta.setLore(defaultLore);
+        }
+
+        meta.addItemFlags(org.bukkit.inventory.ItemFlag.HIDE_ENCHANTS);
+
+        lectern.setItemMeta(meta);
+
+        plugin.getLogger().info("Lectern Magic creado con nombre: " +
+                (savedDisplayName != null ? savedDisplayName : "por defecto") +
+                " y lore: " + (savedLore != null ? "restaurado" : "por defecto"));
+
+        return lectern;
+    }
+
+    /**
+     * 🔧 MÉTODO MEJORADO: Copia desde TileState a ItemMeta (por compatibilidad)
+     */
+    private void copyMeta(TileState src, ItemMeta target) {
+        PersistentDataContainer from = src.getPersistentDataContainer();
+        PersistentDataContainer to = target.getPersistentDataContainer();
+
+        // Copiar metadatos básicos
+        to.set(keyLectern, PersistentDataType.BYTE, (byte) 1);
+        to.set(keyLevel, PersistentDataType.INTEGER, from.getOrDefault(keyLevel, PersistentDataType.INTEGER, 1));
+
+        // 🆕 NUEVO: Restaurar nombre y lore
+        String savedDisplayName = from.get(keyDisplayName, PersistentDataType.STRING);
+        String savedLore = from.get(keyLore, PersistentDataType.STRING);
+
+        if (savedDisplayName != null && !savedDisplayName.isEmpty()) {
+            target.setDisplayName(savedDisplayName);
+        }
+
+        if (savedLore != null && !savedLore.isEmpty()) {
+            List<String> loreList = Arrays.asList(savedLore.split("\\|\\|LORE_SEPARATOR\\|\\|"));
+            target.setLore(loreList);
+        }
+    }
+
+    /* ==============================================================
+       ============= RESTO DEL CÓDIGO EXISTENTE ===================
+       ============================================================== */
+
     private void handleLeftClick(Player player, Location loc) {
         ItemStack inHand = player.getInventory().getItemInMainHand();
         if (inHand == null || inHand.getType() == Material.AIR) {
-            // 🔧 REEMPLAZAR estas líneas:
-            // player.playSound(player, SOUND_DENIED, 1f, .8f);
-            // return;
-
-            // 🆕 POR ESTAS:
             effectsManager.playFailureEffects(loc, getLecternLevel(loc));
             return;
         }
@@ -203,8 +317,6 @@ public class MagicLecternListener implements Listener {
 
         if (player.getGameMode() != GameMode.CREATIVE) {
             inHand.setAmount(inHand.getAmount() - 1);
-
-            // 🆕 AGREGAR ESTA LÍNEA:
             effectsManager.playInputEffects(loc, getLecternLevel(loc));
         }
 
@@ -212,27 +324,16 @@ public class MagicLecternListener implements Listener {
         player.playSound(player, SOUND_INPUT, 1f, 1.2f);
     }
 
-
-
-    /* ==============================================================
-       ==================== LÓGICA DE RECETAS =======================
-       ============================================================== */
-
     private void handleRecipeInput(Player player, Location loc, ItemStack item) {
-
         PendingProcess pp = pending.get(loc);
         if (pp == null) {
-
             pp = new PendingProcess();
             pp.first = item;
 
-            // 🆕 AGREGAR ESTA LÍNEA después de pp.first = item:
             effectsManager.startAmbientEffects(loc, getLecternLevel(loc));
 
-            // ➊ Tarea timeout (6 s)
             pp.timeoutTask = new BukkitRunnable() {
                 @Override public void run() {
-                    // Si nadie metió el 2.º ítem:
                     PendingProcess current = pending.remove(loc);
                     if (current != null) {
                         if (current.idleTask != null) current.idleTask.cancel();
@@ -244,7 +345,6 @@ public class MagicLecternListener implements Listener {
                 }
             }.runTaskLater(plugin, TIMEOUT_TICKS);
 
-            // ➋ Tarea idle FX (cada 6 ticks)
             pp.idleTask = new BukkitRunnable() {
                 @Override public void run() {
                     int idx = fxIndex(getLecternLevel(loc));
@@ -263,15 +363,11 @@ public class MagicLecternListener implements Listener {
         if (pp.idleTask   != null) pp.idleTask.cancel();
         if (pp.timeoutTask != null) pp.timeoutTask.cancel();
 
-        // 🆕 AGREGAR ESTA LÍNEA:
         effectsManager.stopEffects(loc);
 
         pending.remove(loc);
         attemptCombine(player, loc, pp.first, item);
     }
-
-
-
 
     private void attemptCombine(Player p, Location loc, ItemStack a, ItemStack b) {
         int level = getLecternLevel(loc);
@@ -279,27 +375,24 @@ public class MagicLecternListener implements Listener {
 
         if (recipe == null) {
             effectsManager.playFailureEffects(loc, level);
-
             p.sendMessage(ChatColor.RED + "Combinación inválida.");
             dropBack(loc, List.of(a, b));
             return;
         }
 
-        // 2⃣  validamos XP propia + banco
         int cost    = recipe.getXpCost();
         int barXp   = getPlayerRawXp(p);
         String uuid = p.getUniqueId().toString();
         long bankXp = plugin.getDatabaseManager().getBankedXp(uuid);
         long available = (long) barXp + bankXp;
+
         if (available < cost) {
             effectsManager.playFailureEffects(loc, level);
-
             p.sendMessage(ChatColor.RED + "Necesitas " + cost + " puntos de experiencia.");
             dropBack(loc, List.of(a, b));
             return;
         }
 
-        // 3⃣  descontamos primero de la barra
         int remaining = cost;
         if (barXp >= remaining) {
             p.giveExp(-remaining);
@@ -308,12 +401,10 @@ public class MagicLecternListener implements Listener {
             p.giveExp(-barXp);
             remaining -= barXp;
         }
-        // 4⃣  si aún queda, lo restamos del banco
         if (remaining > 0) {
             plugin.getDatabaseManager().withdrawBankedXp(uuid, remaining);
         }
 
-        // 5⃣ obtenemos resultado
         ItemStack result = recipe.getResult();
         ItemMeta meta = result.getItemMeta();
         RecipeCategory category = determineCategory(recipe);
@@ -321,28 +412,15 @@ public class MagicLecternListener implements Listener {
 
         RecipeUnlockManager.unlockRecipe(p.getUniqueId(), result.getType().toString());
 
-        // Desbloqueo de receta
-        RecipeUnlockManager.unlockRecipe(p.getUniqueId(), result.getType().toString());
-
         World w = p.getWorld();
         int idx = fxIndex(level);
         w.spawnParticle(
                 LEVEL_PARTICLES[idx],
                 loc.clone().add(0.5, 1.0, 0.5),
-                80,    // count
-                0.4,   // offsetX
-                0.6,   // offsetY
-                0.4,   // offsetZ
-                0.2    // extra
+                80, 0.4, 0.6, 0.4, 0.2
         );
-        w.playSound(
-                loc,
-                LEVEL_SOUNDS[idx],
-                1f,    // volumen
-                1f     // pitch
-        );
+        w.playSound(loc, LEVEL_SOUNDS[idx], 1f, 1f);
 
-        // 6⃣ entregamos el resultado al jugador
         String displayName;
         if (meta != null && meta.hasDisplayName()) {
             displayName = meta.getDisplayName();
@@ -357,10 +435,8 @@ public class MagicLecternListener implements Listener {
                 ChatColor.YELLOW + getDisplayName(result) +
                 ChatColor.GREEN + "!");
 
-        // 🆕 AGREGAR ESTA LÍNEA al final:
         effectsManager.showPreview(loc, result.clone());
     }
-
 
     /* ==============================================================
        ===================== MÉTODOS UTILERÍA =======================
@@ -368,26 +444,20 @@ public class MagicLecternListener implements Listener {
 
     private void dropBack(Location loc, List<ItemStack> items) {
         World w = loc.getWorld();
-
-        // 🔧 EFECTOS DE FALLO MEJORADOS:
         effectsManager.playFailureEffects(loc, getLecternLevel(loc));
-
-        // Soltar items (SIN DUPLICAR)
         items.forEach(it ->
                 w.dropItemNaturally(loc.clone().add(0.5, 1, 0.5), it)
         );
-
-        // Limpiar preview
         if (previewMgr != null) {
             previewMgr.removePreview(loc);
         }
     }
 
-    // Limpia estado pendiente y quita la pre-view
     private void cleanup(Location loc) {
         pending.remove(loc);
         previewMgr.removePreview(loc);
     }
+
     private int getLecternLevel(Location loc) {
         BlockState state = loc.getBlock().getState();
         if (state instanceof TileState ts) {
@@ -401,40 +471,16 @@ public class MagicLecternListener implements Listener {
                 it.getItemMeta().getPersistentDataContainer().has(keyLectern, PersistentDataType.BYTE);
     }
 
-    private void copyMeta(ItemStack src, TileState target) {
-        PersistentDataContainer from = src.getItemMeta().getPersistentDataContainer();
-        PersistentDataContainer to = target.getPersistentDataContainer();
-        to.set(keyLectern, PersistentDataType.BYTE, (byte) 1);
-        to.set(keyLevel, PersistentDataType.INTEGER, from.getOrDefault(keyLevel, PersistentDataType.INTEGER, 1));
-    }
-
-    private void copyMeta(TileState src, ItemMeta target) {
-        PersistentDataContainer from = src.getPersistentDataContainer();
-        PersistentDataContainer to = target.getPersistentDataContainer();
-        to.set(keyLectern, PersistentDataType.BYTE, (byte) 1);
-        to.set(keyLevel, PersistentDataType.INTEGER, from.getOrDefault(keyLevel, PersistentDataType.INTEGER, 1));
-    }
-
-    /* ==============================================================
-       =================== CARGA DE RECETAS YAML ====================
-       ============================================================== */
-
     private String beautify(Material m) {
         return Arrays.stream(m.toString().split("_"))
                 .map(s -> s.charAt(0) + s.substring(1).toLowerCase())
                 .collect(Collectors.joining(" "));
     }
 
-    /**
-     * Determina la categoría de una receta
-     */
     private RecipeCategory determineCategory(LecternRecipe recipe) {
         return RecipeCategory.fromRecipeName(recipe.getId());
     }
 
-    /**
-     * Obtiene el nombre display de un item
-     */
     private String getDisplayName(ItemStack item) {
         if (item.hasItemMeta() && item.getItemMeta().hasDisplayName()) {
             return item.getItemMeta().getDisplayName();
@@ -442,18 +488,12 @@ public class MagicLecternListener implements Listener {
         return beautify(item.getType());
     }
 
-    /**
-     * Método para limpiar efectos cuando se deshabilita el plugin
-     */
     public void cleanup() {
         if (effectsManager != null) {
             effectsManager.cleanup();
         }
-
-        // Limpiar otros recursos
         pending.clear();
     }
-
 
     // ---------- arrays cíclicos ----------
     private static final Particle[] LEVEL_PARTICLES = {
@@ -470,13 +510,11 @@ public class MagicLecternListener implements Listener {
             Sound.BLOCK_BEACON_AMBIENT,           // lvl 4
             Sound.UI_TOAST_CHALLENGE_COMPLETE     // lvl 5+
     };
-    /** Devuelve un índice válido para los arrays de FX. */
+
     private int fxIndex(int level) {
         return Math.min(level-1, LEVEL_PARTICLES.length-1);
     }
-    /**
-     * Calcula cuánta XP “cruda” (puntos) hay que ganar para subir del nivel n al n+1.
-     */
+
     private int xpToNextLevel(int level) {
         if (level >= 30) {
             return 112 + (level - 30) * 9;
@@ -487,10 +525,6 @@ public class MagicLecternListener implements Listener {
         }
     }
 
-    /**
-     * Devuelve la XP total “cruda” que un jugador tiene en la barra:
-     * suma de todos los niveles + la fracción actual.
-     */
     private int getPlayerRawXp(Player p) {
         int total = Math.round(p.getExp() * xpToNextLevel(p.getLevel()));
         for (int lvl = 0; lvl < p.getLevel(); lvl++) {
@@ -502,12 +536,9 @@ public class MagicLecternListener implements Listener {
     private void punish(Player p){
         World w = p.getWorld();
         Location loc = p.getLocation();
-        // Relámpago + fuego 5 s y sonido dramático
         w.strikeLightning(loc);
-        p.setFireTicks(100); // 5 s / 20 tps
+        p.setFireTicks(100);
         p.playSound(loc, Sound.ENTITY_WITHER_SPAWN, 1f, .5f);
         p.sendMessage(ChatColor.DARK_PURPLE + "" + ChatColor.BOLD + "¡La magia te castiga por tu insolencia!");
-
     }
-
 }

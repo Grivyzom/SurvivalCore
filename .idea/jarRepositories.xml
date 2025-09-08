@@ -31,5 +31,10 @@
       <option name="name" value="placeholderapi-repo" />
       <option name="url" value="https://repo.extendedclip.com/#/releases/me/clip/placeholderapi/2.11.6" />
     </remote-repository>
+    <remote-repository>
+      <option name="id" value="phoenix" />
+      <option name="name" value="phoenix" />
+      <option name="url" value="https://nexus.phoenixdevt.fr/repository/maven-public/" />
+    </remote-repository>
   </component>
 </project>

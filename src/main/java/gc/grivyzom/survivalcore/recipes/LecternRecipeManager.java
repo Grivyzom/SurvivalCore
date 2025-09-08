@@ -5,6 +5,9 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
+import gc.grivyzom.survivalcore.recipes.RecipeCategory;
+import org.bukkit.entity.Player;
+import java.util.stream.Collectors;
 
 import java.io.File;
 import java.util.*;
@@ -36,6 +39,53 @@ public class LecternRecipeManager {
                 );
     }
 
+
+    public boolean canPlayerAccessRecipe(Player player, LecternRecipe recipe) {
+        return RecipeUnlockSystem.canAccessLevel(player, recipe.getLevel());
+    }
+
+    public List<LecternRecipe> getRecipesByCategory(RecipeCategory category, int maxLevel) {
+        List<LecternRecipe> result = new ArrayList<>();
+
+        lock.readLock().lock();
+        try {
+            for (int level = 1; level <= maxLevel; level++) {
+                List<LecternRecipe> levelRecipes = byLevel.get(level);
+                if (levelRecipes != null) {
+                    result.addAll(levelRecipes.stream()
+                            .filter(recipe -> determineCategory(recipe) == category)
+                            .collect(Collectors.toList()));
+                }
+            }
+        } finally {
+            lock.readLock().unlock();
+        }
+
+        return result;
+    }
+
+    public RecipeCategory determineCategory(LecternRecipe recipe) {
+        return RecipeCategory.fromRecipeName(recipe.getId());
+    }
+
+    // 🆕 NUEVO: Obtener todas las recetas disponibles para un nivel
+    public List<LecternRecipe> getAvailableRecipes(int lecternLevel) {
+        List<LecternRecipe> result = new ArrayList<>();
+
+        lock.readLock().lock();
+        try {
+            for (int level = 1; level <= lecternLevel; level++) {
+                List<LecternRecipe> levelRecipes = byLevel.get(level);
+                if (levelRecipes != null) {
+                    result.addAll(levelRecipes);
+                }
+            }
+        } finally {
+            lock.readLock().unlock();
+        }
+
+        return result;
+    }
 
     /** @return resultado o null si no existe receta válida. */
     public ItemStack findResult(int lecternLevel, ItemStack a, ItemStack b) {
@@ -147,5 +197,143 @@ public class LecternRecipeManager {
         saveYaml();                          // persiste el cambio
     }
 
+    public Map<String, Integer> getRecipeStats() {
+        Map<String, Integer> stats = new HashMap<>();
 
+        lock.readLock().lock();
+        try {
+            int totalRecipes = 0;
+            for (Map.Entry<Integer, List<LecternRecipe>> entry : byLevel.entrySet()) {
+                int levelCount = entry.getValue().size();
+                stats.put("level_" + entry.getKey(), levelCount);
+                totalRecipes += levelCount;
+            }
+
+            stats.put("total", totalRecipes);
+
+            // Estadísticas por categoría
+            Map<RecipeCategory, Integer> categoryStats = new HashMap<>();
+            for (List<LecternRecipe> recipes : byLevel.values()) {
+                for (LecternRecipe recipe : recipes) {
+                    RecipeCategory category = determineCategory(recipe);
+                    categoryStats.put(category, categoryStats.getOrDefault(category, 0) + 1);
+                }
+            }
+
+            for (Map.Entry<RecipeCategory, Integer> entry : categoryStats.entrySet()) {
+                stats.put("category_" + entry.getKey().name().toLowerCase(), entry.getValue());
+            }
+
+        } finally {
+            lock.readLock().unlock();
+        }
+
+        return stats;
+    }
+
+    public List<LecternRecipe> searchRecipes(String query, int maxLevel) {
+        List<LecternRecipe> results = new ArrayList<>();
+        String searchTerm = query.toLowerCase();
+
+        lock.readLock().lock();
+        try {
+            for (int level = 1; level <= maxLevel; level++) {
+                List<LecternRecipe> levelRecipes = byLevel.get(level);
+                if (levelRecipes != null) {
+                    results.addAll(levelRecipes.stream()
+                            .filter(recipe -> recipe.getId().toLowerCase().contains(searchTerm))
+                            .collect(Collectors.toList()));
+                }
+            }
+        } finally {
+            lock.readLock().unlock();
+        }
+
+        return results;
+    }
+
+    public boolean isValidRecipeCreation(LecternRecipe recipe) {
+        if (recipe == null) return false;
+        if (recipe.getInputs().length != 2) return false;
+        if (recipe.getResult() == null) return false;
+        if (recipe.getLevel() < 1 || recipe.getLevel() > 10) return false;
+        if (recipe.getXpCost() < 0) return false;
+
+        return true;
+    }
+
+    public static class RecipeUnlockSystem {
+
+    public static boolean canAccessLevel(Player player, int level) {
+        // Nivel 1: Siempre accesible
+        if (level <= 1) return true;
+
+        // Niveles 2-3: Requiere haber usado recetas del nivel anterior
+        if (level <= 3) {
+            return getRecipesUnlocked(player, level - 1) >= 2;
+        }
+
+        // Niveles 4-6: Requiere experiencia y materiales raros
+        if (level <= 6) {
+            return player.getLevel() >= (level * 5) &&
+                    hasRareMaterials(player, level);
+        }
+
+        // Niveles 7+: Requiere logros específicos
+        return hasAdvancementRequirements(player, level);
+    }
+
+    private static int getRecipesUnlocked(Player player, int level) {
+        // Implementar contador de recetas desbloqueadas por nivel
+        // Esto puede conectarse con RecipeUnlockManager existente
+        try {
+            return gc.grivyzom.survivalcore.gui.RecipeUnlockManager
+                    .getUnlocked(player.getUniqueId()).size();
+        } catch (Exception e) {
+            return 0; // En caso de error, permitir acceso
+        }
+    }
+
+    private static boolean hasRareMaterials(Player player, int level) {
+        org.bukkit.inventory.Inventory inv = player.getInventory();
+        return switch (level) {
+            case 4 -> inv.contains(org.bukkit.Material.DIAMOND) ||
+                    inv.contains(org.bukkit.Material.EMERALD);
+            case 5 -> inv.contains(org.bukkit.Material.NETHERITE_INGOT) ||
+                    inv.contains(org.bukkit.Material.NETHER_STAR);
+            case 6 -> inv.contains(org.bukkit.Material.DRAGON_EGG) ||
+                    inv.contains(org.bukkit.Material.ELYTRA);
+            default -> true;
+        };
+    }
+
+    private static boolean hasAdvancementRequirements(Player player, int level) {
+        // Verificar logros específicos según el nivel
+        try {
+            return switch (level) {
+                case 7 -> {
+                    var advancement = org.bukkit.Bukkit.getAdvancement(
+                            org.bukkit.NamespacedKey.minecraft("end/kill_dragon"));
+                    yield advancement != null &&
+                            player.getAdvancementProgress(advancement).isDone();
+                }
+                case 8 -> {
+                    var advancement = org.bukkit.Bukkit.getAdvancement(
+                            org.bukkit.NamespacedKey.minecraft("nether/all_potions"));
+                    yield advancement != null &&
+                            player.getAdvancementProgress(advancement).isDone();
+                }
+                default -> {
+                    var advancement = org.bukkit.Bukkit.getAdvancement(
+                            org.bukkit.NamespacedKey.minecraft("adventure/hero_of_the_village"));
+                    yield advancement != null &&
+                            player.getAdvancementProgress(advancement).isDone();
+                }
+            };
+        } catch (Exception e) {
+            // Si hay error obteniendo logros, permitir acceso
+            return true;
+        }
+    }
+}
 }

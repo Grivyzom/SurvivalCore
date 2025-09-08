@@ -27,7 +27,8 @@ import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.event.block.Action;         // ← nuevo
 import org.bukkit.ChatColor;
-
+import gc.grivyzom.survivalcore.effects.LecternEffectsManager;
+import gc.grivyzom.survivalcore.recipes.RecipeCategory;
 import java.io.File;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -39,47 +40,46 @@ import java.util.stream.Collectors;
  */
 public class MagicLecternListener implements Listener {
 
-    /* ==============================================================
-       ======================= CAMPOS ===============================
-       ============================================================== */
-
+    // === CAMPOS - VERSIÓN CORREGIDA ===
     private final Main plugin;
-    private final NamespacedKey keyLectern;   // Marca que identifica un atril mágico
-    private final NamespacedKey keyLevel;     // Nivel del atril mágico
+    private final NamespacedKey keyLectern;
+    private final NamespacedKey keyLevel;
+    private final LecternRecipeManager recipeManager;  // ← SOLO UNA DECLARACIÓN
+    private final LecternEffectsManager effectsManager;
 
-    // Tiempo (en ticks) para colocar el segundo ítem (6 s = 120 ticks)
-    private static final long TIMEOUT_TICKS = 20L * 6;
+    // Configuración de timeouts
+    private static final long TIMEOUT_TICKS = 20L * 6; // 6 segundos
 
-    // Por ubicación: tarea de espera y lista de ítems pendientes
+    // Estado de procesos pendientes
     private final Map<Location, PendingProcess> pending = new HashMap<>();
 
-
-    // Recetas cargadas desde lectern_recipes.yml → nivel → clave(inputs) → resultado
-    // private final Map<Integer, Map<Set<Material>, ItemStack>> recipesByLevel = new HashMap<>();
-
-    /* ==== NUEVAS CONSTANTES  ===================================== */
-    private static final Sound  SOUND_IDLE   = Sound.BLOCK_AMETHYST_BLOCK_CHIME;
-    private static final Sound  SOUND_INPUT  = Sound.ENTITY_ENDER_EYE_LAUNCH;
-    private static final Sound  SOUND_DENIED = Sound.BLOCK_NOTE_BLOCK_BASS;
-    private final LecternRecipeManager recipeManager;
+    // Configuración de sonidos y permisos
+    private static final Sound SOUND_IDLE = Sound.BLOCK_AMETHYST_BLOCK_CHIME;
+    private static final Sound SOUND_INPUT = Sound.ENTITY_ENDER_EYE_LAUNCH;
+    private static final Sound SOUND_DENIED = Sound.BLOCK_NOTE_BLOCK_BASS;
     private static final String PERM_USE = "survivalcore.use.lectern";
     private static final int MAX_DENIED_CLICKS = 6;
+
+    // Control de acceso denegado
     private final Map<UUID, Integer> deniedClicks = new HashMap<>();
+
+    // Manager de previews
     private final PreviewManager previewMgr;
+
+    // Clase auxiliar para procesos pendientes
     private static class PendingProcess {
-        ItemStack  first;       // primer ítem recibido
-        BukkitTask idleTask;    // partículas “idle”
+        ItemStack first;        // primer ítem recibido
+        BukkitTask idleTask;    // partículas "idle"
         BukkitTask timeoutTask; // límite de 6 s
     }
-    /* ==============================================================
-       ===================== CONSTRUCTOR ============================
-       ============================================================== */
 
+    // === CONSTRUCTOR CORREGIDO ===
     public MagicLecternListener(Main plugin) {
         this.plugin = plugin;
         this.keyLectern = new NamespacedKey(plugin, "is_magic_lectern");
         this.keyLevel = new NamespacedKey(plugin, "lectern_level");
         this.recipeManager = plugin.getLecternRecipeManager();
+        this.effectsManager = new LecternEffectsManager(plugin);
         this.previewMgr = new PreviewManager(plugin);
     }
 
@@ -188,25 +188,26 @@ public class MagicLecternListener implements Listener {
     private void handleLeftClick(Player player, Location loc) {
         ItemStack inHand = player.getInventory().getItemInMainHand();
         if (inHand == null || inHand.getType() == Material.AIR) {
-            player.playSound(player, SOUND_DENIED, 1f, .8f);
+            // 🔧 REEMPLAZAR estas líneas:
+            // player.playSound(player, SOUND_DENIED, 1f, .8f);
+            // return;
+
+            // 🆕 POR ESTAS:
+            effectsManager.playFailureEffects(loc, getLecternLevel(loc));
             return;
         }
 
-        // Clonamos solo una unidad para el procesamiento de la receta
         ItemStack single = inHand.clone();
         single.setAmount(1);
         handleRecipeInput(player, loc, single);
 
-        // Si no está en modo creativo, consumimos 1 unidad del ítem real
         if (player.getGameMode() != GameMode.CREATIVE) {
             inHand.setAmount(inHand.getAmount() - 1);
 
-            // ===== Aquí ajustamos el sonido según el nivel del lectern =====
-            int idx = fxIndex(getLecternLevel(loc));
-            player.playSound(player, LEVEL_SOUNDS[idx], 1f, 1.2f);
+            // 🆕 AGREGAR ESTA LÍNEA:
+            effectsManager.playInputEffects(loc, getLecternLevel(loc));
         }
 
-        // Animación y sonido de input genérico
         player.swingMainHand();
         player.playSound(player, SOUND_INPUT, 1f, 1.2f);
     }
@@ -219,12 +220,14 @@ public class MagicLecternListener implements Listener {
 
     private void handleRecipeInput(Player player, Location loc, ItemStack item) {
 
-        // Si NO hay proceso pendiente, este ítem es el primero
         PendingProcess pp = pending.get(loc);
         if (pp == null) {
 
             pp = new PendingProcess();
             pp.first = item;
+
+            // 🆕 AGREGAR ESTA LÍNEA después de pp.first = item:
+            effectsManager.startAmbientEffects(loc, getLecternLevel(loc));
 
             // ➊ Tarea timeout (6 s)
             pp.timeoutTask = new BukkitRunnable() {
@@ -253,28 +256,30 @@ public class MagicLecternListener implements Listener {
                 }
             }.runTaskTimer(plugin, 0L, 6L);
 
-            pending.put(loc, pp);          // registra el proceso
-            return;                        // fin del 1.º ítem
+            pending.put(loc, pp);
+            return;
         }
 
-        /* --------- segundo ítem --------- */
-        // Cancela las dos tareas pendientes
         if (pp.idleTask   != null) pp.idleTask.cancel();
         if (pp.timeoutTask != null) pp.timeoutTask.cancel();
 
-        pending.remove(loc);              // limpia la entrada
+        // 🆕 AGREGAR ESTA LÍNEA:
+        effectsManager.stopEffects(loc);
+
+        pending.remove(loc);
         attemptCombine(player, loc, pp.first, item);
     }
 
 
 
+
     private void attemptCombine(Player p, Location loc, ItemStack a, ItemStack b) {
         int level = getLecternLevel(loc);
-
-        // 1⃣  buscamos la receta con coste
         LecternRecipe recipe = recipeManager.findRecipe(level, a, b);
+
         if (recipe == null) {
-            p.playSound(p.getLocation(), SOUND_DENIED, 1f, 0.8f);
+            effectsManager.playFailureEffects(loc, level);
+
             p.sendMessage(ChatColor.RED + "Combinación inválida.");
             dropBack(loc, List.of(a, b));
             return;
@@ -287,7 +292,8 @@ public class MagicLecternListener implements Listener {
         long bankXp = plugin.getDatabaseManager().getBankedXp(uuid);
         long available = (long) barXp + bankXp;
         if (available < cost) {
-            p.playSound(p.getLocation(), SOUND_DENIED, 1f, 0.8f);
+            effectsManager.playFailureEffects(loc, level);
+
             p.sendMessage(ChatColor.RED + "Necesitas " + cost + " puntos de experiencia.");
             dropBack(loc, List.of(a, b));
             return;
@@ -310,6 +316,10 @@ public class MagicLecternListener implements Listener {
         // 5⃣ obtenemos resultado
         ItemStack result = recipe.getResult();
         ItemMeta meta = result.getItemMeta();
+        RecipeCategory category = determineCategory(recipe);
+        effectsManager.playSuccessEffects(loc, level, category);
+
+        RecipeUnlockManager.unlockRecipe(p.getUniqueId(), result.getType().toString());
 
         // Desbloqueo de receta
         RecipeUnlockManager.unlockRecipe(p.getUniqueId(), result.getType().toString());
@@ -342,13 +352,15 @@ public class MagicLecternListener implements Listener {
             displayName = beautify(result.getType());
         }
 
-// ➌ damos el ítem y enviamos el mensaje
         p.getInventory().addItem(result.clone());
-        p.sendMessage(ChatColor.GREEN + "¡Has creado "
-                + ChatColor.YELLOW + displayName
-                + ChatColor.GREEN + "!");
-        previewMgr.showPreview(loc, result.clone());
+        p.sendMessage(ChatColor.GREEN + "¡Has creado " +
+                ChatColor.YELLOW + getDisplayName(result) +
+                ChatColor.GREEN + "!");
+
+        // 🆕 AGREGAR ESTA LÍNEA al final:
+        effectsManager.showPreview(loc, result.clone());
     }
+
 
     /* ==============================================================
        ===================== MÉTODOS UTILERÍA =======================
@@ -356,20 +368,20 @@ public class MagicLecternListener implements Listener {
 
     private void dropBack(Location loc, List<ItemStack> items) {
         World w = loc.getWorld();
-        // Calcula índice según nivel de lectern y ajusta el pitch
-        int idx = fxIndex(getLecternLevel(loc));
-        w.playSound(
-                loc,
-                Sound.BLOCK_NOTE_BLOCK_BASS,
-                0.7f,
-                0.5f + 0.1f * idx
-        );
+
+        // 🔧 EFECTOS DE FALLO MEJORADOS:
+        effectsManager.playFailureEffects(loc, getLecternLevel(loc));
+
+        // Soltar items (SIN DUPLICAR)
         items.forEach(it ->
                 w.dropItemNaturally(loc.clone().add(0.5, 1, 0.5), it)
         );
-        previewMgr.removePreview(loc);
-    }
 
+        // Limpiar preview
+        if (previewMgr != null) {
+            previewMgr.removePreview(loc);
+        }
+    }
 
     // Limpia estado pendiente y quita la pre-view
     private void cleanup(Location loc) {
@@ -411,6 +423,35 @@ public class MagicLecternListener implements Listener {
         return Arrays.stream(m.toString().split("_"))
                 .map(s -> s.charAt(0) + s.substring(1).toLowerCase())
                 .collect(Collectors.joining(" "));
+    }
+
+    /**
+     * Determina la categoría de una receta
+     */
+    private RecipeCategory determineCategory(LecternRecipe recipe) {
+        return RecipeCategory.fromRecipeName(recipe.getId());
+    }
+
+    /**
+     * Obtiene el nombre display de un item
+     */
+    private String getDisplayName(ItemStack item) {
+        if (item.hasItemMeta() && item.getItemMeta().hasDisplayName()) {
+            return item.getItemMeta().getDisplayName();
+        }
+        return beautify(item.getType());
+    }
+
+    /**
+     * Método para limpiar efectos cuando se deshabilita el plugin
+     */
+    public void cleanup() {
+        if (effectsManager != null) {
+            effectsManager.cleanup();
+        }
+
+        // Limpiar otros recursos
+        pending.clear();
     }
 
 

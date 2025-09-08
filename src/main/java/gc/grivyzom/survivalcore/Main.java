@@ -38,6 +38,7 @@ import gc.grivyzom.survivalcore.commands.MagicFlowerPotCommand;
 import gc.grivyzom.survivalcore.listeners.MagicFlowerPotListener;
 import gc.grivyzom.survivalcore.util.SocialMediaValidator;
 import gc.grivyzom.survivalcore.commands.SocialCommand;
+import gc.grivyzom.survivalcore.commands.GiveLecternCommand;
 
 
 import java.io.File;
@@ -75,6 +76,7 @@ public class Main extends JavaPlugin {
     private RankupManager rankupManager;
     private MagicFlowerPotManager magicFlowerPotManager;
     private ConfigurableFlowerIntegration flowerIntegration;
+    private MagicLecternListener magicLecternListener;
 
     // Configuración de GUIs
     private FileConfiguration guisConfig;
@@ -159,9 +161,12 @@ public class Main extends JavaPlugin {
                 getLogger().warning("Error finalizando sistema de Rankup: " + e.getMessage());
             }
         }
+        if (magicLecternListener != null) {
+            magicLecternListener.cleanup();
+            getLogger().info("✓ Efectos de Lectern Magic limpiados");
+        }
 
-        getLogger().info("SurvivalCore deshabilitado.");
-    }
+        getLogger().info("SurvivalCore deshabilitado.");    }
 
     /* =================== INICIALIZACIÓN =================== */
 
@@ -407,6 +412,8 @@ public class Main extends JavaPlugin {
         registerCommand("score", new ScoreCommand(this));
         registerCommand("genero", new GeneroCommand(this));
         registerCommand("lectern", new LecternRecipeCreateCommand(this, lecternRecipeManager));
+        registerCommand("givelectern", new GiveLecternCommand(this));
+        registerCommand("lecternmagic", new GiveLecternCommand(this)); // Alias
 
         // 🔍 DEBUG: Añadir logs para verificar el registro
         getLogger().info("🔍 Registrando comandos de coordenadas...");
@@ -476,8 +483,8 @@ public class Main extends JavaPlugin {
         pm.registerEvents(new JoinQuitListener(this), this);
         pm.registerEvents(new GeneroGUIListener(this), this);
         pm.registerEvents(new ProfileGUIListener(this), this);
-        pm.registerEvents(new MagicLecternListener(this), this);
-        pm.registerEvents(new MagicLecternMenu(), this);
+        magicLecternListener = new MagicLecternListener(this);
+        pm.registerEvents(magicLecternListener, this);        pm.registerEvents(new MagicLecternMenu(), this);
         pm.registerEvents(new MagicLecternRecipesMenu(), this);
         pm.registerEvents(new CropExperienceListener(this), this);
         pm.registerEvents(new ExperiencePotListener(this), this);
@@ -1207,4 +1214,9 @@ public class Main extends JavaPlugin {
             default -> ChatColor.GRAY.toString();
         };
     }
+
+    public MagicLecternListener getMagicLecternListener() {
+        return magicLecternListener;
+    }
+
 }

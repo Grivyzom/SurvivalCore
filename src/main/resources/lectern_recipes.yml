@@ -1,38 +1,225 @@
+# =================================================================
+# LECTERN MAGIC - SISTEMA DE RECETAS MEJORADO
+# Inspirado en la progresión natural de Minecraft
+# =================================================================
+
+# Configuración general del sistema
+settings:
+  max_level: 10
+  xp_multiplier: 1.0
+  enable_categories: true
+  enable_unlock_progression: true
+  enable_visual_effects: true
+
+# =================================================================
+# NIVEL 1: SUPERVIVENCIA BÁSICA
+# Recetas accesibles desde el inicio
+# =================================================================
 levels:
   1:
-    - id: "Pan Básico"
-      cost: 5
+    # === ALIMENTOS MEJORADOS ===
+    - id: "Pan de Miel"
+      category: "FOOD"
+      cost: 3
+      unlock_requirement: "none"
       input1:
         ==: org.bukkit.inventory.ItemStack
-        v: 3218  # Versión compatible con 1.20.1
-        type: WHEAT
+        v: 3218
+        type: BREAD
       input2:
         ==: org.bukkit.inventory.ItemStack
         v: 3218
-        type: WHEAT
+        type: HONEY_BOTTLE
       result:
         ==: org.bukkit.inventory.ItemStack
         v: 3218
         type: BREAD
-        amount: 2
+        amount: 3
+        meta:
+          ==: ItemMeta
+          meta-type: UNSPECIFIC
+          display-name: "§6Pan de Miel Nutritivo"
+          lore:
+            - "§7Restaura más hambre que el pan normal"
+            - "§7Efecto: §eSaciedad por 30 segundos"
+            - "§8Creado en Atril Mágico"
+
+    - id: "Estofado Abundante"
+      category: "FOOD"
+      cost: 4
+      input1:
+        ==: org.bukkit.inventory.ItemStack
+        v: 3218
+        type: MUSHROOM_STEW
+      input2:
+        ==: org.bukkit.inventory.ItemStack
+        v: 3218
+        type: COOKED_BEEF
+      result:
+        ==: org.bukkit.inventory.ItemStack
+        v: 3218
+        type: SUSPICIOUS_STEW
+        meta:
+          ==: ItemMeta
+          meta-type: UNSPECIFIC
+          display-name: "§aEstofado del Aventurero"
+          lore:
+            - "§7Una comida sustanciosa para viajeros"
+            - "§7Restaura toda la barra de hambre"
+            - "§8Creado en Atril Mágico"
+
+    # === HERRAMIENTAS BÁSICAS ===
+    - id: "Pico Reparado"
+      category: "TOOLS"
+      cost: 5
+      input1:
+        ==: org.bukkit.inventory.ItemStack
+        v: 3218
+        type: IRON_INGOT
+      input2:
+        ==: org.bukkit.inventory.ItemStack
+        v: 3218
+        type: IRON_PICKAXE
+        meta:
+          ==: ItemMeta
+          meta-type: UNSPECIFIC
+          Damage: 200  # Pico dañado
+      result:
+        ==: org.bukkit.inventory.ItemStack
+        v: 3218
+        type: IRON_PICKAXE
+        meta:
+          ==: ItemMeta
+          meta-type: UNSPECIFIC
+          display-name: "§fPico de Hierro Reparado"
+          lore:
+            - "§7Reparado mágicamente"
+            - "§7Durabilidad completamente restaurada"
+
+  # =================================================================
+  # NIVEL 2: HERRAMIENTAS MEJORADAS
+  # Requiere: 2 recetas nivel 1 completadas
+  # =================================================================
   2:
-    - id: "Cristal del End"
+    - id: "Pico Acelerado"
+      category: "TOOLS"
+      cost: 8
+      unlock_requirement: "recipes_completed_level_1:2"
+      input1:
+        ==: org.bukkit.inventory.ItemStack
+        v: 3218
+        type: IRON_PICKAXE
+      input2:
+        ==: org.bukkit.inventory.ItemStack
+        v: 3218
+        type: REDSTONE_BLOCK
+      result:
+        ==: org.bukkit.inventory.ItemStack
+        v: 3218
+        type: IRON_PICKAXE
+        meta:
+          ==: ItemMeta
+          meta-type: UNSPECIFIC
+          display-name: "§cPico Acelerado"
+          lore:
+            - "§7Imbuido con energía de redstone"
+            - "§7Velocidad de minado aumentada"
+            - "§cEficiencia III permanente"
+            - "§8Forjado en Atril Mágico"
+          enchants:
+            EFFICIENCY: 3
+
+    - id: "Espada Afilada"
+      category: "COMBAT"
+      cost: 10
+      input1:
+        ==: org.bukkit.inventory.ItemStack
+        v: 3218
+        type: IRON_SWORD
+      input2:
+        ==: org.bukkit.inventory.ItemStack
+        v: 3218
+        type: FLINT
+      result:
+        ==: org.bukkit.inventory.ItemStack
+        v: 3218
+        type: IRON_SWORD
+        meta:
+          ==: ItemMeta
+          meta-type: UNSPECIFIC
+          display-name: "§fEspada Afilada"
+          lore:
+            - "§7Afilada con pedernal de calidad"
+            - "§7Corte mejorado contra enemigos"
+            - "§bFilo III permanente"
+          enchants:
+            SHARPNESS: 3
+
+  # =================================================================
+  # NIVEL 3: MAGIA BÁSICA
+  # Requiere: Player level 15+
+  # =================================================================
+  3:
+    - id: "Orbe de Luz"
+      category: "MAGIC"
+      cost: 12
+      unlock_requirement: "player_level:15"
+      input1:
+        ==: org.bukkit.inventory.ItemStack
+        v: 3218
+        type: GLOWSTONE_DUST
+      input2:
+        ==: org.bukkit.inventory.ItemStack
+        v: 3218
+        type: ENDER_PEARL
+      result:
+        ==: org.bukkit.inventory.ItemStack
+        v: 3218
+        type: ENDER_PEARL
+        meta:
+          ==: ItemMeta
+          meta-type: UNSPECIFIC
+          display-name: "§eOrbe de Luz Perpetua"
+          lore:
+            - "§7Una esfera de luz que nunca se apaga"
+            - "§7Ilumina un área de 10 bloques"
+            - "§eClic derecho para activar/desactivar"
+            - "§8Item Mágico"
+
+    - id: "Cristal de Almacenamiento"
+      category: "UTILITY"
       cost: 15
       input1:
         ==: org.bukkit.inventory.ItemStack
         v: 3218
-        type: BLAZE_ROD
+        type: QUARTZ
       input2:
         ==: org.bukkit.inventory.ItemStack
         v: 3218
-        type: GHAST_TEAR
+        type: CHEST
       result:
         ==: org.bukkit.inventory.ItemStack
         v: 3218
-        type: END_CRYSTAL
-  3:
-    - id: "Espada de Diamante Mágica"
+        type: QUARTZ
+        meta:
+          ==: ItemMeta
+          meta-type: UNSPECIFIC
+          display-name: "§fCristal de Almacenamiento"
+          lore:
+            - "§7Almacena items en su interior"
+            - "§7Capacidad: 27 slots"
+            - "§bPortable y seguro"
+            - "§8Item Mágico"
+
+  # =================================================================
+  # NIVEL 4: MAGIA AVANZADA
+  # Requiere: Materiales raros (Diamond/Emerald)
+  # =================================================================
+  4:
+    - id: "Amuleto del Viajero"
+      category: "MAGIC"
       cost: 20
+      unlock_requirement: "has_material:DIAMOND"
       input1:
         ==: org.bukkit.inventory.ItemStack
         v: 3218
@@ -40,15 +227,514 @@ levels:
       input2:
         ==: org.bukkit.inventory.ItemStack
         v: 3218
-        type: STICK
+        type: COMPASS
       result:
         ==: org.bukkit.inventory.ItemStack
         v: 3218
-        type: DIAMOND_SWORD
+        type: COMPASS
         meta:
           ==: ItemMeta
           meta-type: UNSPECIFIC
-          display-name: "§6Espada Mágica"
+          display-name: "§bAmuleto del Viajero Dimensional"
           lore:
-            - "§7Forjada en el Atril Mágico"
-            - "§7Poder: §eSupremo"
+            - "§7Te permite viajar largas distancias"
+            - "§7Teletransporte hasta 1000 bloques"
+            - "§bCooldown: 5 minutos"
+            - "§bUsos restantes: 50"
+            - "§8Item Mágico Avanzado"
+
+    - id: "Martillo del Constructor"
+      category: "TOOLS"
+      cost: 25
+      input1:
+        ==: org.bukkit.inventory.ItemStack
+        v: 3218
+        type: DIAMOND_PICKAXE
+      input2:
+        ==: org.bukkit.inventory.ItemStack
+        v: 3218
+        type: PISTON
+      result:
+        ==: org.bukkit.inventory.ItemStack
+        v: 3218
+        type: DIAMOND_PICKAXE
+        meta:
+          ==: ItemMeta
+          meta-type: UNSPECIFIC
+          display-name: "§6Martillo del Gran Constructor"
+          lore:
+            - "§7Herramienta definitiva para constructores"
+            - "§7Rompe bloques en área 3x3"
+            - "§7Coloca bloques automáticamente"
+            - "§6Eficiencia V + Fortuna III"
+            - "§8Herramienta Legendaria"
+          enchants:
+            EFFICIENCY: 5
+            FORTUNE: 3
+
+  # =================================================================
+  # NIVEL 5: ITEMS ÉPICOS
+  # Requiere: Netherite o Nether Star
+  # =================================================================
+  5:
+    - id: "Corona de Sabiduría"
+      category: "MAGIC"
+      cost: 30
+      unlock_requirement: "has_material:NETHER_STAR"
+      input1:
+        ==: org.bukkit.inventory.ItemStack
+        v: 3218
+        type: NETHERITE_HELMET
+      input2:
+        ==: org.bukkit.inventory.ItemStack
+        v: 3218
+        type: NETHER_STAR
+      result:
+        ==: org.bukkit.inventory.ItemStack
+        v: 3218
+        type: NETHERITE_HELMET
+        meta:
+          ==: ItemMeta
+          meta-type: UNSPECIFIC
+          display-name: "§5✦ Corona del Sabio Eterno ✦"
+          lore:
+            - "§8═══════════════════════════"
+            - "§7Una corona que otorga sabiduría infinita"
+            - "§7al portador que la merezca"
+            - ""
+            - "§5Efectos Permanentes:"
+            - "§7• Experiencia duplicada"
+            - "§7• Visión nocturna"
+            - "§7• Respiración acuática"
+            - "§7• Protección IV"
+            - ""
+            - "§6★ ITEM ÉPICO ★"
+            - "§8═══════════════════════════"
+          enchants:
+            PROTECTION_ENVIRONMENTAL: 4
+            RESPIRATION: 3
+            AQUA_AFFINITY: 1
+
+    - id: "Báculo del Tiempo"
+      category: "MAGIC"
+      cost: 35
+      input1:
+        ==: org.bukkit.inventory.ItemStack
+        v: 3218
+        type: CLOCK
+      input2:
+        ==: org.bukkit.inventory.ItemStack
+        v: 3218
+        type: END_CRYSTAL
+      result:
+        ==: org.bukkit.inventory.ItemStack
+        v: 3218
+        type: STICK
+        meta:
+          ==: ItemMeta
+          meta-type: UNSPECIFIC
+          display-name: "§dBáculo del Maestro del Tiempo"
+          lore:
+            - "§8═══════════════════════════"
+            - "§7Controla el flujo del tiempo mismo"
+            - ""
+            - "§dHabilidades Temporales:"
+            - "§7• Clic derecho: Acelerar tiempo (día/noche)"
+            - "§7• Shift + clic: Pausar tiempo por 30s"
+            - "§7• Clic izq: Ralentizar entidades cercanas"
+            - ""
+            - "§cCooldown: 10 minutos"
+            - "§6★ ITEM ÉPICO ★"
+            - "§8═══════════════════════════"
+
+  # =================================================================
+  # NIVEL 6-10: ITEMS LEGENDARIOS
+  # Requieren logros específicos de Minecraft
+  # =================================================================
+  7:
+    - id: "Mjolnir Minero"
+      category: "LEGENDARY"
+      cost: 50
+      unlock_requirement: "advancement:minecraft:end/kill_dragon"
+      input1:
+        ==: org.bukkit.inventory.ItemStack
+        v: 3218
+        type: NETHERITE_PICKAXE
+      input2:
+        ==: org.bukkit.inventory.ItemStack
+        v: 3218
+        type: DRAGON_HEAD
+      result:
+        ==: org.bukkit.inventory.ItemStack
+        v: 3218
+        type: NETHERITE_PICKAXE
+        meta:
+          ==: ItemMeta
+          meta-type: UNSPECIFIC
+          display-name: "§4⚡ MJOLNIR DEL MINERO DIVINO ⚡"
+          lore:
+            - "§8═══════════════════════════════════"
+            - "§7El martillo legendario de los dioses"
+            - "§7Solo los dignos pueden empuñarlo"
+            - ""
+            - "§4Poderes Divinos:"
+            - "§7• Destruye bloques en área 5x5x5"
+            - "§7• Invoca rayos al minar"
+            - "§7• Indestructible y auto-reparable"
+            - "§7• Velocidad de minado instantánea"
+            - "§7• Otorga vuelo temporal (1 min)"
+            - ""
+            - "§c⚠ Solo 1 puede existir por servidor"
+            - "§6★★★ ARTEFACTO LEGENDARIO ★★★"
+            - "§8═══════════════════════════════════"
+          enchants:
+            EFFICIENCY: 10
+            FORTUNE: 5
+            UNBREAKING: 10
+
+  8:
+    - id: "Anillo del Héroe"
+      category: "LEGENDARY"
+      cost: 60
+      unlock_requirement: "advancement:minecraft:adventure/hero_of_the_village"
+      input1:
+        ==: org.bukkit.inventory.ItemStack
+        v: 3218
+        type: EMERALD_BLOCK
+      input2:
+        ==: org.bukkit.inventory.ItemStack
+        v: 3218
+        type: TOTEM_OF_UNDYING
+      result:
+        ==: org.bukkit.inventory.ItemStack
+        v: 3218
+        type: EMERALD
+        meta:
+          ==: ItemMeta
+          meta-type: UNSPECIFIC
+          display-name: "§a✦ ANILLO DEL HÉROE ETERNO ✦"
+          lore:
+            - "§8═══════════════════════════════════"
+            - "§7Forjado para aquellos que protegen"
+            - "§7a los inocentes y mantienen la paz"
+            - ""
+            - "§aEfectos Heroicos Permanentes:"
+            - "§7• Regeneración III constante"
+            - "§7• Resistencia al daño 50%"
+            - "§7• Los aldeanos te ofrecen descuentos del 90%"
+            - "§7• Inmunidad a efectos negativos"
+            - "§7• Revive automáticamente al morir (1/día)"
+            - ""
+            - "§e\"Solo un verdadero héroe puede llevarlo\""
+            - "§6★★★ RELIQUIA HEROICA ★★★"
+            - "§8═══════════════════════════════════"
+
+    - id: "Grimorio del Archimago"
+      category: "LEGENDARY"
+      cost: 75
+      unlock_requirement: "advancement:minecraft:nether/all_potions"
+      input1:
+        ==: org.bukkit.inventory.ItemStack
+        v: 3218
+        type: WRITTEN_BOOK
+      input2:
+        ==: org.bukkit.inventory.ItemStack
+        v: 3218
+        type: BEACON
+      result:
+        ==: org.bukkit.inventory.ItemStack
+        v: 3218
+        type: ENCHANTED_BOOK
+        meta:
+          ==: ItemMeta
+          meta-type: UNSPECIFIC
+          display-name: "§5⚡ GRIMORIO DEL ARCHIMAGO SUPREMO ⚡"
+          lore:
+            - "§8═══════════════════════════════════"
+            - "§7El conocimiento mágico definitivo"
+            - "§7condensado en un solo tomo"
+            - ""
+            - "§5Hechizos Disponibles:"
+            - "§7• Teletransporte grupal (hasta 10 jugadores)"
+            - "§7• Invocación de estructuras"
+            - "§7• Control del clima global"
+            - "§7• Transformación de bloques en área"
+            - "§7• Creación de portales temporales"
+            - ""
+            - "§dMana: 1000/1000 (regenera lentamente)"
+            - "§cRequiere Nivel 50+ para usar"
+            - "§6★★★ ARTEFACTO ARCANO ★★★"
+            - "§8═══════════════════════════════════"
+
+  9:
+    - id: "Cetro del Rey"
+      category: "LEGENDARY"
+      cost: 100
+      unlock_requirement: "advancement:minecraft:end/dragon_egg"
+      input1:
+        ==: org.bukkit.inventory.ItemStack
+        v: 3218
+        type: DRAGON_EGG
+      input2:
+        ==: org.bukkit.inventory.ItemStack
+        v: 3218
+        type: MACE
+      result:
+        ==: org.bukkit.inventory.ItemStack
+        v: 3218
+        type: MACE
+        meta:
+          ==: ItemMeta
+          meta-type: UNSPECIFIC
+          display-name: "§6⚜ CETRO DEL REY DRAGÓN ⚜"
+          lore:
+            - "§8═══════════════════════════════════"
+            - "§7El arma real forjada con el poder"
+            - "§7del último dragón del End"
+            - ""
+            - "§6Autoridad Real:"
+            - "§7• Dominio sobre todas las criaturas"
+            - "§7• Invocar dragones menores"
+            - "§7• Crear y destruir portales"
+            - "§7• Comandar el clima y la naturaleza"
+            - "§7• Conceder efectos a otros jugadores"
+            - ""
+            - "§4⚠ El portador se convierte en Rey del servidor"
+            - "§dPoder infinito, responsabilidad infinita"
+            - "§6★★★★ RELIQUIA DIVINA ★★★★"
+            - "§8═══════════════════════════════════"
+          enchants:
+            SHARPNESS: 10
+            LOOTING: 5
+            UNBREAKING: 10
+            MENDING: 1
+
+  10:
+    - id: "Corazón del Servidor"
+      category: "LEGENDARY"
+      cost: 150
+      unlock_requirement: "advancement:minecraft:end/elytra AND player_level:100"
+      input1:
+        ==: org.bukkit.inventory.ItemStack
+        v: 3218
+        type: NETHER_STAR
+      input2:
+        ==: org.bukkit.inventory.ItemStack
+        v: 3218
+        type: HEART_OF_THE_SEA
+      result:
+        ==: org.bukkit.inventory.ItemStack
+        v: 3218
+        type: NETHER_STAR
+        meta:
+          ==: ItemMeta
+          meta-type: UNSPECIFIC
+          display-name: "§c❤ CORAZÓN DEL SERVIDOR ETERNO ❤"
+          lore:
+            - "§8═════════════════════════════════════"
+            - "§7El artefacto más poderoso jamás creado"
+            - "§7Contiene la esencia misma del servidor"
+            - ""
+            - "§cPoderes Absolutos:"
+            - "§7• Control total sobre el tiempo y espacio"
+            - "§7• Creación y modificación de dimensiones"
+            - "§7• Resurreción de jugadores y entidades"
+            - "§7• Alteración de las leyes físicas"
+            - "§7• Acceso a comandos administrativos"
+            - ""
+            - "§4⚠ EXTREMA RESPONSABILIDAD ⚠"
+            - "§eSolo el más sabio debe poseer este poder"
+            - ""
+            - "§6★★★★★ ARTEFACTO PRIMORDIAL ★★★★★"
+            - "§c\"Con gran poder viene gran responsabilidad\""
+            - "§8═════════════════════════════════════"
+
+# =================================================================
+# RECETAS ESPECIALES DE EVENTOS
+# =================================================================
+
+special_events:
+  halloween:
+    - id: "Calabaza Maldita"
+      category: "MAGIC"
+      cost: 13
+      available_dates: "10-25 to 11-05"  # 25 Oct a 5 Nov
+      input1:
+        ==: org.bukkit.inventory.ItemStack
+        v: 3218
+        type: JACK_O_LANTERN
+      input2:
+        ==: org.bukkit.inventory.ItemStack
+        v: 3218
+        type: SOUL_SAND
+      result:
+        ==: org.bukkit.inventory.ItemStack
+        v: 3218
+        type: JACK_O_LANTERN
+        meta:
+          ==: ItemMeta
+          meta-type: UNSPECIFIC
+          display-name: "§4☠ Calabaza del Terror ☠"
+          lore:
+            - "§7Una calabaza poseída por almas perdidas"
+            - "§7Aterroriza a los enemigos cercanos"
+            - "§cEfecto: Terror en área 10 bloques"
+            - "§8Item de Evento Halloween"
+
+  christmas:
+    - id: "Bastón de Caramelo Mágico"
+      category: "MAGIC"
+      cost: 10
+      available_dates: "12-20 to 01-05"  # 20 Dic a 5 Ene
+      input1:
+        ==: org.bukkit.inventory.ItemStack
+        v: 3218
+        type: STICK
+      input2:
+        ==: org.bukkit.inventory.ItemStack
+        v: 3218
+        type: SUGAR
+      result:
+        ==: org.bukkit.inventory.ItemStack
+        v: 3218
+        type: STICK
+        meta:
+          ==: ItemMeta
+          meta-type: UNSPECIFIC
+          display-name: "§f✦ §cBastón de Caramelo Navideño §f✦"
+          lore:
+            - "§7Dulce bastón imbuido con espíritu navideño"
+            - "§7Cura a jugadores cercanos"
+            - "§aEfecto: Regeneración y alegría"
+            - "§8Item de Evento Navidad"
+
+# =================================================================
+# CONFIGURACIÓN DE DESBLOQUEOS
+# =================================================================
+
+unlock_requirements:
+  # Tipos de requisitos disponibles
+  types:
+    - "none"                          # Sin requisitos
+    - "recipes_completed_level_X:N"   # N recetas completadas del nivel X
+    - "player_level:N"                # Nivel de jugador mínimo N
+    - "has_material:MATERIAL"         # Tener material específico
+    - "advancement:namespace:key"     # Tener logro específico
+    - "permission:permission.node"   # Tener permiso específico
+    - "playtime_hours:N"             # N horas de juego mínimo
+
+  # Mensajes de error por tipo
+  error_messages:
+    recipes_completed: "§cNecesitas completar más recetas del nivel anterior"
+    player_level: "§cNivel de jugador insuficiente: §f{required}"
+    has_material: "§cNecesitas tener: §f{material}"
+    advancement: "§cLogro requerido: §f{advancement}"
+    permission: "§cPermiso requerido: §f{permission}"
+    playtime: "§cTiempo de juego requerido: §f{hours} horas"
+
+# =================================================================
+# CONFIGURACIÓN DE CATEGORÍAS
+# =================================================================
+
+categories:
+  BASIC:
+    display_name: "§fBásicas"
+    icon: "CRAFTING_TABLE"
+    description: "Recetas fundamentales para la supervivencia"
+
+  TOOLS:
+    display_name: "§aHerramientas"
+    icon: "IRON_PICKAXE"
+    description: "Mejora tus herramientas de trabajo"
+
+  COMBAT:
+    display_name: "§cCombate"
+    icon: "IRON_SWORD"
+    description: "Armas y armaduras para la batalla"
+
+  MAGIC:
+    display_name: "§5Magia"
+    icon: "ENCHANTED_BOOK"
+    description: "Items imbuidos con poder arcano"
+
+  BUILDING:
+    display_name: "§eConstrucción"
+    icon: "BRICKS"
+    description: "Materiales y herramientas de construcción"
+
+  FOOD:
+    display_name: "§6Alimentos"
+    icon: "BREAD"
+    description: "Comida mejorada y nutritiva"
+
+  UTILITY:
+    display_name: "§bUtilidad"
+    icon: "COMPASS"
+    description: "Items útiles para la aventura"
+
+  LEGENDARY:
+    display_name: "§4Legendario"
+    icon: "NETHER_STAR"
+    description: "Artefactos de poder incomparable"
+
+# =================================================================
+# CONFIGURACIÓN DE EFECTOS VISUALES
+# =================================================================
+
+visual_effects:
+  enabled: true
+  ambient_effects: true
+  success_particles: true
+  failure_particles: true
+  preview_items: true
+  
+  # Efectos por nivel
+  level_effects:
+    1:
+      particle: "ENCHANTMENT_TABLE"
+      sound: "BLOCK_ENCHANTMENT_TABLE_USE"
+      color: [85, 255, 85]  # Verde claro
+
+    2:
+      particle: "CRIT_MAGIC"
+      sound: "ENTITY_EXPERIENCE_ORB_PICKUP"
+      color: [85, 170, 255]  # Azul
+
+    3:
+      particle: "SPELL_WITCH"
+      sound: "ENTITY_ILLUSIONER_CAST_SPELL"
+      color: [170, 85, 255]  # Púrpura
+
+    4:
+      particle: "END_ROD"
+      sound: "BLOCK_BEACON_AMBIENT"
+      color: [255, 255, 85]  # Dorado
+
+    5:
+      particle: "SOUL_FIRE_FLAME"
+      sound: "UI_TOAST_CHALLENGE_COMPLETE"
+      color: [255, 85, 85]  # Rojo épico
+
+# =================================================================
+# CONFIGURACIÓN DE BALANCEADO
+# =================================================================
+
+balance:
+  # Modificadores de coste por dificultad del servidor
+  difficulty_multipliers:
+    PEACEFUL: 0.5
+    EASY: 0.8
+    NORMAL: 1.0
+    HARD: 1.5
+
+  # Límites por jugador
+  daily_recipe_limit: 50
+  legendary_item_limit: 1  # Solo 1 item legendario por jugador
+  
+  # Cooldowns (en segundos)
+  recipe_cooldown: 5       # Entre recetas
+  same_recipe_cooldown: 60 # Para la misma receta
+  
+  # Verificaciones adicionales
+  verify_materials: true   # Verificar que los materiales sean válidos
+  prevent_duplication: true # Prevenir duplicación de items únicos

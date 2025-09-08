@@ -172,6 +172,11 @@ commands:
     aliases: [sociales]
     permission: survivalcore.social
     permission-message: "§cNo tienes permisos para usar este comando."
+  givelectern:
+    description: "Da un Lectern Magic a un jugador"
+    usage: "/givelectern <jugador> [nivel] [cantidad] [-s]"
+    permission: survivalcore.give.lectern
+    aliases: [lecternmagic, gmlectern]
 
 # Permisos del sistema - ACTUALIZADO
 permissions:
@@ -494,3 +499,18 @@ permissions:
   survivalcore.coords:
     description: Permite usar los comandos de coordenadas
     default: true
+
+  survivalcore.give.lectern:
+    description: "Permite dar Lectern Magic a jugadores"
+    default: op
+
+  survivalcore.use.lectern:
+    description: "Permite usar Lectern Magic"
+    default: true
+
+  survivalcore.lectern.admin:
+    description: "Permisos administrativos de Lectern Magic"
+    default: op
+    children:
+      survivalcore.give.lectern: true
+      survivalcore.use.lectern: true

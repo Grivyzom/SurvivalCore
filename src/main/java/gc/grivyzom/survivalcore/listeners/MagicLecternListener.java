@@ -39,6 +39,7 @@ import java.util.stream.Collectors;
  * los mismos objetos y cantidades cuando una combinación no es válida.
  *
  * VERSIÓN CORREGIDA: Conserva nombre y lore al romper
+ * NUEVA FUNCIONALIDAD: Detecta jugadores cercanos y emite partículas
  */
 public class MagicLecternListener implements Listener {
 
@@ -50,6 +51,11 @@ public class MagicLecternListener implements Listener {
     private final NamespacedKey keyLore;        // 🆕 NUEVO
     private final LecternRecipeManager recipeManager;
     private final LecternEffectsManager effectsManager;
+
+    // 🆕 NUEVO: Sistema de detección de proximidad
+    private final Map<Location, BukkitTask> proximityTasks = new HashMap<>();
+    private static final double DETECTION_RADIUS = 8.0; // Radio en bloques para detectar jugadores
+    private static final long PROXIMITY_CHECK_INTERVAL = 40L; // Verificar cada segundo (20 ticks)
 
     // Configuración de timeouts
     private static final long TIMEOUT_TICKS = 20L * 6; // 6 segundos
@@ -102,6 +108,9 @@ public class MagicLecternListener implements Listener {
         if (state instanceof TileState ts) {
             copyMetaImproved(placed, ts); // 🔧 MEJORADO
             ts.update(true);
+
+            // 🆕 NUEVO: Iniciar detección de proximidad
+            startProximityDetection(e.getBlock().getLocation());
         }
     }
 
@@ -114,10 +123,136 @@ public class MagicLecternListener implements Listener {
         if (!(state instanceof TileState ts)) return;
         if (!ts.getPersistentDataContainer().has(keyLectern, PersistentDataType.BYTE)) return;
 
+        // 🆕 NUEVO: Detener detección de proximidad
+        stopProximityDetection(b.getLocation());
+
         // Cancelamos drops vanilla y soltamos nuestro ítem custom
         e.setDropItems(false);
         ItemStack drop = createMagicLecternFromTileState(ts); // 🔧 MEJORADO
         b.getWorld().dropItemNaturally(b.getLocation().add(0.5, 0.5, 0.5), drop);
+    }
+
+    /* ==============================================================
+       ========= 🆕 NUEVO: SISTEMA DE DETECCIÓN DE PROXIMIDAD =======
+       ============================================================== */
+
+    /**
+     * Inicia la detección de jugadores cercanos para un lectern magic
+     */
+    private void startProximityDetection(Location lecternLoc) {
+        // Evitar duplicados
+        stopProximityDetection(lecternLoc);
+
+        BukkitTask task = new BukkitRunnable() {
+            @Override
+            public void run() {
+                World world = lecternLoc.getWorld();
+                if (world == null) {
+                    cancel();
+                    proximityTasks.remove(lecternLoc);
+                    return;
+                }
+
+                // Verificar que el bloque sigue siendo un lectern magic
+                Block block = lecternLoc.getBlock();
+                if (block.getType() != Material.LECTERN || !isMagicLecternBlock(block)) {
+                    cancel();
+                    proximityTasks.remove(lecternLoc);
+                    return;
+                }
+
+                // Buscar jugadores cercanos
+                boolean playerNearby = world.getPlayers().stream()
+                        .anyMatch(player -> player.getLocation().distance(lecternLoc) <= DETECTION_RADIUS);
+
+                if (playerNearby) {
+                    // Emitir partículas de encantamiento cuando hay jugadores cerca
+                    spawnProximityParticles(lecternLoc);
+                }
+            }
+        }.runTaskTimer(plugin, 0L, PROXIMITY_CHECK_INTERVAL);
+
+        proximityTasks.put(lecternLoc, task);
+    }
+
+    /**
+     * Detiene la detección de proximidad para un lectern
+     */
+    private void stopProximityDetection(Location lecternLoc) {
+        BukkitTask task = proximityTasks.remove(lecternLoc);
+        if (task != null && !task.isCancelled()) {
+            task.cancel();
+        }
+    }
+
+    /**
+     * Genera partículas de proximidad cuando hay jugadores cerca
+     */
+    private void spawnProximityParticles(Location lecternLoc) {
+        World world = lecternLoc.getWorld();
+        if (world == null) return;
+
+        // Partículas de encantamiento flotando alrededor del lectern
+        Location particleLoc = lecternLoc.clone().add(0.5, 1.2, 0.5);
+
+        // Efecto principal: partículas de enchantment_table
+        world.spawnParticle(
+                Particle.ENCHANTMENT_TABLE,
+                particleLoc,
+                8,      // cantidad
+                0.4,    // spread X
+                0.3,    // spread Y
+                0.4,    // spread Z
+                0.02    // velocidad
+        );
+
+        // Efecto secundario sutil: algunas partículas más brillantes
+        world.spawnParticle(
+                Particle.CRIT_MAGIC,
+                particleLoc,
+                2,      // cantidad menor
+                0.2,    // spread menor
+                0.2,
+                0.2,
+                0.01
+        );
+    }
+
+    /**
+     * Verifica si un bloque es un lectern magic
+     */
+    private boolean isMagicLecternBlock(Block block) {
+        if (block.getType() != Material.LECTERN) return false;
+
+        BlockState state = block.getState();
+        if (!(state instanceof TileState ts)) return false;
+
+        return ts.getPersistentDataContainer().has(keyLectern, PersistentDataType.BYTE);
+    }
+
+    /* ==============================================================
+       ================= MÉTODO DE LIMPIEZA MEJORADO ===============
+       ============================================================== */
+
+    /**
+     * Limpia todos los efectos y tareas activas
+     */
+    public void cleanup() {
+        if (effectsManager != null) {
+            effectsManager.cleanup();
+        }
+
+        // 🆕 NUEVO: Limpiar tareas de proximidad
+        proximityTasks.values().forEach(task -> {
+            if (!task.isCancelled()) {
+                task.cancel();
+            }
+        });
+        proximityTasks.clear();
+
+        pending.clear();
+
+        plugin.getLogger().info("✓ Efectos de Lectern Magic limpiados");
     }
 
     /* ==============================================================
@@ -163,6 +298,9 @@ public class MagicLecternListener implements Listener {
         // 5) Si está agachado y hace clic izquierdo, permitimos recoger el Atril
         if (e.getAction() == Action.LEFT_CLICK_BLOCK && p.isSneaking()) {
             e.setCancelled(true);
+
+            // 🆕 NUEVO: Detener detección al recoger
+            stopProximityDetection(b.getLocation());
 
             ItemStack drop = createMagicLecternFromTileState(ts); // 🔧 MEJORADO
 
@@ -486,13 +624,6 @@ public class MagicLecternListener implements Listener {
             return item.getItemMeta().getDisplayName();
         }
         return beautify(item.getType());
-    }
-
-    public void cleanup() {
-        if (effectsManager != null) {
-            effectsManager.cleanup();
-        }
-        pending.clear();
     }
 
     // ---------- arrays cíclicos ----------
